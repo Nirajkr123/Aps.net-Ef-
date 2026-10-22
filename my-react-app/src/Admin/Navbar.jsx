@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
     Search,
-    NotificationsNoneOutlined,
     MenuOpen,
     Menu,
     PersonOutlined,
@@ -10,6 +9,10 @@ import {
     Close,
 } from "@mui/icons-material";
 import { Dialog, DialogTitle, DialogContent, IconButton, Chip } from "@mui/material";
+
+import NotificationBell from "../Employee/components/NotificationBell";
+import useIsMobile from "../hooks/useIsMobile";
+import { useMobileSidebar } from "./mobileSidebar";
 
 import "./Navbar.css";
 
@@ -26,10 +29,22 @@ function Navbar({
     onToggleSidebar = () => {},
     onLogout = () => {},
     onNavigate = () => {},
+    profilePhotoUrl = null,
 }) {
     const [anchorEl, setAnchorEl] = useState(null);
     const [profileOpen, setProfileOpen] = useState(false);
     const open = Boolean(anchorEl);
+
+    const isMobile = useIsMobile();
+    const [mobileOpen, { toggle: toggleMobileSidebar }] = useMobileSidebar();
+
+    const handleToggleSidebar = () => {
+        if (isMobile) {
+            toggleMobileSidebar();
+            return;
+        }
+        onToggleSidebar();
+    };
 
     const handleMenuOpen = (e) => {
         setAnchorEl(e.currentTarget);
@@ -62,10 +77,24 @@ function Navbar({
                 <button
                     className="navbar-toggle-btn"
                     type="button"
-                    aria-label="Toggle sidebar"
-                    onClick={onToggleSidebar}
+                    aria-label={
+                        isMobile
+                            ? mobileOpen
+                                ? "Close navigation menu"
+                                : "Open navigation menu"
+                            : "Toggle sidebar"
+                    }
+                    aria-expanded={isMobile ? mobileOpen : !collapsed}
+                    aria-controls="app-sidebar"
+                    onClick={handleToggleSidebar}
                 >
-                    {collapsed ? (
+                    {isMobile ? (
+                        mobileOpen ? (
+                            <Close fontSize="small" />
+                        ) : (
+                            <Menu fontSize="small" />
+                        )
+                    ) : collapsed ? (
                         <Menu fontSize="small" />
                     ) : (
                         <MenuOpen fontSize="small" />
@@ -87,21 +116,15 @@ function Navbar({
             </div>
 
             <div className="navbar-right">
-                <button
-                    className="navbar-icon-btn"
-                    type="button"
-                    aria-label="Notifications"
-                    onClick={onNotificationsClick}
-                >
-                    <NotificationsNoneOutlined fontSize="small" />
-                    {notificationCount > 0 && (
-                        <span className="navbar-badge">{notificationCount}</span>
-                    )}
-                </button>
+                <NotificationBell />
 
                 <div className="navbar-profile" onClick={handleMenuOpen}>
                     <div className="navbar-avatar">
-                        {userName.charAt(0).toUpperCase()}
+                        {profilePhotoUrl ? (
+                            <img src={profilePhotoUrl} alt={userName} className="navbar-avatar-photo" />
+                        ) : (
+                            userName.charAt(0).toUpperCase()
+                        )}
                     </div>
                     <div className="navbar-profile-meta">
                         <p className="navbar-profile-name">{userName}</p>
@@ -110,14 +133,18 @@ function Navbar({
                 </div>
 
                 {/* Profile Dropdown Menu */}
-                <div className={`navbar-dropdown ${open ? "open" : ""}`} anchorEl={anchorEl}>
+                <div className={`navbar-dropdown ${open ? "open" : ""}`}>
                     {open && (
                         <>
                             <div className="navbar-dropdown-overlay" onClick={handleMenuClose} />
                             <div className="navbar-dropdown-menu">
                                 <div className="navbar-dropdown-header">
                                     <div className="navbar-dropdown-avatar">
-                                        {userName.charAt(0).toUpperCase()}
+                                        {profilePhotoUrl ? (
+                                            <img src={profilePhotoUrl} alt={userName} className="navbar-avatar-photo" />
+                                        ) : (
+                                            userName.charAt(0).toUpperCase()
+                                        )}
                                     </div>
                                     <div>
                                         <p className="navbar-dropdown-name">{userName}</p>
@@ -153,7 +180,11 @@ function Navbar({
                     </DialogTitle>
                     <DialogContent className="modal-body view-body">
                         <div className="view-avatar">
-                            {initials(userName)}
+                            {profilePhotoUrl ? (
+                                <img src={profilePhotoUrl} alt={userName} className="navbar-avatar-photo" />
+                            ) : (
+                                initials(userName)
+                            )}
                         </div>
                         <p className="view-name">{userName}</p>
                         <p className="view-email">{user?.email || "—"}</p>

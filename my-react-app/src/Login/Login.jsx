@@ -165,35 +165,49 @@ function Login() {
         setLoading(true);
 
         try {
-            // Step 1: Sign in with Firebase
+            // Step 1: Try direct backend login (for HR-created employees)
+            const directRes = await fetch("/api/User/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: formData.email.trim(),
+                    password: formData.password,
+                }),
+            });
+
+            const directResult = await directRes.json().catch(() => ({}));
+
+            if (directRes.ok && directResult.token) {
+                // Direct login succeeded
+                if (directResult.token) localStorage.setItem("token", directResult.token);
+                if (directResult.user) localStorage.setItem("user", JSON.stringify(directResult.user));
+
+                setMessage({ type: "success", text: directResult.message || "Login successful!" });
+
+                setTimeout(() => {
+                    const role = directResult.user?.role;
+                    if (role === "EMPLOYEE") navigate("/my-dashboard");
+                    else navigate("/dashboard");
+                }, 1000);
+                return;
+            }
+
+            // Step 2: Direct login failed — fallback to Firebase login
             const userCredential = await signInWithEmailAndPassword(
                 auth,
                 formData.email.trim(),
                 formData.password
             );
 
-            // Step 2: Get Firebase ID token
             const idToken = await userCredential.user.getIdToken();
 
-            // Step 3: Send to backend for verification + JWT
-            const response = await fetch(
-                "/api/User/firebase-login",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        idToken: idToken,
-                    }),
-                }
-            );
+            const response = await fetch("/api/User/firebase-login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken: idToken }),
+            });
 
             const result = await response.json().catch(() => ({}));
-
-            // =========================
-            // LOGIN FAILED
-            // =========================
 
             if (!response.ok) {
                 setMessage({
@@ -203,28 +217,15 @@ function Login() {
                 return;
             }
 
-            // =========================
-            // LOGIN SUCCESS
-            // =========================
+            if (result.token) localStorage.setItem("token", result.token);
+            if (result.user) localStorage.setItem("user", JSON.stringify(result.user));
 
-            setMessage({
-                type: "success",
-                text: result.message || "Login successful!",
-            });
+            setMessage({ type: "success", text: result.message || "Login successful!" });
 
-            // Save token
-            if (result.token) {
-                localStorage.setItem("token", result.token);
-            }
-
-            // Save user
-            if (result.user) {
-                localStorage.setItem("user", JSON.stringify(result.user));
-            }
-
-            // Redirect
             setTimeout(() => {
-                navigate("/dashboard");
+                const role = result.user?.role;
+                if (role === "EMPLOYEE") navigate("/my-dashboard");
+                else navigate("/dashboard");
             }, 1000);
 
         } catch (error) {

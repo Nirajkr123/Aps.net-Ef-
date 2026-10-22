@@ -4,16 +4,22 @@
 
 .dash-page {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: #f6f7fb;
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
 }
 
 .dash-main {
   flex-grow: 1;
+  flex-basis: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  margin-left:10px;
   transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -23,12 +29,15 @@
 
 /* =========================
    CONTENT
-========================= */
+   ========================= */
 
 .dash-content {
-  flex-grow: 1;
-  padding: 28px 32px 40px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px 24px 32px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .dash-header {
@@ -630,9 +639,16 @@
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .dash-content {
-    padding: 20px;
+    padding: 20px 16px 32px;
+  }
+
+  /* Mobile pe sidebar off-canvas (position: fixed) hai aur flex flow se
+     bahar hai, to ye 10px gutter orphan offset ban jata hai — sirf left
+     side pe. Mobile pe ise hata do, warna content left se push hota hai. */
+  .dash-main {
+    margin-left: 0;
   }
 
   .dash-stats-grid {
@@ -1111,3 +1127,457 @@
   fill: #9aa0b8;
 }
 
+
+/* =========================================================
+   SETTINGS PAGE
+   ========================================================= */
+
+.set-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 900px;
+  margin-top: 22px;
+}
+
+.set-card {
+  width: 100%;
+  max-width: 100%;
+  padding: 22px;
+}
+
+.set-card--danger {
+  border-color: #fecdd3;
+  background: linear-gradient(180deg, #fff5f6 0%, #ffffff 60%);
+}
+
+/* --- card header --- */
+.set-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.set-avatar {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-family: "Sora", "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 6px 14px -6px rgba(102, 126, 234, 0.8);
+}
+
+.set-avatar--lock {
+  background: linear-gradient(135deg, #34d399, #0ea5e9);
+  box-shadow: 0 6px 14px -6px rgba(14, 165, 233, 0.7);
+}
+
+.set-avatar--danger {
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
+  box-shadow: 0 6px 14px -6px rgba(244, 63, 94, 0.7);
+}
+
+.set-head-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.set-card-title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #171b2e;
+}
+
+.set-card-sub {
+  margin: 3px 0 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9aa0b8;
+}
+
+.set-muted {
+  font-size: 13px;
+  color: #9aa0b8;
+  margin: 0;
+}
+
+/* --- profile info grid --- */
+.set-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 0.8fr;
+  gap: 14px;
+}
+
+.set-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8f9fd;
+  border: 1px solid #eef0f8;
+}
+
+.set-info-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #9aa0b8;
+}
+
+.set-info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #171b2e;
+  /* Normal word-breaking se email beech me na toote; sirf overflow ke
+     last-resort fallback ke roop me anywhere break karein. */
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* --- form --- */
+.set-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.set-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.set-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7191;
+  margin-bottom: 6px;
+}
+
+.set-input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e2e5f0;
+  border-radius: 11px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: #1f2233;
+  background: #ffffff;
+  box-sizing: border-box;
+  /* 16px on mobile prevents iOS Safari auto-zoom on focus */
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.set-input::placeholder {
+  color: #b6bccf;
+}
+
+.set-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.16);
+}
+
+.set-input.has-error {
+  border-color: #f43f5e;
+  background: #fff7f8;
+}
+
+.set-input.has-error:focus {
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.14);
+}
+
+.set-error {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e11d48;
+}
+
+/* --- password strength --- */
+.set-strength {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.set-strength-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #9aa0b8;
+}
+
+.set-strength-track {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.set-strength-seg {
+  height: 5px;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+/* --- rules checklist --- */
+.set-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 14px;
+}
+
+.set-rules li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #9aa0b8;
+  transition: color 0.15s ease;
+}
+
+.set-rules li.is-ok {
+  color: #059669;
+  font-weight: 600;
+}
+
+.set-rule-dot {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #b6bccf;
+  background: #f1f3f9;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.set-rules li.is-ok .set-rule-dot {
+  color: #ffffff;
+  background: #10b981;
+}
+
+/* --- checkbox --- */
+.set-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: #6b7191;
+  cursor: pointer;
+  user-select: none;
+}
+
+.set-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #667eea;
+  cursor: pointer;
+}
+
+/* --- notices & alerts --- */
+.set-notice {
+  padding: 10px 13px;
+  border-radius: 11px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.set-notice--info {
+  color: #1d4ed8;
+  background: #eff4ff;
+  border: 1px solid #dbe6ff;
+}
+
+.set-notice--warn {
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.set-alert {
+  padding: 11px 14px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: set-fade-in 0.2s ease;
+}
+
+.set-alert.is-success {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.set-alert.is-error {
+  color: #be123c;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+}
+
+@keyframes set-fade-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- buttons --- */
+.set-submit {
+  align-self: flex-start;
+  min-width: 160px;
+}
+
+.set-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.set-btn-danger {
+  background: #f43f5e;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 8px 18px -8px rgba(244, 63, 94, 0.8);
+}
+
+.set-btn-danger:hover {
+  background: #e11d48;
+  transform: translateY(-1px);
+}
+
+/* --- logout confirm modal --- */
+.set-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 18, 34, 0.55);
+  backdrop-filter: blur(2px);
+  animation: set-fade-in 0.15s ease;
+}
+
+.set-modal {
+  width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 24px 60px -20px rgba(16, 24, 40, 0.45);
+  animation: set-pop-in 0.18s ease;
+}
+
+@keyframes set-pop-in {
+  from { opacity: 0; transform: scale(0.95) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.set-modal-title {
+  margin: 0 0 8px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #171b2e;
+}
+
+.set-modal-body {
+  margin: 0 0 20px 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #6b7191;
+}
+
+.set-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* =========================================================
+   SETTINGS — RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .set-wrap {
+    max-width: 100%;
+    margin-top: 18px;
+  }
+
+  .set-card {
+    padding: 18px 16px;
+    border-radius: 16px;
+  }
+
+  /* 16px keeps iOS Safari from zoom-in on input focus */
+  .set-input {
+    font-size: 16px;
+    padding: 12px 13px;
+  }
+
+  .set-card-head {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .set-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 14px;
+    border-radius: 11px;
+  }
+
+/* one rule per line reads better than two cramped columns */
+  .set-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .set-submit {
+    align-self: stretch;
+    width: 100%;
+  }
+
+  .set-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .set-modal-actions .dash-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Narrow screens pe ek column me stack kar do, warna 1fr 1.6fr 0.8fr
+     me email ke liye ghor par jagah nahi bachti */
+  .set-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 380px) {
+  .set-card-title {
+    font-size: 14.5px;
+  }
+
+  .set-card-sub {
+    font-size: 12px;
+  }
+}

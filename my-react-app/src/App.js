@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { CircularProgress, Box } from "@mui/material";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase";
+import { CircularProgress, Box, ThemeProvider, createTheme, CssBaseline } from "@mui/material";
 
 import Signup from "./SignUp/Signup";
 import Login from "./Login/Login";
@@ -11,17 +9,30 @@ import AdminDashboard from "./Admin/AdminDashboard";
 import UserManagement from "./Admin/UserManagement";
 import ManageLocations from "./Admin/ManageLocations";
 import Settings from "./Admin/Settings";
+import EmployeeDashboard from "./Employee/EmployeeDashboard";
+import EmployeeProfile from "./Employee/EmployeeProfile";
+import EmployeeAttendance from "./Employee/EmployeeAttendance";
+import EmployeeLeaves from "./Employee/EmployeeLeaves";
+import EmployeePayslips from "./Employee/EmployeePayslips";
+import AnnouncementsPage from "./Employee/AnnouncementsPage";
+import AdminLeaveRequests from "./Admin/AdminLeaveRequests";
+import { LeaveProvider } from "./context/LeaveContext";
+import DepartmentManagement from "./modules/department/DepartmentManagement";
+import DesignationManagement from "./modules/designation/DesignationManagement";
+import EmployeeDirectory from "./modules/employee/EmployeeDirectory";
 
-function RequireAuth({ children }) {
+function RequireAuth({ children, allowedRoles }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    try {
+      const stored = JSON.parse(localStorage.getItem("user") || "null");
+      setUser(stored);
+    } catch {
+      setUser(null);
+    }
+    setLoading(false);
   }, []);
 
   if (loading) {
@@ -36,51 +47,58 @@ function RequireAuth({ children }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    if (user.role === "EMPLOYEE") {
+      return <Navigate to="/my-dashboard" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
 }
 
+const theme = createTheme();
+
 function App() {
   return (
-    <BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+      {/* Leave data ka single source of truth — router ke bahar, taaki route
+          change par employee/admin pages ka data reset na ho. */}
+      <LeaveProvider>
       <Routes>
         <Route path="/" element={<Signup />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth>
-              <AdminDashboard />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <RequireAuth>
-              <UserManagement />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/locations"
-          element={
-            <RequireAuth>
-              <ManageLocations />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <RequireAuth>
-              <Settings />
-            </RequireAuth>
-          }
-        />
+
+        {/* OWNER + HR routes */}
+        <Route path="/dashboard" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><AdminDashboard /></RequireAuth>} />
+        <Route path="/users" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><UserManagement /></RequireAuth>} />
+        <Route path="/locations" element={<RequireAuth allowedRoles={["OWNER"]}><ManageLocations /></RequireAuth>} />
+
+        {/* Phase 2 — Department, Designation, Employee (OWNER + HR) */}
+        <Route path="/departments" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><DepartmentManagement /></RequireAuth>} />
+        <Route path="/designations" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><DesignationManagement /></RequireAuth>} />
+        <Route path="/directory" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><EmployeeDirectory /></RequireAuth>} />
+        <Route path="/employees" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><EmployeeDirectory /></RequireAuth>} />
+        <Route path="/admin/leaves" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><AdminLeaveRequests /></RequireAuth>} />
+
+        {/* EMPLOYEE routes */}
+        <Route path="/my-dashboard" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><EmployeeDashboard /></RequireAuth>} />
+        <Route path="/my-profile" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><EmployeeProfile /></RequireAuth>} />
+        <Route path="/my-attendance" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><EmployeeAttendance /></RequireAuth>} />
+        <Route path="/my-leaves" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><EmployeeLeaves /></RequireAuth>} />
+        <Route path="/my-payslips" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><EmployeePayslips /></RequireAuth>} />
+        <Route path="/announcements" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><AnnouncementsPage /></RequireAuth>} />
+
+        {/* All roles */}
+        <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
       </Routes>
-    </BrowserRouter>
+      </LeaveProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

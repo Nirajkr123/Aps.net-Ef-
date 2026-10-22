@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
+import adminServ from "../services/adminService";
 import {
     Chip,
     CircularProgress,
@@ -151,30 +150,17 @@ function UserManagement() {
     const showToast = (text, type = "success") =>
         setToast({ text, type, open: true });
 
-    const handleLogout = async () => {
+    const handleLogout = () => {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
-        await signOut(auth);
         navigate("/login");
     };
-
-    const getToken = () => localStorage.getItem("token");
 
     const loadUsers = useCallback(async () => {
         setLoading(true);
         setError("");
         try {
-            const res = await fetch("/api/Admin/users", {
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.status === 401) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                navigate("/login", { replace: true });
-                return;
-            }
-            if (!res.ok) throw new Error("Failed to load users");
-            const data = await res.json();
+            const { data } = await adminServ.getUsers();
             setUsers(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Load users error:", err);
@@ -182,17 +168,12 @@ function UserManagement() {
         } finally {
             setLoading(false);
         }
-    }, [navigate]);
+    }, []);
 
     const loadStates = useCallback(async () => {
         try {
-            const res = await fetch("/api/Admin/states", {
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setStates(Array.isArray(data) ? data : []);
-            }
+            const { data } = await adminServ.getStates();
+            setStates(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Load states error:", err);
         }
@@ -200,18 +181,10 @@ function UserManagement() {
 
     const loadDistricts = useCallback(async (stateId) => {
         try {
-            const url = stateId
-                ? `/api/Admin/districts?stateId=${stateId}`
-                : "/api/Admin/districts";
-            const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                const list = Array.isArray(data) ? data : [];
-                setDistricts(list);
-                if (!stateId) setAllDistricts(list);
-            }
+            const { data } = await adminServ.getDistricts(stateId);
+            const list = Array.isArray(data) ? data : [];
+            setDistricts(list);
+            if (!stateId) setAllDistricts(list);
         } catch (err) {
             console.error("Load districts error:", err);
         }
@@ -343,21 +316,6 @@ function UserManagement() {
         }
     };
 
-    const assignState = async (res) => {
-        if (res.status === 401) {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            navigate("/login", { replace: true });
-            return null;
-        }
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            setFormError(data.message || "Something went wrong");
-            return null;
-        }
-        return data;
-    };
-
     const handleAddSubmit = async (e) => {
         e.preventDefault();
         setFormError("");
@@ -372,19 +330,13 @@ function UserManagement() {
                 stateId: form.stateId ? Number(form.stateId) : null,
                 districtId: form.districtId ? Number(form.districtId) : null,
             };
-            const res = await fetch("/api/User/signup", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            const result = await assignState(res);
-            if (!result) return;
+            await adminServ.createUser(payload);
             setAddOpen(false);
             showToast("User created successfully!");
             await loadUsers();
         } catch (err) {
             console.error("Add user error:", err);
-            setFormError("Could not reach the server.");
+            setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
         }
@@ -404,22 +356,13 @@ function UserManagement() {
                 districtId: form.districtId ? Number(form.districtId) : null,
                 status: form.status,
             };
-            const res = await fetch(`/api/Admin/users/${editUser.id}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify(payload),
-            });
-            const result = await assignState(res);
-            if (!result) return;
+            await adminServ.updateUser(editUser.id, payload);
             setEditUser(null);
             showToast("User updated successfully!");
             await loadUsers();
         } catch (err) {
             console.error("Edit user error:", err);
-            setFormError("Could not reach the server.");
+            setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
         }
@@ -429,17 +372,7 @@ function UserManagement() {
         const target = u.status === "Active" ? "Inactive" : "Active";
         const endpoint = target === "Active" ? "activate" : "deactivate";
         try {
-            const res = await fetch(`/api/Admin/users/${u.id}/${endpoint}`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.status === 401) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                navigate("/login", { replace: true });
-                return;
-            }
-            if (!res.ok) throw new Error("Failed");
+            await adminServ.toggleUser(u.id, endpoint);
             showToast(`User ${target.toLowerCase()} successfully!`);
             await loadUsers();
         } catch (err) {
@@ -451,17 +384,7 @@ function UserManagement() {
     const handleDelete = async () => {
         if (!deleteTarget) return;
         try {
-            const res = await fetch(`/api/Admin/users/${deleteTarget.id}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.status === 401) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                navigate("/login", { replace: true });
-                return;
-            }
-            if (!res.ok) throw new Error("Failed");
+            await adminServ.deleteUser(deleteTarget.id);
             setDeleteTarget(null);
             showToast("User deleted successfully!");
             await loadUsers();
@@ -476,22 +399,13 @@ function UserManagement() {
         setFormError("");
         setSaving(true);
         try {
-            const res = await fetch(`/api/Admin/users/${roleUser.id}/role`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify({ role: form.role }),
-            });
-            const result = await assignState(res);
-            if (!result) return;
+            await adminServ.assignRole(roleUser.id, form.role);
             setRoleUser(null);
             showToast("Role updated successfully!");
             await loadUsers();
         } catch (err) {
             console.error("Role change error:", err);
-            setFormError("Could not reach the server.");
+            setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
         }
@@ -529,21 +443,12 @@ function UserManagement() {
                 ? { currentPassword: form.currentPassword, password: form.password }
                 : { password: form.password };
 
-            const res = await fetch(`/api/Admin/users/${resetUser.id}/reset-password`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify(body),
-            });
-            const result = await assignState(res);
-            if (!result) return;
+            await adminServ.resetPassword(resetUser.id, body);
             setResetUser(null);
             showToast(isSelf ? "Password changed successfully!" : "Password reset successfully!");
         } catch (err) {
             console.error("Reset error:", err);
-            setFormError("Could not reach the server.");
+            setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
         }
@@ -581,12 +486,6 @@ function UserManagement() {
         <div className="dash-page">
             <Sidebar
                 activeKey="users"
-                onNavigate={(key) => {
-                    if (key === "dashboard") navigate("/dashboard");
-                    else if (key === "users") navigate("/users");
-                    else if (key === "locations") navigate("/locations");
-                    else if (key === "reports") navigate("/dashboard");
-                }}
                 onLogout={handleLogout}
                 user={user}
                 collapsed={collapsed}

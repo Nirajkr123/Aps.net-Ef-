@@ -1,0 +1,69 @@
+/* =========================================================================
+   ADMIN LEAVE REQUESTS — page-level bits
+   -------------------------------------------------------------------------
+   Employee page (EmployeeLeaves.css) ke pattern ka mirror: sirf wahi rules
+   jo `sx` se nahi ho sakte — table <-> card list ka breakpoint swap.
+
+   Breakpoint 899px wahi hai jo employee page par hai, taaki dono pages
+   ek hi device par ek hi waqt par table ya card dikhayein (beech me dono
+   kabhi ek saath na dikhein).
+   ========================================================================= */
+
+/* Page background poora scroll area cover kare (`.dash-page` ka `#f6f7fb`
+   sirf viewport tak hota hai, list lambi ho to neeche white gap dikhta hai). */
+.adm-leave-page {
+    min-height: 100%;
+    background: #f5f6fa;
+}
+
+/* ---- Desktop: table --------------------------------------------------- */
+.adm-leave-table-wrap {
+    display: block;
+    overflow-x: auto;
+}
+
+.adm-leave-table {
+    min-width: 980px;
+}
+
+/* ---- Mobile: cards ---------------------------------------------------- */
+.adm-leave-cards {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+}
+
+@media (max-width: 899px) {
+    .adm-leave-table-wrap {
+        display: none;
+    }
+
+    .adm-leave-cards {
+        display: flex;
+    }
+}
+
+/* ---- Filter row -------------------------------------------------------
+   Mobile par chips row page se bleed nahi honi chahiye. Employee page ki
+   tarah extra padding, warna corner chips touch-screen par clip ho jaate
+   hain. */
+.adm-leave-filter-scroll {
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 599px) {
+    .adm-leave-filter-scroll {
+        margin-inline: -4px;
+        padding-inline: 4px;
+    }
+}
+
+/* ---- Drawer: chhote screen par full width -----------------------------
+   MUI Drawer `md` upar 420px rakhta hai, mobile par poora panel. Yahan
+   bas content spacing fix hai (EmployeeAttendance.css jaisa hi tone). */
+@media (max-width: 599px) {
+    .adm-leave-drawer-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}

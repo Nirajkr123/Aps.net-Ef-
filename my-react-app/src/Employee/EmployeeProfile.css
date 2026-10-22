@@ -1,0 +1,354 @@
+/* ============================================================
+   My Profile — fluid / dynamic layout
+   Grid auto-fit use hota hai taaki cards browser resize par
+   apne aap shrink/grow karein (hard breakpoint jumps nahi).
+   `min(100%, Npx)` overflow rokta hai — 375px par track
+   container se bada nahi banega.
+   ============================================================ */
+
+/* ============================================================
+   GREEN PROFILE BAR (ProfileHeroBar)
+   Teeno tabs ke upar — `EmployeeProfile` ise step conditionals
+   ke bahar render karta hai, isliye tab switch par na remount
+   hota hai na flicker.
+   ============================================================ */
+
+/* Wrapper par sticky — Card par nahi, taaki background/bleed
+   control ho sake. Base (mobile/tablet): normal flow, sirf gap. */
+.emp-prof-hero-sticky {
+  margin-bottom: 24px;
+}
+
+@media (min-width: 901px) {
+  /* `.emp-page .dash-content` hi scroll container hai
+     (`overflow-y: auto`, padding 24px 28px). Negative margins us
+     padding ko wapas kheench kar wrapper ko scrollport ke top edge
+     par le jaate hain, aur solid background + full-bleed padding
+     kisi bhi content ko peeche se dikhne nahi deta. Isi liye
+     `top: 0` — koi cut nahi hota. */
+  .emp-prof-hero-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -24px -28px 24px;
+    padding: 24px 28px 0;
+    background: #f6f7fb;
+  }
+}
+
+.emp-prof-banner {
+  min-height: 128px;
+}
+
+/* Designation / department wali row — gradient ke upar */
+.emp-prof-hero-meta > * {
+  min-width: 0;
+}
+
+.emp-prof-hero-meta svg {
+  flex-shrink: 0;
+}
+
+/* Right side ka "Step X of 3 + N of 3 complete" block */
+.emp-prof-hero-progress {
+  margin-left: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+/* ---------------- 3-step progress indicator ----------------
+   Stepper green bar ke andar hai — isliye har tab par visible
+   rehta hai. Har step clickable hai (tab switch) aur ✓ / ○
+   se complete-vs-pending dikhata hai. */
+.emp-prof-stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.emp-prof-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.emp-prof-step:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.emp-prof-step.is-active {
+  background: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.45);
+}
+
+.emp-prof-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.emp-prof-step-dot svg {
+  font-size: 24px;
+}
+
+.emp-prof-step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.emp-prof-step-text strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emp-prof-step-text small {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Active step ka text gradient ke upad dark hona chahiye, warna
+   white-on-white padhne layak nahi rehta */
+.emp-prof-step.is-active .emp-prof-step-text strong {
+  color: #065f46;
+}
+
+.emp-prof-step.is-active .emp-prof-step-text small {
+  color: #047857;
+  opacity: 1;
+}
+
+.emp-prof-step.is-active .emp-prof-step-dot {
+  background: #d1fae5;
+}
+
+/* Connector line — beech ke do steps ke darmiyan */
+.emp-prof-step-line {
+  align-self: center;
+  flex: 0 0 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.emp-prof-step-line.is-done {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================================
+   Form / card grids
+   ============================================================ */
+
+/* Step 0 — Account Info (1fr) + Personal Details (2fr) */
+.emp-prof-split {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+}
+
+@media (min-width: 900px) {
+    .emp-prof-split {
+        grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+    }
+}
+
+/* Step 1 — 3 academic cards, fluid 3 → 2 → 1 */
+.emp-prof-grid-3 {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    align-items: stretch;
+}
+
+/* Step 2 — document cards, fluid 2 → 1 */
+.emp-prof-grid-2 {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    align-items: stretch;
+}
+
+/* Form fields — fluid 2 → 1 columns.
+   260px min: laptop par 2 columns deta hai (labels jaise
+   "Emergency Contact *" kat-te nahi), full-width Address
+   niche .emp-prof-span-all se poori line le leta hai. */
+.emp-prof-form-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
+/* Address / full-width field */
+.emp-prof-form-grid > .emp-prof-span-all {
+    grid-column: 1 / -1;
+}
+
+/* Percentage + CGPA inline row */
+.emp-prof-inline-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+}
+
+/* Grid children ko min-width:0 do, warna long email/filename
+   container se bahar nikal kar horizontal scroll la deta hai */
+.emp-prof-split>*,
+.emp-prof-grid-3>*,
+.emp-prof-grid-2>*,
+.emp-prof-form-grid>*,
+.emp-prof-inline-grid>* {
+    min-width: 0;
+}
+
+.emp-prof-split .MuiCard,
+.emp-prof-grid-3 .MuiCard,
+.emp-prof-grid-2 .MuiCard {
+    height: 100%;
+}
+
+/* Khali field — halka red tint taaki "Edit" button daba kar bharna ho */
+.emp-prof-dense-row.is-empty {
+    background-color: #fef2f2;
+}
+
+/* ---- Account Info: compact multi-column grid ----
+   9 fields vertical stack me the (gap 20px + 32px icons), jisse
+   card ~520px lambaa ho jata tha. Ab auto-fit grid me 2 column
+   me aa jate hain — mobile par bhi 2 column (132px min) taaki
+   card ki height aadha rahe. */
+.emp-prof-info-grid {
+    display: grid;
+    gap: 8px 14px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
+}
+
+.emp-prof-info-grid .emp-prof-dense-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+/* Dialog ke andar form fields ka bottom spacing */
+@media (max-width: 600px) {
+    .emp-prof-dialog-actions>* {
+        flex: 1 1 100px;
+    }
+}
+
+/* ---------------- Mobile tightening ---------------- */
+@media (max-width: 700px) {
+
+    /* Cards ka vertical rhythm kam — zyada scroll nahi */
+    .emp-prof-split,
+    .emp-prof-grid-3,
+    .emp-prof-grid-2 {
+        gap: 16px;
+    }
+
+    /* Card ka inner padding bhi kam — 375px par jagah bachti hai */
+    .emp-prof-split .MuiCardContent-root,
+    .emp-prof-grid-3 .MuiCardContent-root,
+    .emp-prof-grid-2 .MuiCardContent-root {
+        padding: 16px 14px !important;
+    }
+
+    /* Banner ka padding */
+    .emp-prof-banner {
+        padding: 16px 14px !important;
+        min-height: 0;
+    }
+
+    /* Stepper: 3 steps ko vertical stack karo — ek row me
+       375px par labels kat-te hain. Connector line hata dete hain. */
+    .emp-prof-stepper {
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 14px;
+        padding-top: 12px;
+    }
+
+    .emp-prof-step-line {
+        display: none;
+    }
+
+    .emp-prof-step {
+        width: 100%;
+    }
+
+    /* Right ka progress block full width, left se align */
+    .emp-prof-hero-progress {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    /* Label + value rows: icon chhota, gap kam */
+    .emp-prof-dense-row {
+        gap: 10px !important;
+        padding: 8px 8px !important;
+    }
+
+    /* Icon box chhota hua to icon bhi, warna box se bahar nikal jayega */
+    .emp-prof-dense-icon svg {
+        font-size: 16px !important;
+    }
+
+    /* Academic / document card header: title + chip wrap */
+    .emp-prof-card-head {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    /* Save/Cancel buttons poori width ke saath stack-friendly */
+    .emp-prof-actions {
+        flex-wrap: wrap;
+    }
+
+    .emp-prof-actions>* {
+        flex: 1 1 140px !important;
+    }
+}
+@media (max-width: 400px) {
+
+    /* 2-column form rows ko 1 par force karo, text cut na ho */
+    .emp-prof-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .emp-prof-inline-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

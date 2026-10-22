@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
 import {
     CircularProgress,
     Dialog,
@@ -24,6 +22,7 @@ import {
 
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import adminServ from "../services/adminService";
 
 import "./AdminDashboard.css";
 import "./ManageLocations.css";
@@ -58,14 +57,11 @@ function ManageLocations() {
         }
     }, []);
 
-    const getToken = () => localStorage.getItem("token");
-
     const showToast = (text) => setToast({ text, open: true });
 
-    const handleLogout = async () => {
+    const handleLogout = () => {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
-        await signOut(auth);
         navigate("/login");
     };
 
@@ -73,17 +69,7 @@ function ManageLocations() {
         setLoading(true);
         setError("");
         try {
-            const res = await fetch("/api/Admin/states", {
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.status === 401) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                navigate("/login", { replace: true });
-                return;
-            }
-            if (!res.ok) throw new Error("Failed to load states");
-            const data = await res.json();
+            const { data } = await adminServ.getStates();
             setStates(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Load states error:", err);
@@ -91,7 +77,7 @@ function ManageLocations() {
         } finally {
             setLoading(false);
         }
-    }, [navigate]);
+    }, []);
 
     const loadDistricts = useCallback(async (stateId) => {
         if (!stateId) {
@@ -99,13 +85,8 @@ function ManageLocations() {
             return;
         }
         try {
-            const res = await fetch(`/api/Admin/districts?stateId=${stateId}`, {
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setDistricts(Array.isArray(data) ? data : []);
-            }
+            const { data } = await adminServ.getDistricts(stateId);
+            setDistricts(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Load districts error:", err);
         }
@@ -143,17 +124,11 @@ function ManageLocations() {
         }
         setSaving(true);
         try {
-            const method = editing ? "PUT" : "POST";
-            const url = editing ? `/api/Admin/states/${editing.id}` : "/api/Admin/states";
-            const res = await fetch(url, {
-                method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify({ name: name.trim() }),
-            });
-            if (!res.ok) throw new Error("Failed");
+            if (editing) {
+                await adminServ.updateState(editing.id, { name: name.trim() });
+            } else {
+                await adminServ.createState({ name: name.trim() });
+            }
             setStateDialog((d) => ({ ...d, open: false }));
             showToast(editing ? "State updated successfully!" : "State created successfully!");
             await loadStates();
@@ -172,11 +147,7 @@ function ManageLocations() {
         const { id } = deleteTarget;
         setSaving(true);
         try {
-            const res = await fetch(`/api/Admin/states/${id}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (!res.ok) throw new Error("Failed");
+            await adminServ.deleteState(id);
             setDeleteTarget((d) => ({ ...d, open: false }));
             if (selectedStateId === id) {
                 setSelectedStateId(null);
@@ -209,17 +180,11 @@ function ManageLocations() {
         }
         setSaving(true);
         try {
-            const method = editing ? "PUT" : "POST";
-            const url = editing ? `/api/Admin/districts/${editing.id}` : "/api/Admin/districts";
-            const res = await fetch(url, {
-                method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${getToken()}`,
-                },
-                body: JSON.stringify({ name: name.trim(), stateId: selectedStateId }),
-            });
-            if (!res.ok) throw new Error("Failed");
+            if (editing) {
+                await adminServ.updateDistrict(editing.id, { name: name.trim(), stateId: selectedStateId });
+            } else {
+                await adminServ.createDistrict({ name: name.trim(), stateId: selectedStateId });
+            }
             setDistrictDialog((d) => ({ ...d, open: false }));
             showToast(editing ? "District updated successfully!" : "District created successfully!");
             await loadDistricts(selectedStateId);
@@ -238,11 +203,7 @@ function ManageLocations() {
         const { id } = deleteTarget;
         setSaving(true);
         try {
-            const res = await fetch(`/api/Admin/districts/${id}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            if (!res.ok) throw new Error("Failed");
+            await adminServ.deleteDistrict(id);
             setDeleteTarget((d) => ({ ...d, open: false }));
             showToast("District deleted successfully!");
             await loadDistricts(selectedStateId);
@@ -259,12 +220,6 @@ function ManageLocations() {
         <div className="dash-page">
             <Sidebar
                 activeKey="locations"
-                onNavigate={(key) => {
-                    if (key === "dashboard") navigate("/dashboard");
-                    else if (key === "users") navigate("/users");
-                    else if (key === "locations") navigate("/locations");
-                    else if (key === "reports") navigate("/dashboard");
-                }}
                 onLogout={handleLogout}
                 user={user}
                 collapsed={collapsed}

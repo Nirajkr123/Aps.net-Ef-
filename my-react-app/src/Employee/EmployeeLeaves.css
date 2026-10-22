@@ -1,0 +1,63 @@
+/* =========================================================================
+   EMPLOYEE LEAVES — page-level bits
+   -------------------------------------------------------------------------
+   Sirf wahi rules jo `sx` se nahi ho sakte: table <-> card list ka
+   breakpoint swap, aur horizontally scrollable filter chips.
+
+   Baaki layout (2-column top section, spacing) MUI Grid + `sx` se hai —
+   yahan dobara define nahi kiya gaya, warna dono jagah drift karte hain.
+   ========================================================================= */
+
+/* Page ka background poora scroll area cover kare (`.dash-page` ka
+   `#f6f7fb` sirf viewport tak hai). */
+.emp-leave-page {
+    min-height: 100%;
+    background: #f5f6fa;
+}
+
+/* ---- Leave History: table (desktop) vs cards (mobile) ------------------
+   JS me `useMediaQuery` se switch karne ke bajaye CSS — server/first
+   render par bhi sahi branch paint hota hai, aur dono markup ek hi
+   component me rehte hain. */
+
+.emp-leave-table-wrap {
+    display: block;
+    overflow-x: auto;
+}
+
+.emp-leave-cards {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+}
+
+/* Table ki minimum width — columns chipke nahi, wrapper scroll kare. */
+.emp-leave-table {
+    min-width: 760px;
+}
+
+@media (max-width: 899px) {
+    .emp-leave-table-wrap {
+        display: none;
+    }
+
+    .emp-leave-cards {
+        display: flex;
+    }
+}
+
+/* ---- Filter chips row -------------------------------------------------
+   Mobile par ek line me scroll hoti hai; `sx` me scrollbar chhupa diya
+   gaya hai, ye sirf extra safety (Firefox) hai. */
+.emp-leave-filters {
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 599px) {
+    /* Chhote screen par chips row ko page se bleed nahi hone dena. */
+    .emp-leave-filters {
+        margin-inline: -4px;
+        padding-inline: 4px;
+    }
+}

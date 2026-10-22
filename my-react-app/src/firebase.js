@@ -10,6 +10,10 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 
+
+import { getFirestore } from "firebase/firestore";       // NEW
+import { getMessaging } from "firebase/messaging"; 
+
 const firebaseConfig = {
   apiKey: "AIzaSyAt6LIS12-shsv9sloqFfLTogh9aMS3vn0",
   authDomain: "demootpapp-cb6ff.firebaseapp.com",
@@ -21,6 +25,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app);          // NEW
+
+let messagingInstance = null;
+try {
+  if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    messagingInstance = getMessaging(app);
+  }
+} catch {
+  messagingInstance = null;
+}
+export const messaging = messagingInstance;   // NEW
+
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account",

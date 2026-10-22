@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
+import adminServ from "../services/adminService";
 import {
     CircularProgress,
     Dialog,
@@ -74,9 +75,37 @@ function formatJoined(d) {
 }
 
 // =========================
-// WEEKLY AREA CHART (pure SVG)
+// ROLE COLORS
 // =========================
 
+/* Role → color.
+
+   Pehle yahan sirf `Admin`/`User` likha tha, lekin DB me role strings
+   `EMPLOYEE` / `HR` / `OWNER` hain. Dono map me koi match nahi hota tha,
+   isliye har slice gray (#94a3b8) me gir jata tha — isiliye admin aur
+   employee ka color same dikhta tha.
+
+   Ye `const` hai aur neeche `WeeklyChart` bhi use karta hai, isiliye
+   chart component se PEHLE hi define hona zaroori hai (TDZ error). */
+const ROLE_COLORS = {
+    OWNER: "#667eea",
+    HR: "#764ba2",
+    ADMIN: "#667eea",
+    EMPLOYEE: "#34d399",
+    USER: "#34d399",
+};
+
+// =========================
+// WEEKLY SIGNUPS CHART (pure SVG)
+// =========================
+
+/* WEEKLY SIGNUPS — stacked bars, ek stack per role.
+
+   Pehle ye ek single purple line/area chart tha, jisme admin aur employee
+   ka farak hi nahi dikhta tha. Ab har din ke bar me neeche employee aur
+   upar admin stack hota hai, aur har role ka apna color hai — isiliye
+   "is hafte kitne admin vs kitne employee aaye" ek nazar me pata chal
+   jata hai. */
 function WeeklyChart({ data }) {
     const w = 560;
     const h = 190;
@@ -87,19 +116,15 @@ function WeeklyChart({ data }) {
         return <p className="chart-empty">No data yet.</p>;
     }
 
-    const max = Math.max(1, ...data.map((d) => d.count));
-    const stepX = (w - pad * 2) / (data.length - 1);
-    const toX = (i) => pad + i * stepX;
-    const toY = (v) => h - pad - (v / max) * (h - pad * 2);
-
-    const line = data
-        .map((d, i) => `${toX(i).toFixed(1)},${toY(d.count).toFixed(1)}`)
-        .join(" ");
-
-    const area = `${pad},${h - pad} ${line} ${toX(data.length - 1).toFixed(1)},${h - pad}`;
+    const innerH = h - pad * 2;
+    const max = Math.max(1, ...data.map((d) => d.count || 0));
+    const slot = (w - pad * 2) / data.length;
+    const barW = Math.min(30, slot * 0.6);
+    const toX = (i) => pad + i * slot + (slot - barW) / 2;
+    const toY = (v) => h - pad - (v / max) * innerH;
 
     const maxIdx = data.reduce(
-        (mi, d, i) => (d.count > data[mi].count ? i : mi),
+        (mi, d, i) => ((d.count || 0) > (data[mi].count || 0) ? i : mi),
         0
     );
 
@@ -109,19 +134,8 @@ function WeeklyChart({ data }) {
             viewBox={`0 0 ${w} ${h}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label="Weekly signups trend"
+            aria-label="Weekly signups trend by role"
         >
-            <defs>
-                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#667eea" stopOpacity="0.45" />
-                    <stop offset="100%" stopColor="#667eea" stopOpacity="0.02" />
-                </linearGradient>
-                <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#667eea" />
-                    <stop offset="100%" stopColor="#764ba2" />
-                </linearGradient>
-            </defs>
-
             {[0.25, 0.5, 0.75, 1].map((f) => (
                 <line
                     key={f}
@@ -135,58 +149,106 @@ function WeeklyChart({ data }) {
                 />
             ))}
 
-            <polygon points={area} fill="url(#areaGrad)" />
-            <polyline
-                points={line}
-                fill="none"
-                stroke="url(#lineGrad)"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
+            {data.map((d, i) => {
+                const total = d.count || 0;
+                const emp = d.employee || 0;
+                const adm = d.admin || 0;
+                const x = toX(i);
+                const isHover = hoveredIdx === i;
 
-            {data.map((d, i) => (
-                <circle
-                    key={i}
-                    cx={toX(i)}
-                    cy={toY(d.count)}
-                    r={hoveredIdx === i ? 7 : (i === maxIdx ? 5 : 3.5)}
-                    fill={hoveredIdx === i ? "#764ba2" : (i === maxIdx ? "#764ba2" : "#667eea")}
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                    style={{ cursor: "pointer", transition: "r 0.2s ease" }}
-                    onMouseEnter={() => setHoveredIdx(i)}
-                    onMouseLeave={() => setHoveredIdx(null)}
-                />
-            ))}
+                /* Employee neeche, admin uske upar — dono milkir total
+                   height banate hain. */
+                const empH = (emp / max) * innerH;
+                const admH = (adm / max) * innerH;
+                const baseY = h - pad;
+                const empY = baseY - empH;
+                const admY = empY - admH;
 
+                return (
+                    <g
+                        key={i}
+                        onMouseEnter={() => setHoveredIdx(i)}
+                        onMouseLeave={() => setHoveredIdx(null)}
+                    >
+                        {/* Poora column ka invisible hit-area — hover
+                            khali hisse par bhi mile, warna sirf 2px
+                            bar par mouse rakhna padta. */}
+                        <rect
+                            x={pad + i * slot}
+                            y={pad}
+                            width={slot}
+                            height={innerH}
+                            fill="transparent"
+                            style={{ cursor: "pointer" }}
+                        />
+
+                        {total === 0 && (
+                            <rect
+                                x={x}
+                                y={baseY - 2}
+                                width={barW}
+                                height={2}
+                                rx="1"
+                                fill="#e2e8f0"
+                            />
+                        )}
+
+                        {emp > 0 && (
+                            <rect
+                                x={x}
+                                y={empY}
+                                width={barW}
+                                height={Math.max(empH, 2)}
+                                rx={adm > 0 ? 0 : 4}
+                                fill={ROLE_COLORS.EMPLOYEE}
+                                opacity={isHover || hoveredIdx === null ? 1 : 0.45}
+                                style={{ transition: "opacity 0.2s ease" }}
+                            />
+                        )}
+                        {adm > 0 && (
+                            <rect
+                                x={x}
+                                y={admY}
+                                width={barW}
+                                height={Math.max(admH, 2)}
+                                rx="4"
+                                fill={ROLE_COLORS.OWNER}
+                                opacity={isHover || hoveredIdx === null ? 1 : 0.45}
+                                style={{ transition: "opacity 0.2s ease" }}
+                            />
+                        )}
+                    </g>
+                );
+            })}
+
+            {/* Total count har bar ke upar. */}
             {data.map((d, i) => (
                 <text
                     key={`v${i}`}
-                    x={toX(i)}
-                    y={toY(d.count) - 10}
+                    x={toX(i) + barW / 2}
+                    y={toY(d.count || 0) - 10}
                     textAnchor="middle"
                     className="week-chart-value"
                     style={{ pointerEvents: "none" }}
                 >
-                    {d.count}
+                    {d.count || 0}
                 </text>
             ))}
 
             {hoveredIdx !== null && (
                 <g style={{ pointerEvents: "none" }} className="chart-tooltip-group">
                     <rect
-                        x={toX(hoveredIdx) - 58}
-                        y={toY(data[hoveredIdx].count) - 56}
+                        x={toX(hoveredIdx) + barW / 2 - 58}
+                        y={toY(data[hoveredIdx].count || 0) - 74}
                         width="116"
-                        height="44"
+                        height="62"
                         rx="10"
                         fill="#1e1b4b"
                         opacity="0.95"
                     />
                     <text
-                        x={toX(hoveredIdx)}
-                        y={toY(data[hoveredIdx].count) - 37}
+                        x={toX(hoveredIdx) + barW / 2}
+                        y={toY(data[hoveredIdx].count || 0) - 55}
                         textAnchor="middle"
                         fill="#ffffff"
                         fontSize="12"
@@ -195,15 +257,37 @@ function WeeklyChart({ data }) {
                     >
                         {data[hoveredIdx].label}
                     </text>
+                    <circle
+                        cx={toX(hoveredIdx) + barW / 2 - 26}
+                        cy={toY(data[hoveredIdx].count || 0) - 33}
+                        r="4"
+                        fill={ROLE_COLORS.EMPLOYEE}
+                    />
                     <text
-                        x={toX(hoveredIdx)}
-                        y={toY(data[hoveredIdx].count) - 21}
-                        textAnchor="middle"
-                        fill="rgba(255,255,255,0.7)"
+                        x={toX(hoveredIdx) + barW / 2 - 18}
+                        y={toY(data[hoveredIdx].count || 0) - 29}
+                        textAnchor="start"
+                        fill="rgba(255,255,255,0.85)"
                         fontSize="10.5"
                         fontFamily="Inter, sans-serif"
                     >
-                        {data[hoveredIdx].count} signups
+                        {data[hoveredIdx].employee || 0} employee
+                    </text>
+                    <circle
+                        cx={toX(hoveredIdx) + barW / 2 - 26}
+                        cy={toY(data[hoveredIdx].count || 0) - 18}
+                        r="4"
+                        fill={ROLE_COLORS.OWNER}
+                    />
+                    <text
+                        x={toX(hoveredIdx) + barW / 2 - 18}
+                        y={toY(data[hoveredIdx].count || 0) - 14}
+                        textAnchor="start"
+                        fill="rgba(255,255,255,0.85)"
+                        fontSize="10.5"
+                        fontFamily="Inter, sans-serif"
+                    >
+                        {data[hoveredIdx].admin || 0} admin
                     </text>
                 </g>
             )}
@@ -211,7 +295,7 @@ function WeeklyChart({ data }) {
             {data.map((d, i) => (
                 <text
                     key={`l${i}`}
-                    x={toX(i)}
+                    x={toX(i) + barW / 2}
                     y={h - 6}
                     textAnchor="middle"
                     className="week-chart-label"
@@ -220,7 +304,40 @@ function WeeklyChart({ data }) {
                     {d.label}
                 </text>
             ))}
+
+            {/* Peak din ko highlight — total hi nahi, day bhi. */}
+            {data[maxIdx]?.count > 0 && (
+                <text
+                    x={toX(maxIdx) + barW / 2}
+                    y={toY(data[maxIdx].count) - 24}
+                    textAnchor="middle"
+                    style={{ pointerEvents: "none" }}
+                    fontSize="9.5"
+                    fontWeight="700"
+                    fill="#94a3b8"
+                    fontFamily="Inter, sans-serif"
+                >
+                    peak
+                </text>
+            )}
         </svg>
+    );
+}
+
+/* Chhota legend — bar chart ke neeche, do roles ka color mate. */
+function RoleLegend() {
+    return (
+        <div className="donut-legend" style={{ justifyContent: "center", marginTop: 8 }}>
+            {[
+                { label: "Employee", color: ROLE_COLORS.EMPLOYEE },
+                { label: "Admin", color: ROLE_COLORS.OWNER },
+            ].map((l) => (
+                <div className="legend-item" key={l.label}>
+                    <span className="legend-dot" style={{ background: l.color }} />
+                    <span className="legend-name">{l.label}</span>
+                </div>
+            ))}
+        </div>
     );
 }
 
@@ -228,13 +345,39 @@ function WeeklyChart({ data }) {
 // ROLE DONUT (pure SVG ring)
 // =========================
 
-const ROLE_COLORS = {
-    Admin: "#f59e0b",
-    User: "#667eea",
+/* `ROLE_COLORS` upar define hai (chart components use karte hain). */
+
+/* Raw breakdown ko chart-ready shape me badalta hai.
+
+   Backend `OWNER`/`HR`/`EMPLOYEE` alag bhejta hai, lekin dashboard ka
+   matlab hai "Admin vs Employee" — do hi pie slice, har ek apne color
+   me. Agar as-is chhod dete to HR aur OWNER ke do alag slices ban jate
+   ( dono same purple hue me, kuch bhi padhne layak nahi), aur 1 OWNER
+   vs 16 EMPLOYEE ka pie lagbhag ek hi dikhta.
+
+   `Admin` hamesha pehla slot leta hai taaki color usi role par stable
+   rahe, chahe us week admin signup na bhi hua ho. */
+const roleGroups = (breakdown) => {
+    const groups = [
+        { key: "admin", label: "Admin", color: ROLE_COLORS.OWNER, count: 0 },
+        { key: "employee", label: "Employee", color: ROLE_COLORS.EMPLOYEE, count: 0 },
+    ];
+    for (const d of breakdown || []) {
+        const key = String(d.role || "").toUpperCase();
+        if (key === "OWNER" || key === "HR" || key === "ADMIN") groups[0].count += d.count;
+        else groups[1].count += d.count;
+    }
+    /* Zero-count slice mat dikhao — warna 1 owner ke case me pie ka
+       hafsa khaali dikhta hai aur "0%" label ghabra deta hai. */
+    return groups.filter((g) => g.count > 0);
 };
 
 function RoleDonut({ breakdown }) {
-    const total = (breakdown || []).reduce((s, d) => s + d.count, 0);
+    /* Raw `OWNER`/`HR`/`EMPLOYEE` rows ko sirf do slices (Admin/Employee)
+       me fold karta hai. Caller bhi wahi `roleGroups` se legend banata hai,
+       isiliye ring aur legend ke colors hamesha match karte hain. */
+    const groups = roleGroups(breakdown);
+    const total = groups.reduce((s, g) => s + g.count, 0);
     const size = 180;
     const stroke = 24;
     const r = (size - stroke) / 2;
@@ -259,15 +402,15 @@ function RoleDonut({ breakdown }) {
                     stroke="#eef0f7"
                     strokeWidth={stroke}
                 />
-                {(breakdown || []).map((d, i) => {
-                    const len = (d.count / total) * c;
-                    const color = ROLE_COLORS[d.role] || "#94a3b8";
+                {groups.map((g, i) => {
+                    const len = (g.count / total) * c;
+                    const color = g.color;
                     const dashArray = `${len - 3} ${c - len + 3}`;
                     const rotate = (offset / c) * 360 - 90;
                     offset += len;
                     return (
                         <circle
-                            key={i}
+                            key={g.key}
                             cx={center}
                             cy={center}
                             r={r}
@@ -287,11 +430,11 @@ function RoleDonut({ breakdown }) {
             <div className="donut-center" style={{ pointerEvents: "none" }}>
                 {hoveredIdx !== null ? (
                     <>
-                        <p className="donut-hover-role" style={{ color: ROLE_COLORS[breakdown[hoveredIdx].role] || "#94a3b8" }}>
-                            {breakdown[hoveredIdx].role}
+                        <p className="donut-hover-role" style={{ color: groups[hoveredIdx].color }}>
+                            {groups[hoveredIdx].label}
                         </p>
                         <p className="donut-hover-count">
-                            {breakdown[hoveredIdx].count} ({Math.round((breakdown[hoveredIdx].count / total) * 100)}%)
+                            {groups[hoveredIdx].count} ({Math.round((groups[hoveredIdx].count / total) * 100)}%)
                         </p>
                     </>
                 ) : (
@@ -575,7 +718,12 @@ function ScatterChart({ labels, values }) {
 }
 
 // PIE CHART — shows parts of a whole
-function PieChart({ labels, values }) {
+//
+// `colors` diye jaate hain to wahi use hote hain (role chart), warna
+// palette se cycle karte hain. Pehle har slice ko `CHART_COLORS[i % 6]`
+// milta tha, jo role ke hisaab se stable nahi tha — ek hi role hamesha
+// same index par rehta, lekin colors role se match nahi karte the.
+function PieChart({ labels, values, colors }) {
     const total = (values || []).reduce((s, v) => s + v, 0);
     if (total === 0) {
         return <p className="chart-empty">No data yet.</p>;
@@ -599,7 +747,7 @@ function PieChart({ labels, values }) {
                 const x2 = cx + r * Math.cos(rad(angle));
                 const y2 = cy + r * Math.sin(rad(angle));
                 const largeArc = frac > 0.5 ? 1 : 0;
-                const color = CHART_COLORS[i % CHART_COLORS.length];
+                const color = (colors && colors[i]) || CHART_COLORS[i % CHART_COLORS.length];
                 const midAngle = (start + angle) / 2;
                 const lx = cx + (r / 1.7) * Math.cos(rad(midAngle));
                 const ly = cy + (r / 1.7) * Math.sin(rad(midAngle));
@@ -743,7 +891,10 @@ function ChartPopup({ active, weeklyTrend, roleBreakdown, onClose }) {
     if (!active) return null;
 
     if (active === "trend") {
-        const total = (weeklyTrend || []).reduce((s, d) => s + d.count, 0);
+        const week = weeklyTrend || [];
+        const total = week.reduce((s, d) => s + (d.count || 0), 0);
+        const adminTotal = week.reduce((s, d) => s + (d.admin || 0), 0);
+        const empTotal = week.reduce((s, d) => s + (d.employee || 0), 0);
         return (
             <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
                 <DialogTitle className="modal-title">
@@ -764,26 +915,33 @@ function ChartPopup({ active, weeklyTrend, roleBreakdown, onClose }) {
                         </div>
                     </div>
                     <p className="popup-detail">
-                        This line graph shows how many new users signed up on each of the
-                        last 7 days. Every point is labeled with its exact count so you can
-                        see the daily pattern and spot which days had the most growth over
-                        time.
+                        Har din ka bar do hisso me bana hai — neeche employee
+                        aur upar admin, apne apne color me. Har bar ke upar
+                        us din ka total likha hai, aur mouse rakhte hi din
+                        ke saath dono counts bhi dikhte hain.
                     </p>
                     <div className="popup-chart-head">
                         <span className="popup-chart-title">Daily signups trend</span>
-                        <span className="popup-chart-sub">Values shown above each point (Line graph)</span>
+                        <span className="popup-chart-sub">Stacked by role</span>
                     </div>
-                    <LineChart
-                        labels={(weeklyTrend || []).map((d) => d.label)}
-                        values={(weeklyTrend || []).map((d) => d.count)}
-                    />
+                    <WeeklyChart data={week} />
+                    <RoleLegend />
+                    <div className="donut-legend" style={{ justifyContent: "center", marginTop: 6 }}>
+                        <div className="legend-item">
+                            <span className="legend-name">This week</span>
+                            <span className="legend-count">
+                                {total} total · {adminTotal} admin · {empTotal} employee
+                            </span>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         );
     }
 
     if (active === "role") {
-        const total = (roleBreakdown || []).reduce((s, d) => s + d.count, 0);
+        const groups = roleGroups(roleBreakdown);
+        const total = groups.reduce((s, g) => s + g.count, 0);
         return (
             <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
                 <DialogTitle className="modal-title">
@@ -806,27 +964,26 @@ function ChartPopup({ active, weeklyTrend, roleBreakdown, onClose }) {
                                 </div>
                             </div>
                             <p className="popup-detail">
-                                This pie chart shows how your members are split between roles.
-                                Each slice is a part of the whole, and every role is listed
-                                below with its exact count and its share of the total.
+                                Ye pie chart aapke saare members ko do bucket me
+                                baanta hai — Admin (OWNER + HR) aur Employee. Har slice
+                                ka apna color hai, aur neeche har bucket ka exact
+                                count aur uska percentage diya gaya hai.
                             </p>
                             <PieChart
-                                labels={(roleBreakdown || []).map((d) => d.role)}
-                                values={(roleBreakdown || []).map((d) => d.count)}
+                                labels={groups.map((g) => g.label)}
+                                values={groups.map((g) => g.count)}
+                                colors={groups.map((g) => g.color)}
                             />
                             <div className="donut-legend">
-                                {(roleBreakdown || []).map((d) => (
-                                    <div className="legend-item" key={d.role}>
+                                {groups.map((g) => (
+                                    <div className="legend-item" key={g.key}>
                                         <span
                                             className="legend-dot"
-                                            style={{
-                                                background:
-                                                    ROLE_COLORS[d.role] || "#94a3b8",
-                                            }}
+                                            style={{ background: g.color }}
                                         />
-                                        <span className="legend-name">{d.role}</span>
+                                        <span className="legend-name">{g.label}</span>
                                         <span className="legend-count">
-                                            {d.count} ({Math.round((d.count / total) * 100)}%)
+                                            {g.count} ({Math.round((g.count / total) * 100)}%)
                                         </span>
                                     </div>
                                 ))}
@@ -851,6 +1008,7 @@ const EMPTY_FORM = {
     firstName: "",
     lastName: "",
     email: "",
+    mobile: "",
     password: "",
     role: "User",
     stateId: "",
@@ -883,6 +1041,7 @@ function AdminDashboard() {
     const [addError, setAddError] = useState("");
     const [addSuccess, setAddSuccess] = useState("");
     const [addLoading, setAddLoading] = useState(false);
+    const [addFormErrors, setAddFormErrors] = useState({});
 
     // Notification dropdown
     const notifRef = useRef(null);
@@ -919,32 +1078,8 @@ function AdminDashboard() {
     }, []);
 
     const loadDashboard = useCallback(async () => {
-        const token = localStorage.getItem("token");
-        if (!token) {
-            navigate("/login", { replace: true });
-            return;
-        }
-
         try {
-            const response = await fetch("/api/Admin/dashboard", {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (response.status === 401) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                await signOut(auth);
-                navigate("/login", { replace: true });
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error("Failed to load dashboard");
-            }
-
-            const result = await response.json();
+            const { data: result } = await adminServ.getDashboard();
 
             setUsers(result.users || []);
             const trend = result.weeklyTrend || [];
@@ -1021,21 +1156,16 @@ function AdminDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [navigate]);
+    }, []);
 
     useEffect(() => {
         loadDashboard();
     }, [loadDashboard]);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        fetch("/api/Admin/states", {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then((r) => r.json())
-            .then((d) => setStates(Array.isArray(d) ? d : []))
-            .catch(() => {});
+        adminServ.getStates()
+            .then(({ data }) => setStates(Array.isArray(data) ? data : []))
+            .catch(() => { });
     }, []);
 
     const loadDistricts = useCallback(async (stateId) => {
@@ -1043,22 +1173,21 @@ function AdminDashboard() {
             setDistricts([]);
             return;
         }
-        const token = localStorage.getItem("token");
-        if (!token) return;
         try {
-            const res = await fetch(`/api/Admin/districts?stateId=${stateId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setDistricts(Array.isArray(data) ? data : []);
-            }
+            const { data } = await adminServ.getDistricts(stateId);
+            setDistricts(Array.isArray(data) ? data : []);
         } catch {
             setDistricts([]);
         }
     }, []);
 
     const handleLogout = async () => {
+        try {
+            const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+            if (storedUser?.id) {
+                await adminServ.logoutLog({ userId: storedUser.id });
+            }
+        } catch { }
         localStorage.removeItem("user");
         localStorage.removeItem("token");
         await signOut(auth);
@@ -1084,16 +1213,118 @@ function AdminDashboard() {
 
     // ---------- ADD USER ----------
 
+    const validateAddForm = () => {
+        const errors = {};
+
+        // First Name: only letters and spaces
+        if (!addForm.firstName.trim()) {
+            errors.firstName = "First name is required";
+        } else if (!/^[A-Za-z\s]+$/.test(addForm.firstName)) {
+            errors.firstName = "First name must contain only letters";
+        }
+
+        // Last Name: only letters and spaces
+        if (!addForm.lastName.trim()) {
+            errors.lastName = "Last name is required";
+        } else if (!/^[A-Za-z\s]+$/.test(addForm.lastName)) {
+            errors.lastName = "Last name must contain only letters";
+        }
+
+        // Email: valid format
+        if (!addForm.email.trim()) {
+            errors.email = "Email is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email)) {
+            errors.email = "Enter a valid email address";
+        }
+
+        // Mobile: exactly 10 digits
+        if (!addForm.mobile.trim()) {
+            errors.mobile = "Mobile number is required";
+        } else if (!/^[0-9]{10}$/.test(addForm.mobile)) {
+            errors.mobile = "Mobile number must be 10 digits";
+        }
+
+        // Password: min 8 chars, at least 1 uppercase, 1 lowercase
+        if (!addForm.password) {
+            errors.password = "Password is required";
+        } else if (addForm.password.length < 8) {
+            errors.password = "Password must be at least 8 characters";
+        } else if (!/[A-Z]/.test(addForm.password)) {
+            errors.password = "Password must contain at least one uppercase letter";
+        } else if (!/[a-z]/.test(addForm.password)) {
+            errors.password = "Password must contain at least one lowercase letter";
+        }
+
+        setAddFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const openAdd = () => {
         setAddForm(EMPTY_FORM);
         setAddError("");
         setAddSuccess("");
+        setAddFormErrors({});
         setAddOpen(true);
     };
 
     const handleAddChange = (e) => {
         const { name, value } = e.target;
         setAddForm((f) => ({ ...f, [name]: value }));
+
+        const newErrors = { ...addFormErrors };
+
+        if (name === "firstName") {
+            if (!value.trim()) {
+                newErrors.firstName = "First name is required";
+            } else if (!/^[A-Za-z\s]+$/.test(value)) {
+                newErrors.firstName = "First name must contain only letters";
+            } else {
+                delete newErrors.firstName;
+            }
+        } else if (name === "lastName") {
+            if (!value.trim()) {
+                newErrors.lastName = "Last name is required";
+            } else if (!/^[A-Za-z\s]+$/.test(value)) {
+                newErrors.lastName = "Last name must contain only letters";
+            } else {
+                delete newErrors.lastName;
+            }
+        } else if (name === "email") {
+            if (!value.trim()) {
+                newErrors.email = "Email is required";
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                newErrors.email = "Enter a valid email address";
+            } else {
+                delete newErrors.email;
+            }
+        } else if (name === "mobile") {
+            if (!value.trim()) {
+                newErrors.mobile = "Mobile number is required";
+            } else if (!/^[0-9]{0,10}$/.test(value)) {
+                newErrors.mobile = "Mobile number must be 10 digits";
+            } else if (value.length > 0 && value.length < 10) {
+                newErrors.mobile = "Mobile number must be 10 digits";
+            } else {
+                delete newErrors.mobile;
+            }
+        } else if (name === "password") {
+            if (!value) {
+                newErrors.password = "Password is required";
+            } else if (value.length < 8) {
+                newErrors.password = "Password must be at least 8 characters";
+            } else if (!/[A-Z]/.test(value)) {
+                newErrors.password = "Password must contain at least one uppercase letter";
+            } else if (!/[a-z]/.test(value)) {
+                newErrors.password = "Password must contain at least one lowercase letter";
+            } else {
+                delete newErrors.password;
+            }
+        } else {
+            delete newErrors[name];
+        }
+
+        setAddFormErrors(newErrors);
+
         if (name === "stateId") {
             setAddForm((f) => ({ ...f, districtId: "" }));
             if (value) loadDistricts(value);
@@ -1105,26 +1336,26 @@ function AdminDashboard() {
         e.preventDefault();
         setAddError("");
         setAddSuccess("");
+
+        if (!validateAddForm()) {
+            return;
+        }
+
         setAddLoading(true);
 
         try {
-            const response = await fetch("/api/User/signup", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    firstName: addForm.firstName.trim(),
-                    lastName: addForm.lastName.trim(),
-                    email: addForm.email.trim(),
-                    password: addForm.password,
-                    role: addForm.role,
-                    stateId: addForm.stateId ? Number(addForm.stateId) : null,
-                    districtId: addForm.districtId ? Number(addForm.districtId) : null,
-                }),
+            const { data: result } = await adminServ.createUser({
+                firstName: addForm.firstName.trim(),
+                lastName: addForm.lastName.trim(),
+                email: addForm.email.trim(),
+                mobile: addForm.mobile.trim(),
+                password: addForm.password,
+                role: addForm.role,
+                stateId: addForm.stateId ? Number(addForm.stateId) : null,
+                districtId: addForm.districtId ? Number(addForm.districtId) : null,
             });
 
-            const result = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
+            if (result?.message && !result?.success) {
                 setAddError(result.message || "Failed to add user");
                 setAddLoading(false);
                 return;
@@ -1203,27 +1434,10 @@ function AdminDashboard() {
         setDeleting(true);
         setDeleteError("");
 
-        const token = localStorage.getItem("token");
-
         try {
-            const response = await fetch(
-                `/api/Admin/users/${deleteTarget.id}`,
-                {
-                    method: "DELETE",
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
+            const { data: result } = await adminServ.deleteUser(deleteTarget.id);
 
-            if (response.status === 401) {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                await signOut(auth);
-                navigate("/login", { replace: true });
-                return;
-            }
-
-            if (!response.ok) {
-                const result = await response.json().catch(() => ({}));
+            if (result?.message && !result?.success) {
                 setDeleteError(result.message || "Failed to delete user");
                 setDeleting(false);
                 return;
@@ -1387,6 +1601,7 @@ function AdminDashboard() {
                                         <span className="dash-chip">Weekly</span>
                                     </div>
                                     <WeeklyChart data={weeklyTrend} />
+                                    <RoleLegend />
                                 </div>
 
                                 <div
@@ -1401,16 +1616,14 @@ function AdminDashboard() {
                                     </div>
                                     <RoleDonut breakdown={roleBreakdown} />
                                     <div className="donut-legend">
-                                        {(roleBreakdown || []).map((d) => (
-                                            <div className="legend-item" key={d.role}>
+                                        {roleGroups(roleBreakdown).map((g) => (
+                                            <div className="legend-item" key={g.key}>
                                                 <span
                                                     className="legend-dot"
-                                                    style={{
-                                                        background: ROLE_COLORS[d.role] || "#94a3b8",
-                                                    }}
+                                                    style={{ background: g.color }}
                                                 />
-                                                <span className="legend-name">{d.role}</span>
-                                                <span className="legend-count">{d.count}</span>
+                                                <span className="legend-name">{g.label}</span>
+                                                <span className="legend-count">{g.count}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -1589,6 +1802,8 @@ function AdminDashboard() {
                                 onChange={handleAddChange}
                                 fullWidth
                                 required
+                                error={!!addFormErrors.firstName}
+                                helperText={addFormErrors.firstName}
                             />
                             <TextField
                                 label="Last Name"
@@ -1597,6 +1812,8 @@ function AdminDashboard() {
                                 onChange={handleAddChange}
                                 fullWidth
                                 required
+                                error={!!addFormErrors.lastName}
+                                helperText={addFormErrors.lastName}
                             />
                             <TextField
                                 label="Email"
@@ -1607,6 +1824,20 @@ function AdminDashboard() {
                                 fullWidth
                                 required
                                 sx={{ gridColumn: "1 / -1" }}
+                                error={!!addFormErrors.email}
+                                helperText={addFormErrors.email}
+                            />
+                            <TextField
+                                label="Mobile Number"
+                                name="mobile"
+                                value={addForm.mobile}
+                                onChange={handleAddChange}
+                                fullWidth
+                                required
+                                inputProps={{ maxLength: 10 }}
+                                sx={{ gridColumn: "1 / -1" }}
+                                error={!!addFormErrors.mobile}
+                                helperText={addFormErrors.mobile}
                             />
                             <TextField
                                 label="Password"
@@ -1617,6 +1848,8 @@ function AdminDashboard() {
                                 fullWidth
                                 required
                                 sx={{ gridColumn: "1 / -1" }}
+                                error={!!addFormErrors.password}
+                                helperText={addFormErrors.password}
                             />
                             <FormControl fullWidth>
                                 <InputLabel>Role</InputLabel>
@@ -1747,7 +1980,7 @@ function AdminDashboard() {
                         <strong>
                             {deleteTarget
                                 ? [deleteTarget.firstName, deleteTarget.lastName].filter(Boolean).join(" ") ||
-                                  deleteTarget.email
+                                deleteTarget.email
                                 : ""}
                         </strong>
                         ? This action cannot be undone.

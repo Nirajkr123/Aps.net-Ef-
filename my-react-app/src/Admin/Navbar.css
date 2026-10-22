@@ -62,6 +62,7 @@
 .navbar-search-wrap {
   position: relative;
   width: 320px;
+  min-width: 0;
 }
 
 .navbar-search-icon {
@@ -193,6 +194,14 @@
   color: #ffffff;
   background: linear-gradient(135deg, var(--nav-accent-1), var(--nav-accent-2));
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.navbar-avatar-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .navbar-profile-meta {
@@ -273,6 +282,7 @@
   color: #ffffff;
   background: linear-gradient(135deg, var(--nav-accent-1), var(--nav-accent-2));
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .navbar-dropdown-name {
@@ -323,21 +333,54 @@
   background: #fff1f2;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .navbar {
     padding: 0 16px;
   }
 
+  .navbar-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .navbar-search-wrap {
-    width: 170px;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: 170px;
   }
 
   .navbar-search-kbd,
+  .navbar-search-input,
+  .navbar-profile-meta {
+    min-width: 0;
+  }
+
   .navbar-profile-meta {
     display: none;
   }
 
   .navbar-profile {
     padding-right: 6px;
+  }
+
+  .navbar-right {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0 12px;
+  }
+
+  .navbar-left {
+    gap: 10px;
+  }
+
+  /* Search input to cramped nahi aa sakta narrow screens pe —
+     ye Settings page par koi functionality bhi nahi use karta */
+  .navbar-search-wrap {
+    display: none;
   }
 }

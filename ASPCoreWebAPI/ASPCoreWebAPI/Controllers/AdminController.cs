@@ -1,3 +1,4 @@
+using ASPCoreWebAPI.Middleware;
 using ASPCoreWebAPI.Models;
 using ASPCoreWebAPI.Repositories;
 using BCrypt.Net;
@@ -26,11 +27,21 @@ namespace ASPCoreWebAPI.Controllers
             _districtRepository = districtRepository;
         }
 
+        /* Saare role names jo employee side hain (HR/OWNER admin hain).
+
+           DB me role strings hain — `EMPLOYEE`, `HR`, `OWNER` — isiliye
+           yahan role ke hisaab se hi group karte hain. `Admin`/`User`
+           jaisa frontend ka purana label nahi maana jaata, warna EMPLOYEE
+           wali rows bhi admin group me chala jaati. */
+        private static bool IsEmployeeRole(string? role) =>
+            string.Equals(role, "EMPLOYEE", StringComparison.OrdinalIgnoreCase);
+
         // =========================
         // DASHBOARD
         // =========================
 
         [HttpGet("dashboard")]
+        [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> Dashboard()
         {
             try
@@ -60,6 +71,22 @@ namespace ASPCoreWebAPI.Controllers
 
                 var all = await _repository.GetAllAsync();
 
+                /* Har user ka local signup date ek baar nikal lete hain.
+
+                   Pehle ye `Count()` ke andar loop me `ConvertTimeFromUtc`
+                   kar raha tha — 7 din × har user, yaani DB size badhne par
+                   bekaar CPU. Ab ek hi O(n) pass me ban jata hai. */
+                var signupDays = all
+                    .Select(x => new
+                    {
+                        day = TimeZoneInfo.ConvertTimeFromUtc(x.CreatedDate, istZone).Date,
+                        role = x.Role
+                    })
+                    .ToList();
+
+                /* Week me jo din nahi bhi aaye, unka hisaab bhi bhejte hain
+                   (count = 0). Warna frontend ko 2-3 din ke hi labels milte
+                   aur chart par galat spacing aa jaati. */
                 var weeklyTrend = Enumerable.Range(0, 7)
                     .Select(i =>
                     {
@@ -68,11 +95,9 @@ namespace ASPCoreWebAPI.Controllers
                         {
                             date = d,
                             label = d.ToString("ddd", System.Globalization.CultureInfo.InvariantCulture),
-                            count = all.Count(x =>
-                            {
-                                var localDate = TimeZoneInfo.ConvertTimeFromUtc(x.CreatedDate, istZone).Date;
-                                return localDate == d;
-                            })
+                            count = signupDays.Count(x => x.day == d),
+                            admin = signupDays.Count(x => x.day == d && !IsEmployeeRole(x.role)),
+                            employee = signupDays.Count(x => x.day == d && IsEmployeeRole(x.role))
                         };
                     })
                     .ToList();
@@ -119,6 +144,7 @@ namespace ASPCoreWebAPI.Controllers
         // =========================
 
         [HttpGet("users")]
+        [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> GetUsers()
         {
             try
@@ -153,6 +179,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPut("users/{id:int}")]
+        [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UserUpdateRequest request)
         {
             try
@@ -186,6 +213,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPost("users/{id:int}/role")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> ChangeRole(int id, [FromBody] ChangeRoleRequest request)
         {
             try
@@ -215,6 +243,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPost("users/{id:int}/reset-password")]
+        [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> ResetPassword(int id, [FromBody] ResetPasswordRequest request)
         {
             try
@@ -240,7 +269,7 @@ namespace ASPCoreWebAPI.Controllers
                         return BadRequest(new { message = "Current password is incorrect" });
                     }
                 }
-                else if (callerRole != "Admin")
+                else if (callerRole != "OWNER")
                 {
                     return StatusCode(403, new { message = "Only admin can reset password without current password" });
                 }
@@ -260,12 +289,14 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPost("users/{id:int}/activate")]
+        [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> ActivateUser(int id)
         {
             return await SetUserStatusAsync(id, "Active");
         }
 
         [HttpPost("users/{id:int}/deactivate")]
+        [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> DeactivateUser(int id)
         {
             return await SetUserStatusAsync(id, "Inactive");
@@ -295,6 +326,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpDelete("users/{id:int}")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             try
@@ -323,6 +355,7 @@ namespace ASPCoreWebAPI.Controllers
         // =========================
 
         [HttpGet("states")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> GetStates()
         {
             try
@@ -341,6 +374,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPost("states")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> CreateState([FromBody] State state)
         {
             try
@@ -364,6 +398,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPut("states/{id:int}")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> UpdateState(int id, [FromBody] State state)
         {
             try
@@ -394,6 +429,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpDelete("states/{id:int}")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> DeleteState(int id)
         {
             try
@@ -422,6 +458,7 @@ namespace ASPCoreWebAPI.Controllers
         // =========================
 
         [HttpGet("districts")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> GetDistricts([FromQuery] int? stateId)
         {
             try
@@ -442,6 +479,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPost("districts")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> CreateDistrict([FromBody] District district)
         {
             try
@@ -471,6 +509,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPut("districts/{id:int}")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> UpdateDistrict(int id, [FromBody] District district)
         {
             try
@@ -501,6 +540,7 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpDelete("districts/{id:int}")]
+        [AuthorizeRoles("OWNER")]
         public async Task<IActionResult> DeleteDistrict(int id)
         {
             try

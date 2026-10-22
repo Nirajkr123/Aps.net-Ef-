@@ -16,7 +16,8 @@
 .sidebar {
   width: 248px;
   flex-shrink: 0;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   background: var(--sb-bg);
@@ -152,6 +153,14 @@
   color: #ffffff;
   background: linear-gradient(135deg, #667eea, #764ba2);
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.35);
+  overflow: hidden;
+}
+
+.sidebar-user-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .sidebar-user-meta {
@@ -187,6 +196,15 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .sidebar-nav-item {
@@ -255,51 +273,6 @@
 }
 
 /* =========================
-   UPGRADE CARD
-========================= */
-
-.sidebar-upgrade {
-  margin: 0 2px 16px;
-  padding: 16px;
-  border-radius: 14px;
-  background: linear-gradient(160deg, rgba(102, 126, 234, 0.16), rgba(118, 75, 162, 0.2));
-  border: 1px solid var(--sb-border);
-}
-
-.sidebar-upgrade-title {
-  margin: 0 0 4px 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.sidebar-upgrade-text {
-  margin: 0 0 12px 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--sb-text-muted);
-}
-
-.sidebar-upgrade-btn {
-  width: 100%;
-  padding: 8px 0;
-  border: none;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: #ffffff;
-  font-family: "Inter", sans-serif;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.sidebar-upgrade-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px -6px rgba(102, 126, 234, 0.7);
-}
-
-/* =========================
    LOGOUT
 ========================= */
 
@@ -331,33 +304,81 @@
 }
 
 /* =========================
-   RESPONSIVE - auto-collapse to icon rail
+   BACKDROP (mobile only)
 ========================= */
 
-@media (max-width: 700px) {
-  .sidebar {
-    width: 76px;
-    padding: 20px 12px;
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(11, 15, 26, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+.sidebar-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* =========================
+   RESPONSIVE - off-canvas drawer
+========================= */
+
+@media (max-width: 768px) {
+  /* Hidden by default, slides in when .sidebar-mobile-open is set */
+  .sidebar,
+  .sidebar.collapsed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 70;
+    width: 264px;
+    max-width: 82vw;
+    height: 100dvh;
+    padding: 20px 16px;
+    visibility: hidden;
+    transform: translateX(-100%);
+    box-shadow: none;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.28s ease;
   }
 
-  .sidebar-logo-text,
-  .sidebar-nav-label,
-  .sidebar-upgrade {
-    display: none;
+  .sidebar.sidebar-mobile-open {
+    visibility: visible;
+    transform: translateX(0);
+    box-shadow: 18px 0 44px -12px rgba(11, 15, 26, 0.6);
   }
 
-  .sidebar-collapse-btn,
-  .sidebar-user-meta {
-    display: none;
+  /* Drawer is always full width, never a bare icon rail */
+  .sidebar.collapsed .sidebar-user,
+  .sidebar.collapsed .sidebar-nav-item,
+  .sidebar.collapsed .sidebar-logout {
+    justify-content: flex-start;
   }
 
-  .sidebar-nav-item,
-  .sidebar-logout,
-  .sidebar-user {
-    justify-content: center;
-  }
-
-  .sidebar-nav-item {
+  .sidebar.collapsed .sidebar-user {
     padding: 12px;
   }
+
+  .sidebar.collapsed .sidebar-nav-item {
+    padding: 11px 12px;
+  }
+
+  .sidebar.collapsed .sidebar-logout {
+    padding: 11px 12px;
+  }
+
+  .sidebar.collapsed .sidebar-nav-item.active::before {
+    left: -16px;
+  }
+
+  /* The header button closes the drawer on mobile - no chevron flip */
+  .sidebar.collapsed .sidebar-collapse-btn svg {
+    transform: none;
+  }
 }
+

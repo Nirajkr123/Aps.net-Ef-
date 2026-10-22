@@ -11,6 +11,10 @@ ASPCoreWebAPI/ASPCoreWebAPI/obj/
 
 # Firebase secret
 serviceAccountKey.json
+*firebase-adminsdk*.json
+config/*.json
+appsettings.Development.json
+appsettings.Production.json
 
 # Frontend build
 my-react-app/build/

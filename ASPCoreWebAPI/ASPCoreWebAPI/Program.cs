@@ -2,20 +2,28 @@ using System.Text;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using ASPCoreWebAPI.Repositories;
+using ASPCoreWebAPI.Services;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Initialize Firebase Admin SDK
-FirebaseApp.Create(new AppOptions()
+// Firebase initialize (sirf ek baar)
+var firebaseKeyPath = builder.Configuration["Firebase:ServiceAccountKeyPath"] ?? "config/firebase-service-account.json";
+if (File.Exists(firebaseKeyPath))
 {
-    Credential = GoogleCredential.FromFile(
-        builder.Configuration["Firebase:ServiceAccountKeyPath"])
-});
-
+    FirebaseApp.Create(new AppOptions
+    {
+        Credential = GoogleCredential.FromFile(firebaseKeyPath)
+    });
+}
+else
+{
+    Console.WriteLine($"[WARN] Firebase service account not found at '{firebaseKeyPath}'. Push notifications disabled.");
+}
 builder.Services.AddControllers();
 
 builder.Services.AddCors(options =>
@@ -37,6 +45,17 @@ builder.Services.AddSingleton<NpgsqlDataSource>(
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStateRepository, StateRepository>();
 builder.Services.AddScoped<IDistrictRepository, DistrictRepository>();
+builder.Services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+builder.Services.AddScoped<IDesignationRepository, DesignationRepository>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<IEducationRepository, EducationRepository>();
+builder.Services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>();
+builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+builder.Services.AddScoped<ILeaveRepository, LeaveRepository>();
+builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 builder.Services.AddOpenApi();
 
@@ -85,22 +104,41 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddAuthorization();
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 10 * 1024 * 1024; // 10MB
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "ASPCoreWebAPI V1");
+        options.RoutePrefix = "swagger";
+    });
 }
-
-// app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseStaticFiles();
+
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
+    Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
 
 app.MapControllers();
 
