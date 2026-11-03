@@ -370,7 +370,7 @@ function AdminLeaveRequests() {
 
                 <div className="dash-content">
                     <Box className="emp-leave-page">
-                        <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
+                        <Container maxWidth="lg" sx={{ px: { xs: 0, md: 3 }, py: { xs: 2, md: 3 } }}>
                             {/* ---- Page hero: same component as My Leaves, isiliye
                                 dono pages visually ek jaise lagte hain. ---- */}
                             <PageHeroBanner

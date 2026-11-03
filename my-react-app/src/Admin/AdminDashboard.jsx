@@ -9,15 +9,11 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField,
     Button,
     Menu,
     MenuItem,
     Divider,
     IconButton,
-    FormControl,
-    InputLabel,
-    Select,
 } from "@mui/material";
 import {
     MoreVert,
@@ -32,8 +28,6 @@ import {
     Close,
     VisibilityOutlined,
     DeleteOutlineOutlined,
-    CheckCircleOutlined,
-    PersonAdd,
 } from "@mui/icons-material";
 
 import Sidebar from "./Sidebar";
@@ -1004,18 +998,6 @@ function ChartPopup({ active, weeklyTrend, roleBreakdown, onClose }) {
 // MAIN DASHBOARD
 // =========================
 
-const EMPTY_FORM = {
-    firstName: "",
-    lastName: "",
-    email: "",
-    mobile: "",
-    password: "",
-    role: "User",
-    stateId: "",
-    districtId: "",
-    status: "Active",
-};
-
 function AdminDashboard() {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
@@ -1035,14 +1017,6 @@ function AdminDashboard() {
     // Selected chart for detail popup: "trend" | "role" | null
     const [activeChart, setActiveChart] = useState(null);
 
-    // Add user dialog
-    const [addOpen, setAddOpen] = useState(false);
-    const [addForm, setAddForm] = useState(EMPTY_FORM);
-    const [addError, setAddError] = useState("");
-    const [addSuccess, setAddSuccess] = useState("");
-    const [addLoading, setAddLoading] = useState(false);
-    const [addFormErrors, setAddFormErrors] = useState({});
-
     // Notification dropdown
     const notifRef = useRef(null);
     const [notifOpen, setNotifOpen] = useState(false);
@@ -1061,10 +1035,6 @@ function AdminDashboard() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleteError, setDeleteError] = useState("");
     const [deleting, setDeleting] = useState(false);
-
-    // States & Districts for Add User form
-    const [states, setStates] = useState([]);
-    const [districts, setDistricts] = useState([]);
 
     useEffect(() => {
         try {
@@ -1162,25 +1132,6 @@ function AdminDashboard() {
         loadDashboard();
     }, [loadDashboard]);
 
-    useEffect(() => {
-        adminServ.getStates()
-            .then(({ data }) => setStates(Array.isArray(data) ? data : []))
-            .catch(() => { });
-    }, []);
-
-    const loadDistricts = useCallback(async (stateId) => {
-        if (!stateId) {
-            setDistricts([]);
-            return;
-        }
-        try {
-            const { data } = await adminServ.getDistricts(stateId);
-            setDistricts(Array.isArray(data) ? data : []);
-        } catch {
-            setDistricts([]);
-        }
-    }, []);
-
     const handleLogout = async () => {
         try {
             const storedUser = JSON.parse(localStorage.getItem("user") || "null");
@@ -1210,171 +1161,6 @@ function AdminDashboard() {
         [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
         user?.email ||
         "Admin";
-
-    // ---------- ADD USER ----------
-
-    const validateAddForm = () => {
-        const errors = {};
-
-        // First Name: only letters and spaces
-        if (!addForm.firstName.trim()) {
-            errors.firstName = "First name is required";
-        } else if (!/^[A-Za-z\s]+$/.test(addForm.firstName)) {
-            errors.firstName = "First name must contain only letters";
-        }
-
-        // Last Name: only letters and spaces
-        if (!addForm.lastName.trim()) {
-            errors.lastName = "Last name is required";
-        } else if (!/^[A-Za-z\s]+$/.test(addForm.lastName)) {
-            errors.lastName = "Last name must contain only letters";
-        }
-
-        // Email: valid format
-        if (!addForm.email.trim()) {
-            errors.email = "Email is required";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email)) {
-            errors.email = "Enter a valid email address";
-        }
-
-        // Mobile: exactly 10 digits
-        if (!addForm.mobile.trim()) {
-            errors.mobile = "Mobile number is required";
-        } else if (!/^[0-9]{10}$/.test(addForm.mobile)) {
-            errors.mobile = "Mobile number must be 10 digits";
-        }
-
-        // Password: min 8 chars, at least 1 uppercase, 1 lowercase
-        if (!addForm.password) {
-            errors.password = "Password is required";
-        } else if (addForm.password.length < 8) {
-            errors.password = "Password must be at least 8 characters";
-        } else if (!/[A-Z]/.test(addForm.password)) {
-            errors.password = "Password must contain at least one uppercase letter";
-        } else if (!/[a-z]/.test(addForm.password)) {
-            errors.password = "Password must contain at least one lowercase letter";
-        }
-
-        setAddFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    const openAdd = () => {
-        setAddForm(EMPTY_FORM);
-        setAddError("");
-        setAddSuccess("");
-        setAddFormErrors({});
-        setAddOpen(true);
-    };
-
-    const handleAddChange = (e) => {
-        const { name, value } = e.target;
-        setAddForm((f) => ({ ...f, [name]: value }));
-
-        const newErrors = { ...addFormErrors };
-
-        if (name === "firstName") {
-            if (!value.trim()) {
-                newErrors.firstName = "First name is required";
-            } else if (!/^[A-Za-z\s]+$/.test(value)) {
-                newErrors.firstName = "First name must contain only letters";
-            } else {
-                delete newErrors.firstName;
-            }
-        } else if (name === "lastName") {
-            if (!value.trim()) {
-                newErrors.lastName = "Last name is required";
-            } else if (!/^[A-Za-z\s]+$/.test(value)) {
-                newErrors.lastName = "Last name must contain only letters";
-            } else {
-                delete newErrors.lastName;
-            }
-        } else if (name === "email") {
-            if (!value.trim()) {
-                newErrors.email = "Email is required";
-            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-                newErrors.email = "Enter a valid email address";
-            } else {
-                delete newErrors.email;
-            }
-        } else if (name === "mobile") {
-            if (!value.trim()) {
-                newErrors.mobile = "Mobile number is required";
-            } else if (!/^[0-9]{0,10}$/.test(value)) {
-                newErrors.mobile = "Mobile number must be 10 digits";
-            } else if (value.length > 0 && value.length < 10) {
-                newErrors.mobile = "Mobile number must be 10 digits";
-            } else {
-                delete newErrors.mobile;
-            }
-        } else if (name === "password") {
-            if (!value) {
-                newErrors.password = "Password is required";
-            } else if (value.length < 8) {
-                newErrors.password = "Password must be at least 8 characters";
-            } else if (!/[A-Z]/.test(value)) {
-                newErrors.password = "Password must contain at least one uppercase letter";
-            } else if (!/[a-z]/.test(value)) {
-                newErrors.password = "Password must contain at least one lowercase letter";
-            } else {
-                delete newErrors.password;
-            }
-        } else {
-            delete newErrors[name];
-        }
-
-        setAddFormErrors(newErrors);
-
-        if (name === "stateId") {
-            setAddForm((f) => ({ ...f, districtId: "" }));
-            if (value) loadDistricts(value);
-            else setDistricts([]);
-        }
-    };
-
-    const handleAddSubmit = async (e) => {
-        e.preventDefault();
-        setAddError("");
-        setAddSuccess("");
-
-        if (!validateAddForm()) {
-            return;
-        }
-
-        setAddLoading(true);
-
-        try {
-            const { data: result } = await adminServ.createUser({
-                firstName: addForm.firstName.trim(),
-                lastName: addForm.lastName.trim(),
-                email: addForm.email.trim(),
-                mobile: addForm.mobile.trim(),
-                password: addForm.password,
-                role: addForm.role,
-                stateId: addForm.stateId ? Number(addForm.stateId) : null,
-                districtId: addForm.districtId ? Number(addForm.districtId) : null,
-            });
-
-            if (result?.message && !result?.success) {
-                setAddError(result.message || "Failed to add user");
-                setAddLoading(false);
-                return;
-            }
-
-            setAddSuccess("User added successfully!");
-            setTimeout(() => {
-                setAddOpen(false);
-                setAddForm(EMPTY_FORM);
-                setLoading(true);
-                loadDashboard();
-            }, 1000);
-        } catch (err) {
-            console.error("Add User Error:", err);
-            setAddError("Server se connection nahi ho pa raha.");
-        } finally {
-            setAddLoading(false);
-        }
-    };
 
     // ---------- NOTIFICATIONS ----------
 
@@ -1532,9 +1318,9 @@ function AdminDashboard() {
                                 <Refresh fontSize="small" />
                                 Refresh
                             </button>
-                            <button type="button" className="dash-btn dash-btn-primary" onClick={openAdd}>
+                            <button type="button" className="dash-btn dash-btn-primary" onClick={() => navigate("/directory")}>
                                 <Add fontSize="small" />
-                                Add User
+                                Add Employee
                             </button>
                         </div>
                     </div>
@@ -1653,7 +1439,7 @@ function AdminDashboard() {
                                     {filteredUsers.map((u) => {
                                         const name =
                                             [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
-                                        const role = u.role || "User";
+                                        const role = u.role || "—";
                                         return (
                                             <div
                                                 className="dash-table-row"
@@ -1770,139 +1556,6 @@ function AdminDashboard() {
                 )}
             </div>
 
-            {/* ======= ADD USER DIALOG ======= */}
-            <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle className="modal-title">
-                    <span className="modal-title-icon">
-                        <PersonAdd fontSize="inherit" />
-                    </span>
-                    Add New User
-                    <IconButton
-                        className="modal-close"
-                        onClick={() => setAddOpen(false)}
-                        size="small"
-                    >
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <form onSubmit={handleAddSubmit}>
-                    <DialogContent className="modal-body">
-                        {addSuccess && (
-                            <div className="modal-success">
-                                <CheckCircleOutlined fontSize="small" />
-                                {addSuccess}
-                            </div>
-                        )}
-                        {addError && <div className="modal-error">{addError}</div>}
-                        <div className="modal-grid">
-                            <TextField
-                                label="First Name"
-                                name="firstName"
-                                value={addForm.firstName}
-                                onChange={handleAddChange}
-                                fullWidth
-                                required
-                                error={!!addFormErrors.firstName}
-                                helperText={addFormErrors.firstName}
-                            />
-                            <TextField
-                                label="Last Name"
-                                name="lastName"
-                                value={addForm.lastName}
-                                onChange={handleAddChange}
-                                fullWidth
-                                required
-                                error={!!addFormErrors.lastName}
-                                helperText={addFormErrors.lastName}
-                            />
-                            <TextField
-                                label="Email"
-                                name="email"
-                                type="email"
-                                value={addForm.email}
-                                onChange={handleAddChange}
-                                fullWidth
-                                required
-                                sx={{ gridColumn: "1 / -1" }}
-                                error={!!addFormErrors.email}
-                                helperText={addFormErrors.email}
-                            />
-                            <TextField
-                                label="Mobile Number"
-                                name="mobile"
-                                value={addForm.mobile}
-                                onChange={handleAddChange}
-                                fullWidth
-                                required
-                                inputProps={{ maxLength: 10 }}
-                                sx={{ gridColumn: "1 / -1" }}
-                                error={!!addFormErrors.mobile}
-                                helperText={addFormErrors.mobile}
-                            />
-                            <TextField
-                                label="Password"
-                                name="password"
-                                type="password"
-                                value={addForm.password}
-                                onChange={handleAddChange}
-                                fullWidth
-                                required
-                                sx={{ gridColumn: "1 / -1" }}
-                                error={!!addFormErrors.password}
-                                helperText={addFormErrors.password}
-                            />
-                            <FormControl fullWidth>
-                                <InputLabel>Role</InputLabel>
-                                <Select label="Role" name="role" value={addForm.role} onChange={handleAddChange}>
-                                    <MenuItem value="User">User</MenuItem>
-                                    <MenuItem value="Staff">Staff</MenuItem>
-                                    <MenuItem value="Admin">Admin</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>Status</InputLabel>
-                                <Select label="Status" name="status" value={addForm.status} onChange={handleAddChange}>
-                                    <MenuItem value="Active">Active</MenuItem>
-                                    <MenuItem value="Inactive">Inactive</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>State</InputLabel>
-                                <Select label="State" name="stateId" value={addForm.stateId} onChange={handleAddChange}>
-                                    <MenuItem value="">Select State</MenuItem>
-                                    {states.map((s) => (
-                                        <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>District</InputLabel>
-                                <Select label="District" name="districtId" value={addForm.districtId}
-                                    disabled={!addForm.stateId} onChange={handleAddChange}>
-                                    <MenuItem value="">Select District</MenuItem>
-                                    {districts.map((d) => (
-                                        <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </div>
-                    </DialogContent>
-                    <DialogActions className="modal-actions">
-                        <Button onClick={() => setAddOpen(false)} className="modal-btn-cancel">
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="contained"
-                            disabled={addLoading}
-                            className="modal-btn-submit"
-                        >
-                            {addLoading ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "Add User"}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
             {/* ======= VIEW USER DIALOG ======= */}
             <Dialog
                 open={Boolean(viewUser)}
@@ -1940,7 +1593,7 @@ function AdminDashboard() {
                             <div className="view-meta">
                                 <div className="view-meta-item">
                                     <span className="view-meta-label">Role</span>
-                                    <span className="dash-role-chip">{viewUser.role || "User"}</span>
+                                    <span className="dash-role-chip">{viewUser.role || "—"}</span>
                                 </div>
                                 <div className="view-meta-item">
                                     <span className="view-meta-label">Joined</span>

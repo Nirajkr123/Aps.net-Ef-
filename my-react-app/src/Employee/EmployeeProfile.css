@@ -352,3 +352,741 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* =========================================================================
+   MOBILE-FIRST PROFILE ADDITIONS
+   ========================================================================= */
+
+.emp-page .dash-content.emp-profile-content {
+    background: #f3f4f8;
+}
+
+.emp-profile-hours {
+    margin-top: 14px;
+}
+
+.emp-profile-rows {
+    margin-top: 14px;
+    border-radius: 18px !important;
+    overflow: hidden;
+    border: 1px solid #eef0f7;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06) !important;
+}
+
+.emp-profile-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: none;
+    border-bottom: 1px solid #f1f2f7;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.emp-profile-row:last-child {
+    border-bottom: none;
+}
+
+.emp-profile-row:hover {
+    background: #fafbff;
+}
+
+.emp-profile-row-icon {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4f46e5;
+    background: #eef2ff;
+}
+
+.emp-profile-row-icon svg {
+    font-size: 19px;
+}
+
+.emp-profile-row-icon.is-blue {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.emp-profile-row-icon.is-red {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.emp-profile-row-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.emp-profile-row-text strong {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #171b2e;
+}
+
+.emp-profile-row-text small {
+    font-size: 11.5px;
+    color: #9ca3af;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-profile-row-chevron {
+    flex-shrink: 0;
+    font-size: 20px !important;
+    color: #c4c8d4;
+}
+
+.emp-profile-row.is-danger .emp-profile-row-text strong {
+    color: #dc2626;
+}
+
+@media (max-width: 700px) {
+    .emp-page .dash-content.emp-profile-content {
+        padding: 12px 12px 28px;
+    }
+
+    .emp-profile-hours,
+    .emp-profile-rows {
+        margin-top: 12px;
+    }
+
+    .emp-profile-row {
+        padding: 13px 13px;
+        gap: 10px;
+    }
+}
+
+/* =========================================================================
+   Profile overview — mobile first
+   ========================================================================= */
+
+.emp-page .dash-content.emp-profile-content {
+    background: #f3f4f8;
+    padding: 0 16px 108px;
+}
+
+.emp-profile-overview,
+.emp-profile-detail {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.emp-profile-head {
+    position: relative;
+    overflow: hidden;
+    margin: 0 -16px;
+    padding: 14px 16px 54px;
+    border-radius: 0 0 28px 28px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 18px 38px rgba(75, 63, 209, 0.26);
+}
+
+.emp-profile-head::after {
+    content: "";
+    position: absolute;
+    top: -92px;
+    right: -66px;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.13);
+    pointer-events: none;
+}
+
+.emp-profile-head-top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.emp-profile-head-top h1 {
+    flex: 1;
+    margin: 0;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.emp-profile-icon-btn {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.18s ease;
+}
+
+.emp-profile-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.26);
+}
+
+.emp-profile-icon-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.emp-profile-icon-btn svg {
+    font-size: 20px;
+}
+
+.emp-profile-identity {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.emp-profile-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.emp-profile-avatar {
+    width: 84px !important;
+    height: 84px !important;
+    border: 3px solid rgba(255, 255, 255, 0.45) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    font-size: 28px !important;
+    font-weight: 800 !important;
+}
+
+.emp-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.emp-profile-avatar-edit {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #4b3fd1;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.emp-profile-avatar-edit svg {
+    font-size: 16px;
+}
+
+.emp-profile-avatar-edit:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.emp-profile-identity h2 {
+    max-width: 100%;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-profile-badges {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.emp-profile-badge {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.emp-profile-badge.is-role {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.emp-profile-badge.is-on {
+    color: #d1fae5;
+    background: rgba(16, 185, 129, 0.28);
+    border-color: rgba(16, 185, 129, 0.55);
+}
+
+.emp-profile-badge.is-done {
+    color: #ffedd5;
+    background: rgba(249, 115, 22, 0.28);
+    border-color: rgba(249, 115, 22, 0.55);
+}
+
+.emp-profile-badge.is-leave {
+    color: #fee2e2;
+    background: rgba(239, 68, 68, 0.28);
+    border-color: rgba(239, 68, 68, 0.55);
+}
+
+.emp-profile-badge.is-off {
+    color: #fef3c7;
+    background: rgba(245, 158, 11, 0.28);
+    border-color: rgba(245, 158, 11, 0.55);
+}
+
+.emp-profile-head-skeleton {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+}
+
+.emp-profile-head-skeleton .MuiSkeleton-root {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.emp-profile-stats {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: -40px 4px 0;
+}
+
+.emp-profile-stats .emp-home-stat {
+    padding: 14px 10px;
+    border-radius: 18px;
+}
+
+.emp-profile-card {
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid #eef0f7;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-profile-manager {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.emp-profile-manager-icon {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    color: #4b3fd1;
+    background: #eef2ff;
+}
+
+.emp-profile-manager-icon svg {
+    font-size: 21px;
+}
+
+.emp-profile-manager-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.emp-profile-manager-text strong {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #171b2e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-profile-manager-text small {
+    font-size: 11.5px;
+    color: #5b6078;
+}
+
+.emp-profile-call {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #ffffff;
+    background: #10b981;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(16, 185, 129, 0.28);
+}
+
+.emp-profile-call:hover {
+    background: #059669;
+}
+
+.emp-profile-call svg {
+    font-size: 20px;
+}
+
+.emp-profile-hours-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.emp-profile-hours-head h2 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #171b2e;
+}
+
+.emp-profile-chip {
+    padding: 4px 9px;
+    border-radius: 999px;
+    color: #4338ca;
+    background: #eef2ff;
+    font-size: 10.5px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.emp-profile-hours-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 86px;
+    padding-top: 8px;
+}
+
+.emp-profile-hours-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.emp-profile-hours-value {
+    height: 14px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #9ca3af;
+    white-space: nowrap;
+}
+
+.emp-profile-hours-bar {
+    width: 100%;
+    max-width: 14px;
+    min-height: 4px;
+    border-radius: 6px 6px 3px 3px;
+    background: #e0e7ff;
+}
+
+.emp-profile-hours-bar.has-hours {
+    background: linear-gradient(180deg, #8b5cf6 0%, #4f46e5 100%);
+}
+
+.emp-profile-hours-bar.is-today {
+    box-shadow: 0 0 0 2px #c4b5fd;
+}
+
+.emp-profile-hours-day {
+    font-size: 9.5px;
+    font-weight: 800;
+    color: #9ca3af;
+}
+
+.emp-profile-hours-day.is-today {
+    color: #4b3fd1;
+}
+
+.emp-profile-hours-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 26px 8px;
+    color: #5b6078;
+    font-size: 12.5px;
+}
+
+.emp-profile-hours-empty svg {
+    font-size: 22px;
+    color: #c7cbe0;
+}
+
+.emp-profile-menu {
+    margin-top: 14px;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid #eef0f7;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-profile-menu-row {
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: none;
+    border-bottom: 1px solid #f1f2f7;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.emp-profile-menu-row:last-child {
+    border-bottom: none;
+}
+
+.emp-profile-menu-row:hover {
+    background: #fafbff;
+}
+
+.emp-profile-menu-icon {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #4b3fd1;
+    background: #eef2ff;
+}
+
+.emp-profile-menu-icon svg {
+    font-size: 19px;
+}
+
+.emp-profile-menu-icon.is-blue {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.emp-profile-menu-icon.is-green {
+    color: #059669;
+    background: #ecfdf5;
+}
+
+.emp-profile-menu-icon.is-red {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.emp-profile-menu-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.emp-profile-menu-text strong {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #171b2e;
+}
+
+.emp-profile-menu-text small {
+    font-size: 11.5px;
+    color: #5b6078;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-profile-menu-chevron {
+    flex-shrink: 0;
+    font-size: 20px !important;
+    color: #c4c8d4;
+}
+
+.emp-profile-menu-row.is-danger .emp-profile-menu-text strong {
+    color: #dc2626;
+}
+
+.emp-profile-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.emp-profile-detail-back {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    border: 1px solid #eef0f7;
+    background: #ffffff;
+    color: #171b2e;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(23, 27, 46, 0.06);
+}
+
+.emp-profile-detail-back:hover {
+    background: #f9fafb;
+}
+
+.emp-profile-detail-back svg {
+    font-size: 20px;
+}
+
+.emp-profile-detail-head h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #171b2e;
+}
+
+.emp-profile-detail-head p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: #5b6078;
+}
+
+.emp-profile-detail-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.emp-profile-detail-stack > * {
+    min-width: 0;
+}
+
+.emp-profile-detail-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 320px;
+}
+
+@media (max-width: 700px) {
+    .emp-page .dash-content.emp-profile-content {
+        padding: 0 12px 104px;
+    }
+
+    .emp-profile-head {
+        margin: 0 -12px;
+        padding: 12px 14px 50px;
+    }
+
+    .emp-profile-stats {
+        gap: 8px;
+        margin: -40px 2px 0;
+    }
+
+    .emp-profile-stats .emp-home-stat {
+        padding: 12px 8px;
+        border-radius: 16px;
+    }
+
+    .emp-profile-stats .emp-home-stat strong {
+        font-size: clamp(20px, 6vw, 26px);
+    }
+
+    .emp-profile-stats .emp-home-stat span {
+        font-size: 10px;
+    }
+
+    .emp-profile-card,
+    .emp-profile-menu {
+        margin-top: 12px;
+    }
+
+    .emp-profile-hours-bars {
+        gap: 6px;
+    }
+
+    .emp-profile-detail-head h1 {
+        font-size: 17px;
+    }
+}
+
+@media (min-width: 769px) {
+    .emp-page .dash-content.emp-profile-content {
+        padding: 22px 28px 40px;
+    }
+
+    .emp-profile-head {
+        margin: 0;
+        padding: 18px 22px 52px;
+        border-radius: 24px;
+    }
+
+    .emp-profile-stats {
+        gap: 14px;
+        margin: -40px 10px 0;
+    }
+
+    .emp-profile-card {
+        padding: 18px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .emp-profile-icon-btn {
+        transition: none;
+    }
+}

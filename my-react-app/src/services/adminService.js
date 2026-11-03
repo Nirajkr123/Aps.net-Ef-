@@ -8,12 +8,12 @@ const getDistricts = (stateId) =>
     : http.get("/api/Admin/districts");
 
 const getUsers = () => http.get("/api/Admin/users");
-const createUser = (data) => http.post("/api/User/signup", data);
+const createUser = (data) => http.post("/api/Admin/users", data);
 const updateUser = (id, data) => http.put(`/api/Admin/users/${id}`, data);
 const deleteUser = (id) => http.delete(`/api/Admin/users/${id}`);
 const toggleUser = (id, action) => http.post(`/api/Admin/users/${id}/${action}`);
 const assignRole = (id, role) => http.post(`/api/Admin/users/${id}/role`, { role });
-const resetPassword = (id) => http.post(`/api/Admin/users/${id}/reset-password`);
+const resetPassword = (id, data) => http.post(`/api/Admin/users/${id}/reset-password`, data);
 const logoutLog = (data) => http.post("/api/User/logout-log", data);
 
 const createState = (data) => http.post("/api/Admin/states", data);
@@ -43,9 +43,17 @@ const rejectAttendanceRequest = (id) => http.post(`/api/Attendance/requests/${id
 const exportAttendanceReport = (params) => {
   const query = new URLSearchParams(params).toString();
   return http.get(`/api/Attendance/export${query ? `?${query}` : ""}`, {
-    responseType: "blob", // Excel/PDF file download ke liye
+    responseType: "blob",
   });
 };
+
+// ===================== Work Locations =====================
+const getWorkLocations = () => http.get("/api/work-locations");
+const getActiveWorkLocations = () => http.get("/api/work-locations/active");
+const createWorkLocation = (data) => http.post("/api/work-locations", data);
+const updateWorkLocation = (id, data) => http.put(`/api/work-locations/${id}`, data);
+const setWorkLocationActive = (id, isActive) =>
+  http.patch(`/api/work-locations/${id}/active`, { isActive });
 
 export default {
   getDashboard, getStates, getDistricts,
@@ -61,4 +69,11 @@ export default {
   approveAttendanceRequest,
   rejectAttendanceRequest,
   exportAttendanceReport,
+
+  // Work Locations
+  getWorkLocations,
+  getActiveWorkLocations,
+  createWorkLocation,
+  updateWorkLocation,
+  setWorkLocationActive,
 };

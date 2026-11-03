@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Card, CardContent, Typography, Box, TextField, Button,
   CircularProgress, Alert, Snackbar, Chip,
@@ -9,22 +9,30 @@ import {
 } from "@mui/material";
 import {
   PersonOutlined, EmailOutlined, BadgeOutlined, PhoneOutlined,
-  HomeOutlined, EmergencyOutlined, CheckCircle, RadioButtonUnchecked,
+  HomeOutlined, EmergencyOutlined, CheckCircle,
   Save, EditOutlined, BusinessOutlined, WorkOutlineOutlined,
   SchoolOutlined, UploadFile, Delete, Male, Female, CalendarMonth,
   FamilyRestroom, Close, Visibility, InfoOutlined,
   AccessTimeOutlined, EventOutlined, PaymentsOutlined,
+  ArrowBack,
 } from "@mui/icons-material";
 
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
 import "../Admin/AdminDashboard.css";
+import "./EmployeeDashboard.css";
 import "./EmployeeProfile.css";
 
-import ProfileHeroBar from "./components/ProfileHeroBar";
+import StatCard from "./components/dashboard/StatCard";
+import BottomNav from "./components/dashboard/BottomNav";
+import ProfileHeader from "./components/profile/ProfileHeader";
+import ManagerCard from "./components/profile/ManagerCard";
+import WorkingHoursCard from "./components/profile/WorkingHoursCard";
+import ProfileMenuList from "./components/profile/ProfileMenuList";
 import employeeServ from "../services/employeeService";
 import educationServ from "../services/educationService";
 import documentServ from "../services/documentService";
+import dashboardServ from "../services/dashboardService";
 import http from "../services/http";
 
 const EMPLOYEE_NAV_ITEMS = [
@@ -49,12 +57,6 @@ const DOCUMENT_TYPES = [
   { type: "marksheet_ug", label: "UG Degree / Marksheet", icon: <SchoolOutlined /> },
   { type: "govt_id", label: "Government ID (Aadhaar/PAN/Passport)", icon: <BadgeOutlined /> },
 ];
-
-/* Tabs ka order — constant rakha hai taaki har render par naya
-   array na bane (memoized hero bar ko inkaam se bachata hai). */
-const STEPS = ["Personal Details", "Academic Details", "Documents"];
-
-const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5083";
 
 /* Self-editable personal fields. Har field par click karne par
    popup khulta hai. `key` wahi hai jo `form` state aur
@@ -86,18 +88,20 @@ const paperSx = (isNarrow) =>
 
 function EmployeeProfile() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get("view");
   /* Mobile/tablet par popup poori screen leleti hai. 900px rakha hai
      kyunki portrait tablet aur DevTools preview par bhi centered box
      bahut chhota lagta hai. */
   const isNarrow = useMediaQuery("(max-width:900px)");
   const [user, setUser] = useState(null);
   const [employee, setEmployee] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [success, setSuccess] = useState(false);
   const [educationList, setEducationList] = useState([]);
   const [documents, setDocuments] = useState([]);
-  const [activeStep, setActiveStep] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState({});
   const [uploading, setUploading] = useState({});
   const [viewDoc, setViewDoc] = useState(null);
@@ -106,6 +110,8 @@ function EmployeeProfile() {
   const [apiError, setApiError] = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
+  const [weeklyHours, setWeeklyHours] = useState([]);
+  const [hoursThisWeek, setHoursThisWeek] = useState(0);
 
   const emptyForm = {
     phone: "", address: "", emergencyContact: "",
@@ -120,6 +126,12 @@ function EmployeeProfile() {
   const [bulkDraft, setBulkDraft] = useState(emptyForm);
   const [bulkErrors, setBulkErrors] = useState({});
   const [bulkSaving, setBulkSaving] = useState(false);
+
+  /* Inline edit + auto-save (real-time) */
+  const [inlineEdit, setInlineEdit] = useState(null);
+  const [inlineValue, setInlineValue] = useState("");
+  const [inlineError, setInlineError] = useState("");
+  const [inlineSaving, setInlineSaving] = useState(false);
 
   /* Academic popup state — null = band, object = open modal */
   const [eduModal, setEduModal] = useState(null);
@@ -205,6 +217,17 @@ function EmployeeProfile() {
       });
       setEduForms(updated);
       setDocuments(docRes.data);
+
+      try {
+        const { data: summaryData } = await dashboardServ.getSummary();
+        setSummary(summaryData);
+        setWeeklyHours(summaryData?.weeklyHours || []);
+        setHoursThisWeek(summaryData?.hoursThisWeek || 0);
+      } catch {
+        setSummary(null);
+        setWeeklyHours([]);
+        setHoursThisWeek(0);
+      }
     } catch (e) {
       console.error(e);
       setApiError("Failed to load profile data. Please try again.");
@@ -224,7 +247,7 @@ function EmployeeProfile() {
     const v = (value || "").trim();
     if (key === "phone") {
       if (!v) return "Phone number is required";
-      if (!/^[0-9+\-\s()]{7,15}$/.test(v)) return "Enter a valid phone number";
+      if (!/^[0-9+\-\s()]{7,15}$/.test(v)) return "Enter a valid phone number (7-15 digits)";
       return "";
     }
     if (key === "dob") {
@@ -240,6 +263,24 @@ function EmployeeProfile() {
     if (key === "emergencyContact") {
       if (!v) return "Emergency contact is required";
       if (v.length < 3) return "Enter a name and a phone number";
+      return "";
+    }
+    if (key === "fatherName" || key === "motherName") {
+      if (!v) return "This field is required";
+      if (v.length < 2) return "Must be at least 2 characters";
+      if (v.length > 100) return "Must be under 100 characters";
+      if (!/^[A-Za-z\s.]+$/.test(v)) return "Only letters, spaces and dots allowed";
+      return "";
+    }
+    if (key === "gender") {
+      if (!v) return "Gender is required";
+      if (!["Male", "Female", "Other"].includes(v)) return "Select a valid option";
+      return "";
+    }
+    if (key === "address") {
+      if (!v) return "Address is required";
+      if (v.length < 10) return "Enter a complete address (min 10 chars)";
+      if (v.length > 500) return "Must be under 500 characters";
       return "";
     }
     if (!v) return "This field is required";
@@ -393,114 +434,187 @@ function EmployeeProfile() {
     setPhotoUploading(false);
   };
 
-  const displayName = user
-    ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee"
-    : "Employee";
+  /* Inline edit handlers */
+  const startInlineEdit = (field) => {
+    setInlineEdit(field.key);
+    setInlineValue(form[field.key] || "");
+    setInlineError("");
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEdit(null);
+    setInlineValue("");
+    setInlineError("");
+  };
+
+  const saveInlineField = async (fieldKey) => {
+    const msg = validateField(fieldKey, inlineValue);
+    setInlineError(msg);
+    if (msg) return;
+    setInlineSaving(true);
+    try {
+      const payload = { ...form, [fieldKey]: (inlineValue || "").trim() };
+      await employeeServ.updateMe({ [fieldKey]: (inlineValue || "").trim() });
+      setForm(payload);
+      setSuccess(true);
+      setInlineEdit(null);
+      setInlineValue("");
+      setInlineError("");
+      fetchAll();
+    } catch (e) {
+      console.error(e);
+    }
+    setInlineSaving(false);
+  };
+
+  const displayName = employee
+    ? [employee.firstName, employee.lastName].filter(Boolean).join(" ") || employee.email || "Employee"
+    : user
+      ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee"
+      : "Employee";
 
   const isProfileComplete = employee?.profileComplete;
   const filledFields = PERSONAL_FIELDS.filter((f) => form[f.key]).length;
   const completionPercent = Math.round((filledFields / PERSONAL_FIELDS.length) * 100);
   const initials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-
-  /* Har step ka live status — green bar ke stepper aur progress bar
-     isi se aate hain, isliye form bharte hi turant update hote hain.
-     Sirf teen primitives depend kare hain, isliye `stepInfo` stable
-     rehta hai (memoized hero bar bekaar re-render nahi karta). */
-  const savedEduCount = useMemo(
-    () => EDUCATION_LEVELS.filter(({ value }) => educationList.some((e) => e.level === value)).length,
-    [educationList]
-  );
-  const uploadedDocCount = useMemo(
-    () => DOCUMENT_TYPES.filter(({ type }) => documents.some((d) => d.documentType === type)).length,
-    [documents]
-  );
-
-  const stepInfo = useMemo(() => [
-    {
-      done: filledFields === PERSONAL_FIELDS.length,
-      detail: `${filledFields}/${PERSONAL_FIELDS.length} fields filled`,
-    },
-    {
-      done: savedEduCount === EDUCATION_LEVELS.length,
-      detail: `${savedEduCount}/${EDUCATION_LEVELS.length} qualifications added`,
-    },
-    {
-      done: uploadedDocCount === DOCUMENT_TYPES.length,
-      detail: `${uploadedDocCount}/${DOCUMENT_TYPES.length} documents uploaded`,
-    },
-  ], [filledFields, savedEduCount, uploadedDocCount]);
-
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (apiError && !employee) {
-    return (
-      <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "100vh", gap: 2 }}>
-        <Alert severity="error" sx={{ maxWidth: 400 }}>{apiError}</Alert>
-        <Button variant="contained" onClick={fetchAll} sx={{ textTransform: "none" }}>Retry</Button>
-      </Box>
-    );
-  }
+  const role = user?.role || summary?.role || "EMPLOYEE";
+  const detailView = view === "personal" || view === "documents" ? view : null;
+  const availableWidgets = Array.isArray(summary?.widgets) && summary.widgets.length
+    ? summary.widgets.filter((widget) => widget === "stats" || widget === "weeklyHours")
+    : [];
+  const widgetList = availableWidgets.length ? availableWidgets : ["stats", "weeklyHours"];
+  const openView = (nextView) => setSearchParams({ view: nextView });
+  const closeView = () => setSearchParams({}, { replace: true });
 
   return (
     <div className="dash-page emp-page">
       <Sidebar activeKey="my-profile" onLogout={handleLogout} title="HRMS" user={user} navItems={EMPLOYEE_NAV_ITEMS} collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
       <div className={`dash-main ${collapsed ? "collapsed" : ""}`}>
-        <Navbar userName={displayName} userRole={user?.role || "EMPLOYEE"} user={user} onLogout={handleLogout} collapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
-        <div className="dash-content">
-          {/* Header */}
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5, mb: 3 }}>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800, color: "#171b2e", fontSize: { xs: 22, sm: 32 } }}>My Profile</Typography>
-              <Typography variant="body2" sx={{ color: "#6b7280", mt: 0.5 }}>Complete your personal and academic details</Typography>
-            </Box>
-            <Chip
-              icon={isProfileComplete ? <CheckCircle sx={{ fontSize: 16 }} /> : <RadioButtonUnchecked sx={{ fontSize: 16 }} />}
-              label={isProfileComplete ? "Profile Complete" : "Profile Pending"}
-              color={isProfileComplete ? "success" : "warning"}
-              variant="outlined"
-              sx={{ fontWeight: 600, fontSize: 13, px: 1 }}
-            />
-          </Box>
+        <Navbar userName={displayName} userRole={role} user={user} onLogout={handleLogout} collapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
+        <div className="dash-content emp-profile-content">
+          {apiError && employee && (
+            <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }}>{apiError}</Alert>
+          )}
 
-          {/* Green profile bar + 3-step progress — teeno tabs ke upar,
-              step conditionals ke BAHAR isliye har tab switch par
-              same bar rehta hai (na remount, na flicker). */}
-          <ProfileHeroBar
-            displayName={displayName}
-            email={user?.email}
-            initials={initials}
-            profilePhotoUrl={profilePhotoUrl}
-            photoUploading={photoUploading}
-            onPhotoSelect={handlePhotoUpload}
-            isProfileComplete={isProfileComplete}
-            employee={employee}
-            role={user?.role || "EMPLOYEE"}
-            steps={STEPS}
-            stepInfo={stepInfo}
-            activeStep={activeStep}
-            onStepChange={setActiveStep}
-          />
+          {apiError && !employee && !loading ? (
+            <div className="emp-home-error">
+              <span>{apiError}</span>
+              <Button variant="contained" onClick={fetchAll}>Retry</Button>
+            </div>
+          ) : (
+            <>
+              {!detailView && (
+                <div className="emp-profile-overview">
+                  <ProfileHeader
+                    loading={loading}
+                    displayName={displayName}
+                    initials={initials}
+                    profilePhotoUrl={profilePhotoUrl}
+                    photoUploading={photoUploading}
+                    onPhotoSelect={handlePhotoUpload}
+                    role={role}
+                    status={summary?.status}
+                    onBack={() => navigate("/my-dashboard")}
+                    onEdit={() => navigate("/profile/personal-info")}
+                  />
 
+                  {widgetList.map((widget) => {
+                    if (widget === "stats") {
+                      return (
+                        <React.Fragment key="stats">
+                          <div className="emp-profile-stats">
+                            <StatCard
+                              value={summary?.leave?.remaining ?? 0}
+                              label="Leave days left"
+                              tone="amber"
+                              loading={loading}
+                            />
+                            <StatCard
+                              value={summary?.presentThisMonth ?? 0}
+                              label="Present this month"
+                              tone="blue"
+                              loading={loading}
+                            />
+                            <StatCard
+                              value={`${Number(summary?.hoursThisWeek || 0).toFixed(1)}h`}
+                              label="Hours this week"
+                              tone="purple"
+                              loading={loading}
+                            />
+                          </div>
+                          <ManagerCard name={employee?.managerName} phone={employee?.managerPhone} />
+                        </React.Fragment>
+                      );
+                    }
+
+                    if (widget === "weeklyHours") {
+                      return (
+                        <WorkingHoursCard
+                          key="weeklyHours"
+                          days={weeklyHours}
+                          total={hoursThisWeek}
+                          loading={loading}
+                        />
+                      );
+                    }
+
+                    return null;
+                  })}
+
+                  <ProfileMenuList
+                    role={role}
+                    teamCount={summary?.teamCount}
+                    onPersonal={() => navigate("/profile/personal-info")}
+                    onDocuments={() => openView("documents")}
+                    onLogout={handleLogout}
+                  />
+                </div>
+              )}
+
+              {detailView && (
+                <div className="emp-profile-detail">
+                  <div className="emp-profile-detail-head">
+                    <button
+                      type="button"
+                      className="emp-profile-detail-back"
+                      onClick={closeView}
+                      aria-label="Back to profile"
+                    >
+                      <ArrowBack />
+                    </button>
+                    <div>
+                      <h1>{detailView === "personal" ? "Personal info" : "Documents"}</h1>
+                      <p>
+                        {detailView === "personal"
+                          ? "Contact, address and academic details"
+                          : "Marksheets and government ID"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {loading ? (
+                    <div className="emp-profile-detail-loading">
+                      <CircularProgress />
+                    </div>
+                  ) : (
+                    <div className="emp-profile-detail-stack">
           {/* Step 0: Personal Details */}
-          {activeStep === 0 && (
+          {detailView === "personal" && (
             <div className="emp-prof-split">
               <div>
                 <Card sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", height: "100%" }}>
                   <CardContent sx={{ p: 2.25 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.75, color: "#171b2e", display: "flex", alignItems: "center", gap: 1, fontSize: 18 }}>
-                      <BadgeOutlined sx={{ color: "#4f46e5", fontSize: 20 }} /> Account Info
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.75 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: "#171b2e", display: "flex", alignItems: "center", gap: 1, fontSize: 18 }}>
+                        <BadgeOutlined sx={{ color: "#4f46e5", fontSize: 20 }} /> Account Info
+                      </Typography>
+                      <Chip label="Read-only" size="small" variant="outlined" sx={{ fontSize: 11 }} />
+                    </Box>
                     <div className="emp-prof-info-grid">
                       {[
                         { icon: <PersonOutlined />, label: "Full Name", value: displayName },
-                        { icon: <EmailOutlined />, label: "Email", value: user?.email },
-                        { icon: <BadgeOutlined />, label: "Role", value: user?.role },
+                        { icon: <EmailOutlined />, label: "Email", value: employee?.email || user?.email },
+                        { icon: <BadgeOutlined />, label: "Role", value: role },
                         { icon: <BadgeOutlined />, label: "Employee Code", value: employee?.employeeCode || "—" },
                         { icon: <BusinessOutlined />, label: "Department", value: employee?.departmentName || "—" },
                         { icon: <WorkOutlineOutlined />, label: "Designation", value: employee?.designationTitle || "—" },
@@ -524,7 +638,7 @@ function EmployeeProfile() {
               </div>
 
               <div>
-                <Card sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", height: "100%" }}>
+                <Card id="emp-personal-details" sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", height: "100%" }}>
                   <CardContent sx={{ p: 2.25 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, gap: 1, flexWrap: "wrap" }}>
                       <Box sx={{ minWidth: 0 }}>
@@ -549,14 +663,17 @@ function EmployeeProfile() {
                         const display = field.key === "dob" && raw
                           ? new Date(raw).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
                           : raw;
+                        const isEditing = inlineEdit === field.key;
                         return (
                           <Box
                             key={field.key}
                             className={`emp-prof-dense-row${filled ? "" : " is-empty"}`}
                             sx={{
-                              display: "flex", alignItems: "center", gap: 1.5, py: 0.9, px: 1,
+                              display: "flex", alignItems: "flex-start", gap: 1.5, py: 0.9, px: 1,
                               borderBottom: idx < arr.length - 1 ? "1px solid #f3f4f6" : "none",
                               borderRadius: 1.5,
+                              transition: "background 0.2s",
+                              "&:hover": { bgcolor: "#f9fafb" },
                             }}
                           >
                             <Box className="emp-prof-dense-icon" sx={{
@@ -564,22 +681,76 @@ function EmployeeProfile() {
                               bgcolor: filled ? "#ede9fe" : "#fee2e2",
                               display: "flex", alignItems: "center", justifyContent: "center",
                               flexShrink: 0,
+                              mt: 0.2,
                             }}>
                               {React.cloneElement(fieldDisplayIcon(field.key, raw), { sx: { fontSize: 18, color: filled ? "#7c3aed" : "#dc2626" } })}
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="caption" sx={{ color: "#9ca3af", fontWeight: 500, textTransform: "uppercase", fontSize: 10, letterSpacing: 0.5 }}>
-                                {field.label}{field.required && " *"}
-                              </Typography>
-                              <Typography variant="body2" sx={{
-                                fontWeight: 600, color: filled ? "#171b2e" : "#dc2626",
-                                fontStyle: filled ? "normal" : "italic",
-                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                              }}>
-                                {display || "Not provided"}
-                              </Typography>
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                                <Typography variant="caption" sx={{ color: "#9ca3af", fontWeight: 500, textTransform: "uppercase", fontSize: 10, letterSpacing: 0.5 }}>
+                                  {field.label}{field.required && " *"}
+                                </Typography>
+                                {!isEditing && (
+                                  <Tooltip title="Edit inline">
+                                    <IconButton size="small" onClick={() => startInlineEdit(field)} sx={{ p: 0.25 }}>
+                                      <EditOutlined sx={{ fontSize: 16, color: "#6b7280" }} />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Box>
+                              {isEditing ? (
+                                <Box sx={{ mt: 0.5 }}>
+                                  {field.type === "select" ? (
+                                    <FormControl size="small" fullWidth error={!!inlineError}>
+                                      <Select
+                                        value={inlineValue}
+                                        onChange={(e) => { setInlineValue(e.target.value); setInlineError(validateField(field.key, e.target.value)); }}
+                                        onBlur={() => setInlineError(validateField(field.key, inlineValue))}
+                                        displayEmpty
+                                      >
+                                        <MenuItem value="" disabled>Select {field.label}</MenuItem>
+                                        {field.options?.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                                      </Select>
+                                      {inlineError && <Typography variant="caption" color="error">{inlineError}</Typography>}
+                                    </FormControl>
+                                  ) : (
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      type={field.type || "text"}
+                                      value={inlineValue}
+                                      onChange={(e) => { setInlineValue(e.target.value); setInlineError(validateField(field.key, e.target.value)); }}
+                                      onBlur={() => setInlineError(validateField(field.key, inlineValue))}
+                                      error={!!inlineError}
+                                      helperText={inlineError || " "}
+                                      multiline={field.type === "multiline"}
+                                      rows={field.type === "multiline" ? 2 : 1}
+                                      InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
+                                      inputProps={field.type === "tel" ? { inputMode: "tel" } : undefined}
+                                    />
+                                  )}
+                                  <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+                                    <Button size="small" variant="contained" disabled={inlineSaving}
+                                      onClick={() => saveInlineField(field.key)}
+                                      sx={{ textTransform: "none", bgcolor: "#4f46e5" }}>
+                                      {inlineSaving ? <CircularProgress size={14} color="inherit" /> : "Save"}
+                                    </Button>
+                                    <Button size="small" onClick={cancelInlineEdit} disabled={inlineSaving} sx={{ textTransform: "none" }}>
+                                      Cancel
+                                    </Button>
+                                  </Box>
+                                </Box>
+                              ) : (
+                                <Typography variant="body2" sx={{
+                                  fontWeight: 600, color: filled ? "#171b2e" : "#dc2626",
+                                  fontStyle: filled ? "normal" : "italic",
+                                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                }}>
+                                  {display || "Not provided"}
+                                </Typography>
+                              )}
                             </Box>
-                            {filled && <CheckCircle sx={{ color: "#10b981", fontSize: 18, flexShrink: 0 }} />}
+                            {!isEditing && filled && <CheckCircle sx={{ color: "#10b981", fontSize: 18, flexShrink: 0, mt: 0.2 }} />}
                           </Box>
                         );
                       })}
@@ -591,7 +762,7 @@ function EmployeeProfile() {
           )}
 
           {/* Step 1: Academic Details */}
-          {activeStep === 1 && (
+          {detailView === "personal" && (
             <>
               {/* Profile Completion bar — banner se yahan shift kiya gaya hai */}
               <Card sx={{ mb: 2, borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
@@ -621,7 +792,7 @@ function EmployeeProfile() {
                       inline <span> render hota hai, jo text ko wrap nahi karne deta */}
                   <Typography variant="caption" component="p" sx={{ color: "#9ca3af", mt: 1, lineHeight: 1.5 }}>
                     {filledFields} of {PERSONAL_FIELDS.length} personal details filled
-                    {isProfileComplete ? " — your profile is complete." : "."}
+                    {isProfileComplete ? " — your profile is complete." : ` — ${PERSONAL_FIELDS.length - filledFields} more to complete.`}
                   </Typography>
                   {!isProfileComplete && (
                     <Box sx={{ display: "flex", gap: 0.75, mt: 1, flexWrap: "wrap" }}>
@@ -631,7 +802,7 @@ function EmployeeProfile() {
                           label={f.label}
                           size="small"
                           variant="outlined"
-                          onClick={() => setActiveStep(0)}
+                          onClick={() => document.getElementById("emp-personal-details")?.scrollIntoView({ behavior: "smooth", block: "start" })}
                           title={`Fill ${f.label}`}
                           sx={{
                             height: 22,
@@ -715,7 +886,7 @@ function EmployeeProfile() {
           )}
 
           {/* Step 2: Documents */}
-          {activeStep === 2 && (
+          {detailView === "documents" && (
             <div className="emp-prof-grid-2">
               {DOCUMENT_TYPES.map(({ type, label, icon }) => {
                 const existing = documents.find((d) => d.documentType === type);
@@ -783,8 +954,16 @@ function EmployeeProfile() {
               })}
             </div>
           )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
+
+      <BottomNav />
 
       <Snackbar open={success} autoHideDuration={4000} onClose={() => setSuccess(false)} anchorOrigin={{ vertical: "top", horizontal: "center" }}>
         <Alert onClose={() => setSuccess(false)} severity="success" sx={{ width: "100%", borderRadius: 2 }}>

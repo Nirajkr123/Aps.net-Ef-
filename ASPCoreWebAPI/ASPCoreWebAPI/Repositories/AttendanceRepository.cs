@@ -19,17 +19,38 @@ namespace ASPCoreWebAPI.Repositories
                    a.""working_hours"" AS ""WorkingHours"", a.""status""::text AS ""Status"",
                    a.""is_late"" AS ""IsLate"", a.""location"" AS ""Location"",
                    a.""ip_address"" AS ""IpAddress"",
+                   a.""check_in_latitude"" AS ""CheckInLatitude"",
+                   a.""check_in_longitude"" AS ""CheckInLongitude"",
+                   a.""check_in_accuracy"" AS ""CheckInAccuracy"",
+                   a.""check_out_latitude"" AS ""CheckOutLatitude"",
+                   a.""check_out_longitude"" AS ""CheckOutLongitude"",
+                   a.""check_out_accuracy"" AS ""CheckOutAccuracy"",
+                   a.""check_in_location_id"" AS ""CheckInLocationId"",
+                   a.""check_out_location_id"" AS ""CheckOutLocationId"",
+                   a.""check_in_distance_meters"" AS ""CheckInDistanceMeters"",
+                   a.""check_out_distance_meters"" AS ""CheckOutDistanceMeters"",
                    a.""created_at"" AS ""CreatedAt"", a.""updated_at"" AS ""UpdatedAt"",
+                   COALESCE(wl_in.""Name"", a.""check_in_location_name"") AS ""CheckInLocationName"",
+                   COALESCE(wl_out.""Name"", a.""check_out_location_name"") AS ""CheckOutLocationName"",
                    COALESCE(NULLIF(BTRIM(u.""FirstName"" || ' ' || u.""LastName""), ''), 'Unknown') AS ""EmployeeName"",
                    COALESCE(e.""EmployeeCode"", '') AS ""EmployeeCode"",
                    COALESCE(u.""Email"", '') AS ""EmployeeEmail"",
                    COALESCE(dep.""Name"", '') AS ""Department""
-            FROM ""attendance"" a
-            LEFT JOIN ""Employees"" e ON a.""employee_id"" = e.""Id""
-            LEFT JOIN ""Users"" u ON e.""UserId"" = u.""Id""
-            LEFT JOIN ""Departments"" dep ON e.""DepartmentId"" = dep.""Id""";
+             FROM ""attendance"" a
+             LEFT JOIN ""Employees"" e ON a.""employee_id"" = e.""Id""
+             LEFT JOIN ""Users"" u ON e.""UserId"" = u.""Id""
+             LEFT JOIN ""Departments"" dep ON e.""DepartmentId"" = dep.""Id""
+             LEFT JOIN ""WorkLocations"" wl_in ON a.""check_in_location_id"" = wl_in.""Id""
+             LEFT JOIN ""WorkLocations"" wl_out ON a.""check_out_location_id"" = wl_out.""Id""";
 
-        public async Task<Attendance> CheckInAsync(int employeeId, string? location, string? ip)
+        public async Task<Attendance> CheckInAsync(
+            int employeeId,
+            double latitude,
+            double longitude,
+            double accuracy,
+            int locationId,
+            double distanceMeters,
+            string? ip)
         {
             using var connection = await _dataSource.OpenConnectionAsync();
             var now = DateTime.UtcNow;
@@ -47,23 +68,37 @@ namespace ASPCoreWebAPI.Repositories
             var isLate = now.TimeOfDay > shiftStart.Add(TimeSpan.FromMinutes(graceMinutes));
 
             var id = await connection.ExecuteScalarAsync<int>(
-                @"INSERT INTO ""attendance"" (""employee_id"", ""attendance_date"", ""check_in_time"", ""status"", ""is_late"", ""location"", ""ip_address"")
-                  VALUES (@EmployeeId, CURRENT_DATE, CURRENT_TIMESTAMP, @Status::attendance_status, @IsLate, @Location, @Ip)
-                  RETURNING ""id""",
+                @"INSERT INTO ""attendance""
+                       (""employee_id"", ""attendance_date"", ""check_in_time"", ""status"", ""is_late"",
+                        ""ip_address"", ""check_in_latitude"", ""check_in_longitude"", ""check_in_accuracy"",
+                        ""check_in_location_id"", ""check_in_distance_meters"")
+                   VALUES (@EmployeeId, CURRENT_DATE, CURRENT_TIMESTAMP, @Status::attendance_status, @IsLate,
+                           @Ip, @Latitude, @Longitude, @Accuracy, @LocationId, @DistanceMeters)
+                   RETURNING ""id""",
                 new
                 {
                     EmployeeId = employeeId,
                     Status = isLate ? "Late" : "Present",
                     IsLate = isLate,
-                    Location = location,
-                    Ip = ip
+                    Ip = ip,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    Accuracy = accuracy,
+                    LocationId = locationId,
+                    DistanceMeters = distanceMeters
                 });
 
             return (await connection.QuerySingleOrDefaultAsync<Attendance>(
                 $@"{BaseSelect} WHERE a.""id"" = @Id", new { Id = id }))!;
         }
 
-        public async Task<Attendance> CheckOutAsync(int employeeId)
+        public async Task<Attendance> CheckOutAsync(
+            int employeeId,
+            double latitude,
+            double longitude,
+            double accuracy,
+            int locationId,
+            double distanceMeters)
         {
             using var connection = await _dataSource.OpenConnectionAsync();
 
@@ -74,14 +109,13 @@ namespace ASPCoreWebAPI.Repositories
                          ""is_late"" AS ""IsLate"", ""location"" AS ""Location"", ""ip_address"" AS ""IpAddress"",
                          ""created_at"" AS ""CreatedAt"", ""updated_at"" AS ""UpdatedAt""
                    FROM ""attendance""
-                   WHERE ""employee_id"" = @EmployeeId AND ""attendance_date"" = CURRENT_DATE",
+                   WHERE ""employee_id"" = @EmployeeId AND ""check_out_time"" IS NULL
+                   ORDER BY ""attendance_date"" DESC, ""id"" DESC
+                   LIMIT 1",
                 new { EmployeeId = employeeId });
 
             if (existing == null)
-                throw new InvalidOperationException("No check-in record found for today.");
-
-            if (existing.CheckOutTime.HasValue)
-                throw new InvalidOperationException("Already checked out today.");
+                throw new InvalidOperationException("No open attendance record found. Please check in first.");
 
             await connection.ExecuteAsync(
                 @"UPDATE ""attendance""
@@ -91,9 +125,22 @@ namespace ASPCoreWebAPI.Repositories
                           WHEN EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ""check_in_time"")) / 3600.0 >= 8 THEN 'Present'::attendance_status
                           WHEN EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ""check_in_time"")) / 3600.0 >= 4 THEN 'Half-day'::attendance_status
                           ELSE 'Absent'::attendance_status
-                      END
+                      END,
+                      ""check_out_latitude"" = @Latitude,
+                      ""check_out_longitude"" = @Longitude,
+                      ""check_out_accuracy"" = @Accuracy,
+                      ""check_out_location_id"" = @LocationId,
+                      ""check_out_distance_meters"" = @DistanceMeters
                   WHERE ""id"" = @Id",
-                new { Id = existing.Id });
+                new
+                {
+                    Id = existing.Id,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    Accuracy = accuracy,
+                    LocationId = locationId,
+                    DistanceMeters = distanceMeters
+                });
 
             return (await connection.QuerySingleOrDefaultAsync<Attendance>(
                 $@"{BaseSelect} WHERE a.""id"" = @Id", new { Id = existing.Id }))!;

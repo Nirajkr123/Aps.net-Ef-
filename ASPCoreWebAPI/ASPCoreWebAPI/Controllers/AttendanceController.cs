@@ -16,6 +16,7 @@ namespace ASPCoreWebAPI.Controllers
         private readonly INotificationRepository _notificationRepo;
         private readonly INotificationService _notificationService;
         private readonly ILeaveService _leaveService;
+        private readonly IWorkLocationRepository _workLocationRepo;
         private readonly ILogger<AttendanceController> _logger;
 
         public AttendanceController(
@@ -23,12 +24,14 @@ namespace ASPCoreWebAPI.Controllers
             INotificationRepository notificationRepo,
             INotificationService notificationService,
             ILeaveService leaveService,
+            IWorkLocationRepository workLocationRepo,
             ILogger<AttendanceController> logger)
         {
             _repo = repo;
             _notificationRepo = notificationRepo;
             _notificationService = notificationService;
             _leaveService = leaveService;
+            _workLocationRepo = workLocationRepo;
             _logger = logger;
         }
 
@@ -41,11 +44,19 @@ namespace ASPCoreWebAPI.Controllers
             int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
         [HttpPost("checkin")]
-        public async Task<IActionResult> CheckIn()
+        public async Task<IActionResult> CheckIn([FromBody] LocationDto? location)
         {
             var employeeId = CurrentEmployeeId;
             if (employeeId is null)
                 return BadRequest(new { message = "No employee profile is linked to your account." });
+
+            var locationError = ValidateLocation(location);
+            if (locationError is not null)
+                return BadRequest(new { message = locationError });
+
+            var (workLocation, distanceMeters, geofenceError) = await ResolveWorkLocationAsync(location!);
+            if (geofenceError is not null)
+                return BadRequest(new { message = geofenceError });
 
             /* Approved leave ke din check-in band.
 
@@ -65,7 +76,15 @@ namespace ASPCoreWebAPI.Controllers
             try
             {
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-                var result = await _repo.CheckInAsync(employeeId.Value, location: null, ip: ip);
+
+                var result = await _repo.CheckInAsync(
+                    employeeId.Value,
+                    location!.Latitude!.Value,
+                    location.Longitude.Value,
+                    location.Accuracy!.Value,
+                    workLocation!.Id,
+                    distanceMeters,
+                    ip);
                 await NotifyAttendanceAsync(result, isCheckIn: true);
                 return Ok(result);
             }
@@ -76,15 +95,29 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         [HttpPost("checkout")]
-        public async Task<IActionResult> CheckOut()
+        public async Task<IActionResult> CheckOut([FromBody] LocationDto? location)
         {
             var employeeId = CurrentEmployeeId;
             if (employeeId is null)
                 return BadRequest(new { message = "No employee profile is linked to your account." });
 
+            var locationError = ValidateLocation(location);
+            if (locationError is not null)
+                return BadRequest(new { message = locationError });
+
+            var (workLocation, distanceMeters, geofenceError) = await ResolveWorkLocationAsync(location!);
+            if (geofenceError is not null)
+                return BadRequest(new { message = geofenceError });
+
             try
             {
-                var result = await _repo.CheckOutAsync(employeeId.Value);
+                var result = await _repo.CheckOutAsync(
+                    employeeId.Value,
+                    location!.Latitude!.Value,
+                    location.Longitude.Value,
+                    location.Accuracy!.Value,
+                    workLocation!.Id,
+                    distanceMeters);
                 await NotifyAttendanceAsync(result, isCheckIn: false);
                 return Ok(result);
             }
@@ -92,6 +125,76 @@ namespace ASPCoreWebAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        private static string? ValidateLocation(LocationDto? location)
+        {
+            if (location?.Latitude is null || location.Longitude is null)
+                return "Location is required. Please enable location access and try again.";
+
+            if (location.Latitude < -90 || location.Latitude > 90)
+                return "Location latitude is invalid.";
+
+            if (location.Longitude < -180 || location.Longitude > 180)
+                return "Location longitude is invalid.";
+
+            if (location.Accuracy is null || location.Accuracy < 0)
+                return "Location accuracy is invalid.";
+
+            return null;
+        }
+
+        private async Task<(WorkLocation? Location, double DistanceMeters, string? Error)> ResolveWorkLocationAsync(
+            LocationDto location)
+        {
+            var locations = await _workLocationRepo.GetActiveAsync();
+
+            if (locations.Count == 0)
+                return (null, 0, "No active work location is configured. Please contact your administrator.");
+
+            WorkLocation? nearest = null;
+            var nearestDistance = double.MaxValue;
+
+            foreach (var candidate in locations)
+            {
+                var distance = HaversineMeters(
+                    candidate.Latitude,
+                    candidate.Longitude,
+                    location.Latitude!.Value,
+                    location.Longitude!.Value);
+
+                if (distance <= candidate.RadiusMeters && distance < nearestDistance)
+                {
+                    nearest = candidate;
+                    nearestDistance = distance;
+                }
+            }
+
+            return nearest is null
+                ? (null, 0, "You are not within an allowed location range.")
+                : (nearest, nearestDistance, null);
+        }
+
+        private static double HaversineMeters(
+            double latitude1,
+            double longitude1,
+            double latitude2,
+            double longitude2)
+        {
+            const double earthRadiusMeters = 6_371_000;
+
+            static double ToRadians(double degrees) => degrees * Math.PI / 180.0;
+
+            var lat1 = ToRadians(latitude1);
+            var lat2 = ToRadians(latitude2);
+            var deltaLat = ToRadians(latitude2 - latitude1);
+            var deltaLon = ToRadians(longitude2 - longitude1);
+
+            var a = Math.Sin(deltaLat / 2) * Math.Sin(deltaLat / 2)
+                    + Math.Cos(lat1) * Math.Cos(lat2)
+                    * Math.Sin(deltaLon / 2) * Math.Sin(deltaLon / 2);
+
+            return 2 * earthRadiusMeters * Math.Asin(Math.Sqrt(Math.Min(1, a)));
         }
 
         private async Task NotifyAttendanceAsync(Attendance record, bool isCheckIn)

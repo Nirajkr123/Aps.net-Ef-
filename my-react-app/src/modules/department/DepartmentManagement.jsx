@@ -184,6 +184,8 @@ function DepartmentManagement() {
     }
   };
 
+  const pagedDepts = filteredDepts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   return (
     <div className="dash-page">
       <Sidebar activeKey="departments" onLogout={handleLogout} title="HRMS" user={user} collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
@@ -195,7 +197,7 @@ function DepartmentManagement() {
               <h1 className="dash-title">Departments</h1>
               <p className="dash-subtitle">Manage organizational departments</p>
             </div>
-            <Box sx={{ display: "flex", gap: 1 }}>
+            <Box className="dept-actions" sx={{ display: "flex", gap: 1 }}>
               <Button variant="outlined" startIcon={<Download />} onClick={exportCSV}
                 sx={{ textTransform: "none", borderColor: "#d1d5db", color: "#374151" }}>
                 Export CSV
@@ -284,7 +286,7 @@ function DepartmentManagement() {
           )}
 
           {/* Filters */}
-          <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+          <Box className="dept-filters" sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
             <TextField placeholder="Search departments..." size="small" value={search}
               onChange={(e) => setSearch(e.target.value)} sx={{ minWidth: 280 }}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }} />
@@ -306,7 +308,7 @@ function DepartmentManagement() {
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <TableContainer component={Paper} className="dept-table" sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "#f9fafb" }}>
@@ -320,7 +322,7 @@ function DepartmentManagement() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredDepts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((dept, idx) => (
+                  {pagedDepts.map((dept, idx) => (
                     <TableRow key={dept.id} hover sx={{ "&:hover": { backgroundColor: "#f9fafb" } }}>
                       <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{dept.name}</TableCell>
@@ -403,6 +405,70 @@ function DepartmentManagement() {
                   )}
                 </TableBody>
               </Table>
+            </TableContainer>
+          )}
+
+          {!loading && (
+            <>
+              <div className="dept-cards">
+                {pagedDepts.map((dept) => (
+                  <div key={dept.id} className="dept-card">
+                    <div className="dept-card-head">
+                      <div className="dept-card-title-wrap">
+                        <h3 className="dept-card-title">{dept.name}</h3>
+                        <p className="dept-card-desc">{dept.description || "No description"}</p>
+                      </div>
+                      <Chip
+                        label={dept.status}
+                        size="small"
+                        color={dept.status === "Active" ? "success" : "default"}
+                        variant="outlined"
+                      />
+                    </div>
+
+                    <div className="dept-card-stats">
+                      <div>
+                        <strong>{dept.employeeCount}</strong>
+                        <span>Employees</span>
+                      </div>
+                      <div>
+                        <strong>{dept.designationCount}</strong>
+                        <span>Designations</span>
+                      </div>
+                    </div>
+
+                    <div className="dept-card-actions">
+                      <Tooltip title={dept.status === "Active" ? "Deactivate" : "Activate"}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleToggleStatus(dept)}
+                          color={dept.status === "Active" ? "success" : "default"}
+                        >
+                          {dept.status === "Active" ? <ToggleOn /> : <ToggleOff />}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => openEdit(dept)}>
+                          <EditOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" color="error" onClick={() => handleDelete(dept.id)}>
+                          <DeleteOutlineOutlined fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </div>
+                  </div>
+                ))}
+                {filteredDepts.length === 0 && (
+                  <div className="dept-cards-empty">
+                    {search || filterStatus
+                      ? "No departments match your filters"
+                      : "No departments found. Create your first department!"}
+                  </div>
+                )}
+              </div>
+
               <TablePagination
                 component="div"
                 count={filteredDepts.length}
@@ -412,7 +478,7 @@ function DepartmentManagement() {
                 onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
                 rowsPerPageOptions={[5, 10, 25, 50]}
               />
-            </TableContainer>
+            </>
           )}
         </div>
       </div>

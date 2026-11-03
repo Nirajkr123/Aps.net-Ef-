@@ -1,27 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
+import { Alert, Button } from "@mui/material";
 import {
-    Box, Grid, CircularProgress,
-    Chip, Button, Alert,
-} from "@mui/material";
-import {
-    PersonOutlined, EventOutlined, PaymentsOutlined, AccessTimeOutlined,
-    CheckCircle, RadioButtonUnchecked, AssignmentOutlined, ArrowForward,
+    PersonOutlined, EventOutlined, AccessTimeOutlined, AssignmentOutlined, PaymentsOutlined,
 } from "@mui/icons-material";
 
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
-import employeeServ from "../services/employeeService";
+import dashboardServ from "../services/dashboardService";
 import attendanceServ from "../services/attendanceService";
-import CheckInOut from "../components/CheckInOut";
-import LeaveBalanceCard from "./components/LeaveBalanceCard";
-import AttendanceSummaryCard from "./components/AttendanceSummaryCard";
-import WorkingHoursCard from "./components/WorkingHoursCard";
-import AnnouncementsList from "./components/AnnouncementsList";
-import HolidaysWidget from "./components/HolidaysWidget";
-import ActivityTimeline from "./components/ActivityTimeline";
+import { getLocation } from "../utils/geolocation";
+import useIsMobile from "../hooks/useIsMobile";
+
+import HeaderCard from "./components/dashboard/HeaderCard";
+import StatCard from "./components/dashboard/StatCard";
+import LeaveModal from "./components/dashboard/LeaveModal";
+import TodayList from "./components/dashboard/TodayList";
+import BottomNav from "./components/dashboard/BottomNav";
+import WorkingHoursChart from "./components/dashboard/WorkingHoursChart";
+import DashboardFab from "./components/dashboard/DashboardFab";
 
 import "../Admin/AdminDashboard.css";
 import "./EmployeeDashboard.css";
@@ -34,16 +33,44 @@ const EMPLOYEE_NAV_ITEMS = [
     { key: "my-payslips", label: "My Payslips", icon: PaymentsOutlined },
 ];
 
+const DEFAULT_WIDGETS = ["headerCard", "stats", "today", "weeklyHours"];
+
+const pad = (value) => String(value).padStart(2, "0");
+
+const formatDuration = (ms) => {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+};
+
 function EmployeeDashboard() {
     const navigate = useNavigate();
+    const isMobile = useIsMobile();
+
+    const [user, setUser] = useState(null);
+    const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [user, setUser] = useState(null);
-    const [employee, setEmployee] = useState(null);
-    const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [elapsed, setElapsed] = useState("00:00:00");
+    const [actionLoading, setActionLoading] = useState(false);
+    const [actionStage, setActionStage] = useState("");
+    const [leaveOpen, setLeaveOpen] = useState(false);
 
-    const [todayAttendance, setTodayAttendance] = useState(null);
+    const loadSummary = useCallback(async (showLoader = false) => {
+        if (showLoader) setLoading(true);
+        setError("");
+        try {
+            const { data } = await dashboardServ.getSummary();
+            setSummary(data);
+        } catch (e) {
+            setError(e.response?.data?.message || e.message || "Dashboard data load nahi ho paaya. Please refresh karke try karein.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         try {
@@ -52,29 +79,26 @@ function EmployeeDashboard() {
         } catch {
             setUser(null);
         }
-        fetchAllData();
-    }, []);
+        loadSummary(true);
+    }, [loadSummary]);
 
-    const fetchAllData = async () => {
-        try {
-            const [empRes, todayRes] = await Promise.allSettled([
-                employeeServ.getMe(),
-                attendanceServ.getToday(),
-            ]);
-
-            if (empRes.status === "fulfilled") {
-                setEmployee(empRes.value.data);
-                setProfilePhotoUrl(empRes.value.data?.profilePhotoUrl || null);
-            }
-            if (todayRes.status === "fulfilled") {
-                setTodayAttendance(todayRes.value.data);
-            }
-        } catch (e) {
-            setError("Failed to load dashboard data");
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        if (!summary?.checkInTime) {
+            setElapsed("00:00:00");
+            return undefined;
         }
-    };
+
+        const start = new Date(summary.checkInTime).getTime();
+        const end = summary.checkOutTime ? new Date(summary.checkOutTime).getTime() : null;
+
+        const tick = () => setElapsed(formatDuration((end ?? Date.now()) - start));
+        tick();
+
+        if (end) return undefined;
+
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [summary?.checkInTime, summary?.checkOutTime]);
 
     const handleLogout = async () => {
         try {
@@ -85,49 +109,85 @@ function EmployeeDashboard() {
         navigate("/login");
     };
 
-    const handleNavKey = (e, path) => {
-        if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            navigate(path);
+    const handlePunch = async () => {
+        const mode = summary?.checkInTime && !summary?.checkOutTime ? "out" : "in";
+        setError("");
+        setActionLoading(true);
+        setActionStage("locating");
+        try {
+            const location = await getLocation();
+            setActionStage("saving");
+            if (mode === "in") {
+                await attendanceServ.checkIn(location);
+            } else {
+                await attendanceServ.checkOut(location);
+            }
+            await loadSummary();
+        } catch (e) {
+            setError(e.response?.data?.message || e.message || `${mode === "in" ? "Check-in" : "Check-out"} failed`);
+        } finally {
+            setActionLoading(false);
+            setActionStage("");
         }
     };
 
-    if (loading) {
-        return (
-            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-                <CircularProgress />
-            </Box>
-        );
-    }
+    const displayName = useMemo(() => {
+        if (summary?.employee) {
+            return [summary.employee.firstName, summary.employee.lastName].filter(Boolean).join(" ") || "Employee";
+        }
+        if (user) return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee";
+        return "Employee";
+    }, [summary?.employee, user]);
 
-    const displayName = user
-        ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee"
-        : "Employee";
+    const leaveRemaining = summary?.leave?.remaining ?? 0;
+    const presentThisMonth = summary?.presentThisMonth ?? 0;
+    const hoursThisWeek = summary?.hoursThisWeek ?? 0;
+    const todayItems = summary?.todayItems || [];
+    const weeklyHours = summary?.weeklyHours || [];
+    const widgets = summary?.widgets?.length ? summary.widgets : DEFAULT_WIDGETS;
 
-    const isProfileComplete = employee?.profileComplete;
+    const widgetRenderers = {
+        headerCard: () => (
+            <HeaderCard
+                employee={summary?.employee}
+                status={summary?.status}
+                checkInTime={summary?.checkInTime}
+                checkOutTime={summary?.checkOutTime}
+                locationName={summary?.locationName}
+                elapsed={elapsed}
+                isLate={summary?.isLate}
+                loading={loading}
+                actionLoading={actionLoading}
+                actionStage={actionStage}
+                onPunch={handlePunch}
+            />
+        ),
+        stats: () => (
+            <div className="emp-home-stats">
+                <StatCard
+                    value={leaveRemaining}
+                    label="Leave days left"
+                    tone="amber"
+                    loading={loading}
+                    onClick={() => setLeaveOpen(true)}
+                    ariaLabel={`Leave days left: ${leaveRemaining}. View leave balance.`}
+                />
+                <StatCard value={presentThisMonth} label="Present this month" tone="blue" loading={loading} />
+                <StatCard value={`${Number(hoursThisWeek).toFixed(1)}h`} label="Hours this week" tone="purple" loading={loading} />
+            </div>
+        ),
+        today: () => (
+            <TodayList items={todayItems} loading={loading} onViewAll={() => navigate("/my-attendance")} />
+        ),
+        weeklyHours: () => (
+            <WorkingHoursChart days={weeklyHours} total={hoursThisWeek} loading={loading} />
+        ),
+    };
 
-    const now = new Date();
-    const greeting = now.getHours() < 12
-        ? "Good Morning"
-        : now.getHours() < 17
-            ? "Good Afternoon"
-            : "Good Evening";
-    const todayDateStr = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-    const checkedIn = !!todayAttendance?.checkInTime;
-    const checkedInTime = checkedIn
-        ? new Date(todayAttendance.checkInTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
-        : null;
-
-    const QUICK_ACTIONS = [
-        { label: "Apply Leave", hint: "Casual, Sick & more", icon: EventOutlined, color: "#d97706", bg: "#fffbeb", link: "/my-leaves" },
-        { label: "Check Attendance", hint: "Logs & monthly view", icon: AccessTimeOutlined, color: "#6366f1", bg: "#eef2ff", link: "/my-attendance" },
-        { label: "My Payslips", hint: "Download payslips", icon: PaymentsOutlined, color: "#059669", bg: "#ecfdf5", link: "/my-payslips" },
-        { label: "My Profile", hint: "Edit your details", icon: PersonOutlined, color: "#8b5cf6", bg: "#f5f3ff", link: "/my-profile" },
-    ];
+    const showErrorOnly = !summary && !!error && !loading;
 
     return (
-
-        <div className="dash-page emp-dashboard">
+        <div className="dash-page emp-dashboard emp-home-page">
             <Sidebar
                 activeKey="my-dashboard"
                 onLogout={handleLogout}
@@ -136,9 +196,8 @@ function EmployeeDashboard() {
                 navItems={EMPLOYEE_NAV_ITEMS}
                 collapsed={sidebarCollapsed}
                 onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                profilePhotoUrl={profilePhotoUrl}
+                profilePhotoUrl={summary?.employee?.profilePhotoUrl || null}
             />
-
 
             <div className={`dash-main ${sidebarCollapsed ? "collapsed" : ""}`}>
                 <Navbar
@@ -148,122 +207,54 @@ function EmployeeDashboard() {
                     onLogout={handleLogout}
                     collapsed={sidebarCollapsed}
                     onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    profilePhotoUrl={profilePhotoUrl}
+                    profilePhotoUrl={summary?.employee?.profilePhotoUrl || null}
                 />
 
-                <div className="dash-content">
-                    {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
+                <div className="dash-content emp-home-content">
+                    {error && summary && <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }}>{error}</Alert>}
 
-                    {/* Hero */}
-                    <div className="emp-gradient-header emp-dash-hero">
-                        <div className="emp-hero-main">
-                            <p className="emp-hero-kicker">{greeting} 👋</p>
-                            <h1 className="dash-title">Welcome back!</h1>
-                            <p className="dash-subtitle">{todayDateStr} · Here's what's happening today.</p>
+                    {showErrorOnly ? (
+                        <div className="emp-home-error">
+                            <span>{error}</span>
+                            <Button variant="contained" onClick={() => loadSummary(true)}>Retry</Button>
                         </div>
-                        <div className="emp-hero-side">
-                            <div
-                                className={`emp-duty-pill ${checkedIn ? "on-duty" : "off-duty"}`}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => navigate("/my-attendance")}
-                                onKeyDown={(e) => handleNavKey(e, "/my-attendance")}
-                                aria-label={checkedIn ? `On duty, checked in at ${checkedInTime}. View attendance.` : "Not checked in yet. View attendance."}
-                            >
-                                <span className="emp-duty-dot" />
-                                <span>{checkedIn ? `On duty · ${checkedInTime}` : "Not checked in yet"}</span>
-                                <ArrowForward className="emp-duty-arrow" sx={{ fontSize: 15 }} />
-                            </div>
-                            <div className="emp-header-chips">
-                                <Chip
-                                    icon={isProfileComplete ? <CheckCircle sx={{ fontSize: 16 }} /> : <RadioButtonUnchecked sx={{ fontSize: 16 }} />}
-                                    label={isProfileComplete ? "Profile Complete" : "Profile Pending"}
-                                    color={isProfileComplete ? "success" : "warning"}
-                                    variant="outlined"
-                                    sx={{ fontWeight: 600 }}
-                                />
-                            </div>
+                    ) : (
+                        <div className="emp-home-widgets">
+                            {widgets.map((widget) => {
+                                const render = widgetRenderers[widget];
+                                if (!render) return null;
+                                return (
+                                    <div className={`emp-home-widget is-${widget}`} key={widget}>
+                                        {render()}
+                                    </div>
+                                );
+                            })}
                         </div>
-                    </div>
-
-                    {!isProfileComplete && (
-                        <Alert
-                            severity="warning"
-                            sx={{ mb: 3, borderRadius: 2 }}
-                            action={
-                                <Button color="inherit" size="small" onClick={() => navigate("/my-profile")}
-                                    sx={{ textTransform: "none", fontWeight: 600 }}>
-                                    Complete Now
-                                </Button>
-                            }
-                        >
-                            Your profile is incomplete. Please fill in your Phone, Address, and Emergency Contact.
-                        </Alert>
                     )}
-
-                    {/* Quick Actions */}
-                    <div className="emp-qa-grid">
-                        {QUICK_ACTIONS.map((q) => {
-                            const Icon = q.icon;
-                            return (
-                                <div
-                                    key={q.label}
-                                    className="emp-qa-tile"
-                                    role="button"
-                                    tabIndex={0}
-                                    style={{ "--qa-accent": q.color }}
-                                    onClick={() => navigate(q.link)}
-                                    onKeyDown={(e) => handleNavKey(e, q.link)}
-                                    aria-label={`${q.label}. ${q.hint}`}
-                                >
-                                    <span className="emp-qa-icon" style={{ backgroundColor: q.bg, color: q.color }}>
-                                        <Icon fontSize="inherit" />
-                                    </span>
-                                    <span className="emp-qa-text">
-                                        <strong>{q.label}</strong>
-                                        <small>{q.hint}</small>
-                                    </span>
-                                    <ArrowForward className="emp-qa-arrow" sx={{ fontSize: 18 }} />
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Attendance + Leave Balance + Attendance Summary + Working Hours
-                        Width CSS grid se aati hai (EmployeeDashboard.css) — MUI ka `size` prop
-                        sirf fixed breakpoints deta hai, isliye responsive resize par cards
-                        hard jump karte the. `display: flex` ko grid se override kiya gaya hai. */}
-                    <Grid container spacing={2} className="emp-stretch-row emp-4col-row" sx={{ mb: 2 }}>
-                        <Grid size={{ xs: 12, sm: 6, md: 3 }}><CheckInOut /></Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 3 }}><LeaveBalanceCard /></Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 3 }}><AttendanceSummaryCard /></Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 3 }}><WorkingHoursCard /></Grid>
-                    </Grid>
-
-                    {/* Attendance + Leave Balance + Attendance Summary + Working Hours
-                    <div className="emp-auto-grid">
-                        <CheckInOut />
-                        <LeaveBalanceCard />
-                        <AttendanceSummaryCard />
-                        <WorkingHoursCard />
-                    </div> */}
-
-                    {/* Announcements + Upcoming Holidays */}
-                    {/* <Grid container spacing={3} className="emp-stretch-row" sx={{ mb: 3 }}>
-                        <Grid size={{ xs: 6, md: 6, lg: 3 }}><AnnouncementsList /></Grid>
-                        <Grid size={{ xs: 6, md: 6, lg: 3 }}><HolidaysWidget /></Grid>
-                    </Grid> */}
-
-                    {/* Recent Activity
-                    <Box sx={{ mb: 3 }}>
-                        <ActivityTimeline />
-                    </Box> */}
                 </div>
             </div>
-        </div>
 
+            {isMobile && <BottomNav />}
+
+            {!showErrorOnly && (
+                <DashboardFab
+                    onApplyLeave={() => navigate("/my-leaves")}
+                    onRegularization={() => {}}
+                />
+            )}
+
+            <LeaveModal
+                open={leaveOpen}
+                onClose={() => setLeaveOpen(false)}
+                leave={summary?.leave}
+                loading={loading}
+                onApply={() => {
+                    setLeaveOpen(false);
+                    navigate("/my-leaves");
+                }}
+            />
+        </div>
     );
 }
-
 
 export default EmployeeDashboard;

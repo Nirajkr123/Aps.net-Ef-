@@ -6,7 +6,7 @@ import {
   TableHead, TableRow, TablePagination, Paper, Chip, Box, Typography, Grid, FormControl, InputLabel, Select, MenuItem,
   InputAdornment, Alert, Snackbar, Tooltip, Divider, Card, CardContent,
 } from "@mui/material";
-import { Add, Close, EditOutlined, Search, PersonOff, Person, Visibility, UploadFile, CheckCircle, RadioButtonUnchecked, PhoneOutlined, HomeOutlined, EmergencyOutlined, FamilyRestroom, SchoolOutlined, BusinessOutlined, EmailOutlined, BadgeOutlined, LocationOnOutlined, WorkOutlineOutlined, CalendarMonth, CategoryOutlined } from "@mui/icons-material";
+import { Add, Close, EditOutlined, Search, PersonOff, Person, Visibility, UploadFile, CheckCircle, RadioButtonUnchecked, PhoneOutlined, HomeOutlined, EmergencyOutlined, FamilyRestroom, SchoolOutlined, BusinessOutlined, EmailOutlined, BadgeOutlined, LocationOnOutlined, WorkOutlineOutlined, CalendarMonth, CategoryOutlined, AccessTime } from "@mui/icons-material";
 
 import Sidebar from "../../Admin/Sidebar";
 import Navbar from "../../Admin/Navbar";
@@ -14,7 +14,59 @@ import "../../Admin/AdminDashboard.css";
 import employeeServ from "../../services/employeeService";
 import educationServ from "../../services/educationService";
 import documentServ from "../../services/documentService";
+import attendanceServ from "../../services/attendanceService";
+import AttendanceMapLink from "../../components/AttendanceMapLink";
 import http from "../../services/http";
+
+const toInputDate = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const formatAttendanceTime = (t) =>
+  t ? new Date(t).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—";
+
+const formatAttendanceDate = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
+const attendanceHours = (row) => {
+  if (row.workingHours != null && Number(row.workingHours) > 0) {
+    return `${Number(row.workingHours).toFixed(2)} h`;
+  }
+  if (row.checkInTime && row.checkOutTime) {
+    const diff = new Date(row.checkOutTime) - new Date(row.checkInTime);
+    if (diff > 0) {
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      return `${hrs}h ${String(mins).padStart(2, "0")}m`;
+    }
+  }
+  return "—";
+};
+
+const attendanceStatusColor = (status) => {
+  switch ((status || "").toLowerCase()) {
+    case "present":
+      return "success";
+    case "late":
+      return "warning";
+    case "absent":
+      return "error";
+    case "half-day":
+      return "info";
+    default:
+      return "default";
+  }
+};
 
 function EmployeeDirectory() {
   const navigate = useNavigate();
@@ -46,10 +98,61 @@ function EmployeeDirectory() {
   const [viewEducation, setViewEducation] = useState([]);
   const [viewDocuments, setViewDocuments] = useState([]);
   const [viewSystemADocs, setViewSystemADocs] = useState([]);
+  const [viewTodayAttendance, setViewTodayAttendance] = useState(null);
+  const [viewTodayLoading, setViewTodayLoading] = useState(false);
   const [docPreviewUrl, setDocPreviewUrl] = useState(null);
   const [docPreviewName, setDocPreviewName] = useState("");
   const [docPreviewOpen, setDocPreviewOpen] = useState(false);
   const [docDeleting, setDocDeleting] = useState(null);
+
+  const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
+  const [attendanceEmployee, setAttendanceEmployee] = useState(null);
+  const [attendanceRows, setAttendanceRows] = useState([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
+  const [attendanceFrom, setAttendanceFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 29);
+    return toInputDate(d);
+  });
+  const [attendanceTo, setAttendanceTo] = useState(() => toInputDate(new Date()));
+
+  const openAttendanceHistory = (emp) => {
+    setAttendanceEmployee(emp);
+    setAttendanceDialogOpen(true);
+  };
+
+  useEffect(() => {
+    if (!attendanceDialogOpen || !attendanceEmployee) return undefined;
+
+    let cancelled = false;
+    setAttendanceLoading(true);
+    setAttendanceError("");
+
+    attendanceServ
+      .getAll({
+        employeeId: attendanceEmployee.id,
+        fromDate: attendanceFrom,
+        toDate: attendanceTo,
+      })
+      .then(({ data }) => {
+        if (!cancelled) setAttendanceRows(Array.isArray(data) ? data : []);
+      })
+      .catch((e) => {
+        console.error("Failed to load attendance history", e);
+        if (!cancelled) {
+          setAttendanceRows([]);
+          setAttendanceError("Could not load attendance history. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAttendanceLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attendanceDialogOpen, attendanceEmployee, attendanceFrom, attendanceTo]);
 
   useEffect(() => {
     try {
@@ -245,6 +348,50 @@ function EmployeeDirectory() {
     } catch (e) { console.error(e); }
   };
 
+  const openView = async (emp) => {
+    setViewEmployee(emp);
+    setViewDialogOpen(true);
+    setViewTodayAttendance(null);
+    setViewTodayLoading(true);
+    const today = toInputDate(new Date());
+    try {
+      const [eduRes, docRes, sysARes, todayRes] = await Promise.all([
+        educationServ.getByEmployee(emp.id),
+        documentServ.getByEmployee(emp.id),
+        documentServ.getDocsByEmployee(emp.id),
+        attendanceServ
+          .getAll({ employeeId: emp.id, fromDate: today, toDate: today })
+          .catch((err) => {
+            console.error("Failed to load today's attendance", err);
+            return { data: [] };
+          }),
+      ]);
+      setViewEducation(eduRes.data);
+      setViewDocuments(docRes.data);
+      setViewSystemADocs(sysARes.data);
+      setViewTodayAttendance(Array.isArray(todayRes.data) ? todayRes.data[0] || null : null);
+    } catch (e) {
+      console.error(e);
+      setViewTodayAttendance(null);
+    } finally {
+      setViewTodayLoading(false);
+    }
+  };
+
+  const pagedEmployees = employees.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  const todayCheckInLocation =
+    viewTodayAttendance?.checkInLocationId && viewTodayAttendance?.checkInLocationName
+      ? viewTodayAttendance.checkInLocationName
+      : "—";
+  const todayCheckOutLocation =
+    viewTodayAttendance?.checkOutLocationId && viewTodayAttendance?.checkOutLocationName
+      ? viewTodayAttendance.checkOutLocationName
+      : "—";
+
   return (
     <div className="dash-page emp-page">
       <Sidebar activeKey="directory" onLogout={handleLogout} title="HRMS" user={user} collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
@@ -263,7 +410,7 @@ function EmployeeDirectory() {
           </div>
 
           {/* Filters */}
-          <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+          <Box className="dir-filters" sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
             <TextField placeholder="Search by name, email, code..." size="small" value={search}
               onChange={(e) => setSearch(e.target.value)} sx={{ minWidth: 280 }}
               slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search /></InputAdornment> } }} />
@@ -295,7 +442,7 @@ function EmployeeDirectory() {
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <TableContainer component={Paper} className="dir-table" sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "#f9fafb" }}>
@@ -310,8 +457,13 @@ function EmployeeDirectory() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {employees.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((emp) => (
-                    <TableRow key={emp.id} hover>
+                  {pagedEmployees.map((emp) => (
+                    <TableRow
+                      key={emp.id}
+                      hover
+                      onClick={() => openAttendanceHistory(emp)}
+                      sx={{ cursor: "pointer" }}
+                    >
                       <TableCell><Chip label={emp.employeeCode || "—"} size="small" variant="outlined" /></TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{emp.firstName} {emp.lastName}</TableCell>
                       <TableCell>{emp.email}</TableCell>
@@ -331,26 +483,18 @@ function EmployeeDirectory() {
                         />
                       </TableCell>
                       <TableCell>
+                        <Tooltip title="Attendance History">
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); openAttendanceHistory(emp); }}>
+                            <AccessTime fontSize="small" sx={{ color: "#0891b2" }} />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title="View Details">
-                          <IconButton size="small" onClick={async () => {
-                            setViewEmployee(emp);
-                            setViewDialogOpen(true);
-                            try {
-                              const [eduRes, docRes, sysARes] = await Promise.all([
-                                educationServ.getByEmployee(emp.id),
-                                documentServ.getByEmployee(emp.id),
-                                documentServ.getDocsByEmployee(emp.id),
-                              ]);
-                              setViewEducation(eduRes.data);
-                              setViewDocuments(docRes.data);
-                              setViewSystemADocs(sysARes.data);
-                            } catch (e) { console.error(e); }
-                          }}>
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); openView(emp); }}>
                             <Visibility fontSize="small" sx={{ color: "#4f46e5" }} />
                           </IconButton>
                         </Tooltip>
-                        <IconButton size="small" onClick={() => openEdit(emp)} title="Edit"><EditOutlined fontSize="small" /></IconButton>
-                        <IconButton size="small" onClick={() => toggleStatus(emp)} title={emp.status === "Active" ? "Deactivate" : "Activate"}
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEdit(emp); }} title="Edit"><EditOutlined fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); toggleStatus(emp); }} title={emp.status === "Active" ? "Deactivate" : "Activate"}
                           color={emp.status === "Active" ? "warning" : "success"}>
                           {emp.status === "Active" ? <PersonOff fontSize="small" /> : <Person fontSize="small" />}
                         </IconButton>
@@ -362,17 +506,111 @@ function EmployeeDirectory() {
                   )}
                 </TableBody>
               </Table>
-              <TablePagination
-                component="div"
-                count={employees.length}
-                page={page}
-                onPageChange={(_, p) => setPage(p)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-              />
             </TableContainer>
           )}
+
+          {!loading && (
+            <div className="dir-cards">
+              {pagedEmployees.map((emp) => (
+                <div
+                  key={emp.id}
+                  className="dir-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openAttendanceHistory(emp)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openAttendanceHistory(emp);
+                    }
+                  }}
+                >
+                  <div className="dir-card-head">
+                    <div className="dir-card-person">
+                      <div className="dir-avatar">
+                        {(emp.firstName || emp.lastName || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div className="dir-card-identity">
+                        <span className="dir-card-name">
+                          {emp.firstName} {emp.lastName}
+                        </span>
+                        <span className="dir-card-email">{emp.email || "—"}</span>
+                      </div>
+                    </div>
+                    <Chip label={emp.employeeCode || "—"} size="small" variant="outlined" />
+                  </div>
+
+                  <div className="dir-card-chips">
+                    <Chip
+                      label={emp.status}
+                      size="small"
+                      color={emp.status === "Active" ? "success" : "default"}
+                      variant="outlined"
+                    />
+                    <Chip
+                      icon={emp.profileComplete ? <CheckCircle sx={{ fontSize: 15 }} /> : <RadioButtonUnchecked sx={{ fontSize: 15 }} />}
+                      label={emp.profileComplete ? "Complete" : "Pending"}
+                      size="small"
+                      color={emp.profileComplete ? "success" : "warning"}
+                      variant="outlined"
+                    />
+                  </div>
+
+                  <div className="dir-card-meta">
+                    <div>
+                      <span>Department</span>
+                      <strong>{emp.departmentName || "—"}</strong>
+                    </div>
+                    <div>
+                      <span>Designation</span>
+                      <strong>{emp.designationTitle || "—"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="dir-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip title="Attendance History">
+                      <IconButton size="small" onClick={() => openAttendanceHistory(emp)}>
+                        <AccessTime fontSize="small" sx={{ color: "#0891b2" }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="View Details">
+                      <IconButton size="small" onClick={() => openView(emp)}>
+                        <Visibility fontSize="small" sx={{ color: "#4f46e5" }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton size="small" onClick={() => openEdit(emp)}>
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={emp.status === "Active" ? "Deactivate" : "Activate"}>
+                      <IconButton
+                        size="small"
+                        onClick={() => toggleStatus(emp)}
+                        color={emp.status === "Active" ? "warning" : "success"}
+                      >
+                        {emp.status === "Active" ? <PersonOff fontSize="small" /> : <Person fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                  </div>
+                </div>
+              ))}
+              {employees.length === 0 && (
+                <div className="dir-cards-empty">No employees found</div>
+              )}
+            </div>
+          )}
+
+          <TablePagination
+            component="div"
+            count={employees.length}
+            page={page}
+            onPageChange={(_, p) => setPage(p)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+          />
         </div>
       </div>
 
@@ -588,6 +826,72 @@ function EmployeeDirectory() {
                 </Box>
               </Box>
 
+              {/* Today's Attendance */}
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: "#f8fafc",
+                  borderRadius: 2,
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+                  <AccessTime sx={{ color: "#0891b2", fontSize: 20 }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#171b2e" }}>
+                    Today's Attendance
+                  </Typography>
+                  {viewTodayLoading ? (
+                    <CircularProgress size={16} sx={{ ml: "auto" }} />
+                  ) : viewTodayAttendance ? (
+                    <Chip
+                      label={viewTodayAttendance.status || "—"}
+                      size="small"
+                      color={attendanceStatusColor(viewTodayAttendance.status)}
+                      variant="outlined"
+                      sx={{ ml: "auto" }}
+                    />
+                  ) : (
+                    <Chip label="Not marked" size="small" variant="outlined" sx={{ ml: "auto" }} />
+                  )}
+                </Box>
+
+                {viewTodayAttendance ? (
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
+                    {[
+                      {
+                        title: "Check-in",
+                        time: formatAttendanceTime(viewTodayAttendance.checkInTime),
+                        location: todayCheckInLocation,
+                      },
+                      {
+                        title: "Check-out",
+                        time: formatAttendanceTime(viewTodayAttendance.checkOutTime),
+                        location: todayCheckOutLocation,
+                      },
+                    ].map((item) => (
+                      <Box
+                        key={item.title}
+                        sx={{ p: 1.5, bgcolor: "#fff", borderRadius: 1.5, border: "1px solid #eef0f4" }}
+                      >
+                        <Typography variant="caption" sx={{ color: "#9ca3af", fontWeight: 600 }}>
+                          {item.title}
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                          {item.time}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: "#6b7280", mt: 0.5, wordBreak: "break-word" }}>
+                          {item.location}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ color: "#9ca3af" }}>
+                    {viewTodayLoading ? "Loading today's attendance..." : "No check-in or check-out recorded today."}
+                  </Typography>
+                )}
+              </Box>
+
               {/* Basic Info */}
               <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#4f46e5", mb: 1.5 }}>Basic Information</Typography>
@@ -760,6 +1064,159 @@ function EmployeeDirectory() {
             <Box sx={{ p: 4, textAlign: "center" }}><CircularProgress /></Box>
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* Attendance History Dialog */}
+      <Dialog
+        open={attendanceDialogOpen}
+        onClose={() => setAttendanceDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: "#ecfeff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AccessTime sx={{ color: "#0891b2" }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                Check-In / Check-Out History
+              </Typography>
+              {attendanceEmployee && (
+                <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                  {attendanceEmployee.firstName} {attendanceEmployee.lastName}
+                  {attendanceEmployee.employeeCode ? ` · ${attendanceEmployee.employeeCode}` : ""}
+                  {attendanceEmployee.departmentName ? ` · ${attendanceEmployee.departmentName}` : ""}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          <IconButton onClick={() => setAttendanceDialogOpen(false)} size="small">
+            <Close fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", mb: 2 }}>
+            <TextField
+              label="From"
+              type="date"
+              size="small"
+              value={attendanceFrom}
+              onChange={(e) => setAttendanceFrom(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="To"
+              type="date"
+              size="small"
+              value={attendanceTo}
+              onChange={(e) => setAttendanceTo(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center", ml: { xs: 0, sm: "auto" } }}>
+              <Chip size="small" label={`${attendanceRows.length} records`} variant="outlined" />
+              <Chip
+                size="small"
+                color="success"
+                variant="outlined"
+                label={`${attendanceRows.filter((r) => (r.status || "").toLowerCase() === "present").length} present`}
+              />
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                label={`${attendanceRows.filter((r) => (r.status || "").toLowerCase() === "late").length} late`}
+              />
+            </Box>
+          </Box>
+
+          {attendanceError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+              {attendanceError}
+            </Alert>
+          )}
+
+          {attendanceLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : attendanceRows.length === 0 ? (
+            <Box sx={{ py: 6, textAlign: "center", color: "#9ca3af" }}>
+              No attendance records found in this date range.
+            </Box>
+          ) : (
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: "#f9fafb" }}>
+                    <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Check-In</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Check-Out</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Working Hours</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {attendanceRows.map((row) => (
+                    <TableRow key={row.id} hover>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>{formatAttendanceDate(row.attendanceDate)}</TableCell>
+                  <TableCell sx={{ whiteSpace: "normal", verticalAlign: "top", fontVariantNumeric: "tabular-nums", minWidth: 170 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <span>{formatAttendanceTime(row.checkInTime)}</span>
+                        {row.isLate && (
+                          <Chip label="Late" size="small" color="warning" variant="outlined" sx={{ height: 20 }} />
+                        )}
+                      </Box>
+                      <AttendanceMapLink
+                        latitude={row.checkInLatitude}
+                        longitude={row.checkInLongitude}
+                        accuracy={row.checkInAccuracy}
+                        distanceMeters={row.checkInDistanceMeters}
+                        locationName={row.checkInLocationName}
+                        label="Open check-in location"
+                        showDetails
+                      />
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: "normal", verticalAlign: "top", fontVariantNumeric: "tabular-nums", minWidth: 170 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5 }}>
+                      <span>{formatAttendanceTime(row.checkOutTime)}</span>
+                      <AttendanceMapLink
+                        latitude={row.checkOutLatitude}
+                        longitude={row.checkOutLongitude}
+                        accuracy={row.checkOutAccuracy}
+                        distanceMeters={row.checkOutDistanceMeters}
+                        locationName={row.checkOutLocationName}
+                        label="Open check-out location"
+                        showDetails
+                      />
+                    </Box>
+                  </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap", fontWeight: 600 }}>{attendanceHours(row)}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.status || "—"}
+                          size="small"
+                          color={attendanceStatusColor(row.status)}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setAttendanceDialogOpen(false)} sx={{ textTransform: "none" }}>
+            Close
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   );

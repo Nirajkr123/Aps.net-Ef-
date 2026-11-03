@@ -259,3 +259,87 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   MOBILE POLISH
+   ========================================================= */
+
+@media (max-width: 599px) {
+  .loc-create-section {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .loc-create-card {
+    gap: 12px;
+    padding: 16px 14px;
+    border-radius: 15px;
+  }
+
+  .loc-create-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 22px;
+  }
+
+  .loc-create-title {
+    font-size: 15px;
+  }
+
+  .loc-create-sub {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .loc-create-arrow {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .loc-grid {
+    gap: 12px;
+  }
+
+  .loc-panel {
+    min-height: 0;
+    max-height: none;
+    border-radius: 15px;
+  }
+
+  .loc-panel-head {
+    padding: 14px;
+  }
+
+  .loc-panel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
+  }
+
+  .loc-list {
+    max-height: 340px;
+    padding: 8px;
+  }
+
+  .loc-item {
+    min-height: 48px;
+    padding: 10px;
+  }
+
+  .loc-toast {
+    left: 12px;
+    right: 12px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    transform: none;
+    text-align: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .loc-create-arrow {
+    display: none;
+  }
+}

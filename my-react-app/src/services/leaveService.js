@@ -71,10 +71,10 @@ import http from "./http";
 export const LEAVE_TYPES = ["Casual", "Sick", "Earned", "Personal"];
 
 export const LEAVE_TYPE_META = {
-    Casual: { label: "Casual Leave", color: "#4f46e5" },
-    Sick: { label: "Sick Leave", color: "#dc2626" },
-    Earned: { label: "Earned Leave", color: "#059669" },
-    Personal: { label: "Personal Leave", color: "#d97706" },
+    Casual: { label: "Casual Leave", color: "#4B3FD1" },
+    Sick: { label: "Sick Leave", color: "#DC2626" },
+    Earned: { label: "Earned Leave", color: "#0B7A55" },
+    Personal: { label: "Personal Leave", color: "#D97706" },
 };
 
 export const LEAVE_QUOTAS = {
@@ -168,6 +168,27 @@ export const remainingOf = (balance, type) => {
     return Math.max(0, (Number(row.total) || 0) - (Number(row.used) || 0));
 };
 
+/* Balance API hi types ka source hai. Ye helper naye/removed types ko
+   frontend me automatically propagate karta hai — koi fixed type list nahi. */
+export const balanceTypes = (balance) => Object.keys(balance || {});
+
+export const balanceTotals = (balance) => {
+    const types = balanceTypes(balance);
+    let total = 0;
+    let used = 0;
+
+    types.forEach((type) => {
+        total += Number(balance[type]?.total) || 0;
+        used += Number(balance[type]?.used) || 0;
+    });
+
+    return {
+        total,
+        used,
+        remaining: Math.max(0, total - used),
+    };
+};
+
 /* Notification ke liye chhota range — "12–14 Oct" (same month) ya
    "28 Sep – 2 Oct" (alag month). */
 export const formatRangeShort = (from, to) => {
@@ -179,8 +200,11 @@ export const formatRangeShort = (from, to) => {
     if (a.getFullYear() !== b.getFullYear()) {
         return `${day(a)} ${mon(a)} ${a.getFullYear()} – ${day(b)} ${mon(b)} ${b.getFullYear()}`;
     }
+    if (a.getMonth() === b.getMonth() && a.getDate() === b.getDate()) {
+        return `${day(a)} ${mon(a)}`;
+    }
     return a.getMonth() === b.getMonth()
-        ? `${day(a)}–${day(b)} ${mon(a)}`
+        ? `${day(a)} – ${day(b)} ${mon(a)}`
         : `${day(a)} ${mon(a)} – ${day(b)} ${mon(b)}`;
 };
 
@@ -243,8 +267,12 @@ export const currentEmployee = () => {
 export const validateLeaveRequest = ({ type, from, to, reason }, { balance, existingLeaves }) => {
     const days = countLeaveDays(from, to);
     const today = todayISO();
+    const allowedTypes = balanceTypes(balance);
+    const isValidType = allowedTypes.length > 0
+        ? allowedTypes.includes(type)
+        : LEAVE_TYPES.includes(type);
 
-    if (!type || !LEAVE_TYPES.includes(type)) return { ok: false, field: "type", message: "Leave type is required" };
+    if (!type || !isValidType) return { ok: false, field: "type", message: "Leave type is required" };
     if (!from) return { ok: false, field: "from", message: "From date is required" };
     if (!to) return { ok: false, field: "to", message: "To date is required" };
     if (from < today) return { ok: false, field: "from", message: "From date cannot be in the past" };
@@ -361,14 +389,23 @@ const normalizeLeave = (raw) => {
 };
 
 const normalizeBalance = (raw) => {
+    /* API `{ balance: { Type: { total, used } } }` bhejta hai. Types ko
+       yahin se preserve karte hain, taaki backend me type add/remove hone
+       par UI automatically adapt kare. */
+    const source = raw?.balance && typeof raw.balance === "object"
+        ? raw.balance
+        : raw;
     const balance = {};
-    for (const type of LEAVE_TYPES) {
-        const row = raw?.balance?.[type];
+
+    Object.entries(source || {}).forEach(([type, row]) => {
+        if (!row || typeof row !== "object" || Array.isArray(row)) return;
+
         balance[type] = {
-            total: Number(row?.total ?? LEAVE_QUOTAS[type] ?? 0),
-            used: Number(row?.used ?? 0),
+            total: Number(row.total ?? row.Total ?? 0) || 0,
+            used: Number(row.used ?? row.Used ?? 0) || 0,
         };
-    }
+    });
+
     return balance;
 };
 

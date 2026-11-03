@@ -36,6 +36,10 @@ namespace ASPCoreWebAPI.Controllers
         private static bool IsEmployeeRole(string? role) =>
             string.Equals(role, "EMPLOYEE", StringComparison.OrdinalIgnoreCase);
 
+        private static bool IsAdminRole(string? role) =>
+            string.Equals(role, "OWNER", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(role, "HR", StringComparison.OrdinalIgnoreCase);
+
         // =========================
         // DASHBOARD
         // =========================
@@ -178,6 +182,65 @@ namespace ASPCoreWebAPI.Controllers
             }
         }
 
+        [HttpPost("users")]
+        [AuthorizeRoles("OWNER")]
+        public async Task<IActionResult> CreateUser([FromBody] UserCreateRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(new { message = "First name and email are required" });
+                }
+
+                var email = request.Email.Trim().ToLower();
+
+                var existing = await _repository.GetByEmailAsync(email);
+                if (existing != null)
+                {
+                    return BadRequest(new { message = "A user with this email already exists" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
+                {
+                    return BadRequest(new { message = "Password must be at least 8 characters" });
+                }
+
+                var role = string.IsNullOrWhiteSpace(request.Role)
+                    ? "HR"
+                    : request.Role.Trim().ToUpperInvariant();
+
+                if (!IsAdminRole(role))
+                {
+                    return BadRequest(new { message = "Role must be OWNER or HR" });
+                }
+
+                var user = new User
+                {
+                    FirstName = request.FirstName.Trim(),
+                    LastName = (request.LastName ?? "").Trim(),
+                    Email = email,
+                    Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    Role = role,
+                    StateId = request.StateId,
+                    DistrictId = request.DistrictId,
+                    Status = "Active",
+                    CreatedDate = DateTime.UtcNow
+                };
+
+                var id = await _repository.CreateAsync(user);
+                return Ok(new { message = "User created successfully", id });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Failed to create user",
+                    error = ex.Message
+                });
+            }
+        }
+
         [HttpPut("users/{id:int}")]
         [AuthorizeRoles("OWNER", "HR")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UserUpdateRequest request)
@@ -190,10 +253,27 @@ namespace ASPCoreWebAPI.Controllers
                     return NotFound(new { message = "User not found" });
                 }
 
+                if (!string.IsNullOrWhiteSpace(request.Role) && !IsAdminRole(request.Role))
+                {
+                    return BadRequest(new { message = "Role must be OWNER or HR" });
+                }
+
+                var normalizedRole = string.IsNullOrWhiteSpace(request.Role)
+                    ? user.Role
+                    : request.Role.Trim().ToUpperInvariant();
+
+                var callerRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+                var roleChanging = !string.Equals(normalizedRole, user.Role, StringComparison.OrdinalIgnoreCase);
+
+                if (roleChanging && callerRole != "OWNER")
+                {
+                    return StatusCode(403, new { message = "Only owner can change role" });
+                }
+
                 user.FirstName = request.FirstName ?? user.FirstName;
                 user.LastName = request.LastName ?? user.LastName;
                 user.Email = request.Email ?? user.Email;
-                user.Role = request.Role ?? user.Role;
+                user.Role = normalizedRole;
                 user.StateId = request.StateId;
                 user.DistrictId = request.DistrictId;
                 user.Status = request.Status ?? user.Status;
@@ -223,13 +303,19 @@ namespace ASPCoreWebAPI.Controllers
                     return BadRequest(new { message = "Role is required" });
                 }
 
+                var role = request.Role.Trim().ToUpperInvariant();
+                if (!IsAdminRole(role))
+                {
+                    return BadRequest(new { message = "Role must be OWNER or HR" });
+                }
+
                 var user = await _repository.GetByIdAsync(id);
                 if (user == null)
                 {
                     return NotFound(new { message = "User not found" });
                 }
 
-                await _repository.UpdateRoleAsync(id, request.Role);
+                await _repository.UpdateRoleAsync(id, role);
                 return Ok(new { message = "Role updated successfully" });
             }
             catch (Exception ex)
@@ -563,6 +649,17 @@ namespace ASPCoreWebAPI.Controllers
                 });
             }
         }
+    }
+
+    public class UserCreateRequest
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string? LastName { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string? Role { get; set; }
+        public int? StateId { get; set; }
+        public int? DistrictId { get; set; }
     }
 
     public class UserUpdateRequest

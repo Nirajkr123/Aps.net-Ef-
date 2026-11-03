@@ -338,7 +338,7 @@
     width: 264px;
     max-width: 82vw;
     height: 100dvh;
-    padding: 20px 16px;
+    padding: calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
     visibility: hidden;
     transform: translateX(-100%);
     box-shadow: none;
@@ -379,6 +379,16 @@
   /* The header button closes the drawer on mobile - no chevron flip */
   .sidebar.collapsed .sidebar-collapse-btn svg {
     transform: none;
+  }
+
+  .sidebar-nav-item,
+  .sidebar-logout {
+    min-height: 46px;
+  }
+
+  .sidebar-collapse-btn {
+    width: 34px;
+    height: 34px;
   }
 }
 

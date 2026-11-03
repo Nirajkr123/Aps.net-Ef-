@@ -4,6 +4,8 @@ import {
 } from "@mui/material";
 import { Login, Logout, AccessTimeOutlined, ScheduleOutlined, Circle } from "@mui/icons-material";
 import attendanceServ from "../services/attendanceService";
+import { getLocation } from "../utils/geolocation";
+import AttendanceMapLink from "./AttendanceMapLink";
 import useIsMobile from "../hooks/useIsMobile";
 
 export default function CheckInOut() {
@@ -11,6 +13,7 @@ export default function CheckInOut() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionStage, setActionStage] = useState("");
   const [elapsed, setElapsed] = useState("--:--:--");
   const isMobile = useIsMobile();
 
@@ -42,17 +45,33 @@ export default function CheckInOut() {
   }, [today]);
 
   const handleCheckIn = async () => {
-    setError(""); setActionLoading(true);
-    try { const { data } = await attendanceServ.checkIn(); setToday(data); }
-    catch (e) { setError(e.response?.data?.message || "Check-in failed"); }
-    finally { setActionLoading(false); }
+    setError(""); setActionLoading(true); setActionStage("locating");
+    try {
+      const location = await getLocation();
+      setActionStage("saving");
+      const { data } = await attendanceServ.checkIn(location);
+      setToday(data);
+    } catch (e) {
+      setError(e.response?.data?.message || e.message || "Check-in failed");
+    } finally {
+      setActionLoading(false);
+      setActionStage("");
+    }
   };
 
   const handleCheckOut = async () => {
-    setError(""); setActionLoading(true);
-    try { const { data } = await attendanceServ.checkOut(); setToday(data); }
-    catch (e) { setError(e.response?.data?.message || "Check-out failed"); }
-    finally { setActionLoading(false); }
+    setError(""); setActionLoading(true); setActionStage("locating");
+    try {
+      const location = await getLocation();
+      setActionStage("saving");
+      const { data } = await attendanceServ.checkOut(location);
+      setToday(data);
+    } catch (e) {
+      setError(e.response?.data?.message || e.message || "Check-out failed");
+    } finally {
+      setActionLoading(false);
+      setActionStage("");
+    }
   };
 
   const fmt = (iso) => iso ? new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "--:-- --";
@@ -171,6 +190,68 @@ export default function CheckInOut() {
           </Box>
         </Box>
 
+        {hasCheckedIn && (
+          <Box sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1,
+            bgcolor: "#f8fafc",
+            border: "1px solid #e5e7eb",
+            borderRadius: 2,
+            px: 1.2,
+            py: 0.8,
+            mb: 1.5,
+          }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+              <Login sx={{ fontSize: 16, color: "#16a34a" }} />
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "#15803d" }}>
+                Check-In Location
+              </Typography>
+            </Box>
+            <AttendanceMapLink
+              latitude={today.checkInLatitude}
+              longitude={today.checkInLongitude}
+              accuracy={today.checkInAccuracy}
+              locationName={today.checkInLocationName}
+              label="Open check-in location"
+              showDetails
+            />
+          </Box>
+        )}
+
+        {hasCheckedOut && (
+          <Box sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1,
+            bgcolor: "#f8fafc",
+            border: "1px solid #e5e7eb",
+            borderRadius: 2,
+            px: 1.2,
+            py: 0.8,
+            mb: 1.5,
+          }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+              <Logout sx={{ fontSize: 16, color: "#2563eb" }} />
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "#1d4ed8" }}>
+                Check-Out Location
+              </Typography>
+            </Box>
+            <AttendanceMapLink
+              latitude={today.checkOutLatitude}
+              longitude={today.checkOutLongitude}
+              accuracy={today.checkOutAccuracy}
+              locationName={today.checkOutLocationName}
+              label="Open check-out location"
+              showDetails
+            />
+          </Box>
+        )}
+
         {/* Spacer */}
         <Box sx={{ flex: 1 }} />
 
@@ -190,7 +271,7 @@ export default function CheckInOut() {
               boxShadow: "0 8px 20px -6px rgba(79,70,229,0.5)",
               "&:hover": { background: "linear-gradient(135deg, #4338ca, #6d28d9)", boxShadow: "0 12px 28px -6px rgba(79,70,229,0.6)", transform: "translateY(-1px)" },
             }}>
-            {actionLoading ? "Processing..." : "Check In"}
+            {actionLoading ? (actionStage === "locating" ? "Getting location…" : "Saving…") : "Check In"}
           </Button>
         )}
 
@@ -202,7 +283,7 @@ export default function CheckInOut() {
               boxShadow: "0 8px 20px -6px rgba(220,38,38,0.5)",
               "&:hover": { background: "linear-gradient(135deg, #b91c1c, #e11d48)", boxShadow: "0 12px 28px -6px rgba(220,38,38,0.6)", transform: "translateY(-1px)" },
             }}>
-            {actionLoading ? "Processing..." : "Check Out"}
+            {actionLoading ? (actionStage === "locating" ? "Getting location…" : "Saving…") : "Check Out"}
           </Button>
         )}
 

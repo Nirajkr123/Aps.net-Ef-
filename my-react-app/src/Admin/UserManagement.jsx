@@ -62,7 +62,7 @@ const EMPTY_FORM = {
     email: "",
     password: "",
     currentPassword: "",
-    role: "User",
+    role: "HR",
     stateId: "",
     districtId: "",
     status: "Active",
@@ -90,7 +90,8 @@ function UserManagement() {
     const [searchParams] = useSearchParams();
     const dateFilter = searchParams.get("filter") || "";
     const [user, setUser] = useState(null);
-    const isAdmin = user?.role === "Admin";
+    const isAdmin = user?.role === "OWNER" || user?.role === "HR";
+    const isOwner = user?.role === "OWNER";
     const [collapsed, setCollapsed] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -254,6 +255,7 @@ function UserManagement() {
     }, [users]);
 
     const openMenu = (event, u) => {
+        event.stopPropagation();
         setMenuAnchor(event.currentTarget);
         setMenuUser(u);
     };
@@ -272,7 +274,7 @@ function UserManagement() {
             firstName: menuUser.firstName || "",
             lastName: menuUser.lastName || "",
             email: menuUser.email || "",
-            role: menuUser.role || "User",
+            role: menuUser.role || "HR",
             stateId: menuUser.stateId || "",
             districtId: menuUser.districtId || "",
             status: menuUser.status || "Active",
@@ -284,7 +286,7 @@ function UserManagement() {
     };
     const handleRole = () => {
         setRoleUser(menuUser);
-        setForm((f) => ({ ...f, role: menuUser.role || "User" }));
+        setForm((f) => ({ ...f, role: menuUser.role || "HR" }));
         setFormError("");
         closeMenu();
     };
@@ -482,6 +484,19 @@ function UserManagement() {
         localStorage.setItem("notifReadIds", JSON.stringify(updated));
     };
 
+    const pagedUsers = filteredUsers.slice(
+        page * rowsPerPage,
+        page * rowsPerPage + rowsPerPage
+    );
+
+    const userName = (u) =>
+        [u.firstName, u.lastName].filter(Boolean).join(" ") || u.name || u.email;
+
+    const emptyMessage =
+        search || roleFilter || stateFilter || districtFilter || statusFilter
+            ? "No users match your filters."
+            : "No admin or HR users yet. Click 'New Admin / HR' to add one.";
+
     return (
         <div className="dash-page">
             <Sidebar
@@ -513,21 +528,23 @@ function UserManagement() {
                 <div className="dash-content">
                     <div className="dash-header">
                         <div>
-                            <h1 className="dash-title">User Management</h1>
+                            <h1 className="dash-title">Admin &amp; HR Users</h1>
                             <p className="dash-subtitle">
-                                Manage all users and their access
+                                Manage admin and HR accounts and their access
                             </p>
                         </div>
-                        <div className="dash-header-actions">
-                            <button
-                                type="button"
-                                className="dash-btn dash-btn-primary"
-                                onClick={openAdd}
-                            >
-                                <Add fontSize="small" />
-                                New User
-                            </button>
-                        </div>
+                        {isOwner && (
+                            <div className="dash-header-actions">
+                                <button
+                                    type="button"
+                                    className="dash-btn dash-btn-primary"
+                                    onClick={openAdd}
+                                >
+                                    <Add fontSize="small" />
+                                    New Admin / HR
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {loading && (
@@ -711,13 +728,9 @@ function UserManagement() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {filteredUsers
-                                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                        {pagedUsers
                                             .map((u) => {
-                                                const name =
-                                                    [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-                                                    u.name ||
-                                                    u.email;
+                                                const name = userName(u);
                                                 return (
                                                     <TableRow key={u.id} hover sx={{ cursor: "pointer" }} onClick={() => setViewUser(u)}>
                                                         <TableCell>
@@ -733,9 +746,9 @@ function UserManagement() {
                                                         </TableCell>
                                                         <TableCell>
                                                             <Chip
-                                                                label={u.role || "User"}
+                                                                label={u.role || "—"}
                                                                 size="small"
-                                                                className={`um-role-chip ${u.role === "Admin" ? "admin" : ""}`}
+                                                                 className={`um-role-chip ${u.role === "OWNER" ? "admin" : ""}`}
                                                             />
                                                         </TableCell>
                                                         <TableCell>{u.state || stateName(u.stateId) || "—"}</TableCell>
@@ -766,15 +779,86 @@ function UserManagement() {
                                         {filteredUsers.length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={8} align="center" className="um-empty">
-                                                    {search || roleFilter || stateFilter || districtFilter || statusFilter
-                                                        ? "No users match your filters."
-                                                        : "No users yet. Click 'New User' to add one."}
+                                                    {emptyMessage}
                                                 </TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
+
+                            <div className="um-cards">
+                                {pagedUsers.map((u) => {
+                                    const name = userName(u);
+                                    return (
+                                        <div
+                                            key={u.id}
+                                            className="um-card"
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setViewUser(u)}
+                                            onKeyDown={(e) => {
+                                                if (e.target !== e.currentTarget) return;
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    setViewUser(u);
+                                                }
+                                            }}
+                                        >
+                                            <div className="um-card-head">
+                                                <div className="um-user-cell">
+                                                    <div className="um-avatar">
+                                                        {(name || "?").charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="um-card-identity">
+                                                        <span className="um-user-name">{name}</span>
+                                                        <span className="um-card-email">{u.email}</span>
+                                                    </div>
+                                                </div>
+                                                <IconButton
+                                                    aria-label="More options"
+                                                    onClick={(e) => openMenu(e, u)}
+                                                    size="small"
+                                                >
+                                                    <MoreVert fontSize="small" />
+                                                </IconButton>
+                                            </div>
+
+                                            <div className="um-card-chips">
+                                                <Chip
+                                                    label={u.role || "—"}
+                                                    size="small"
+                                                    className={`um-role-chip ${u.role === "OWNER" ? "admin" : ""}`}
+                                                />
+                                                <Chip
+                                                    label={u.status || "Active"}
+                                                    size="small"
+                                                    color={STATUS_COLORS[u.status] || "default"}
+                                                    variant="outlined"
+                                                />
+                                            </div>
+
+                                            <div className="um-card-meta">
+                                                <div>
+                                                    <span>State</span>
+                                                    <strong>{u.state || stateName(u.stateId) || "—"}</strong>
+                                                </div>
+                                                <div>
+                                                    <span>District</span>
+                                                    <strong>{u.district || districtName(u.districtId) || "—"}</strong>
+                                                </div>
+                                                <div>
+                                                    <span>Last login</span>
+                                                    <strong>{formatLastLogin(u.lastLogin)}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {filteredUsers.length === 0 && (
+                                    <div className="um-cards-empty">{emptyMessage}</div>
+                                )}
+                            </div>
 
                             <TablePagination
                                 component="div"
@@ -844,21 +928,21 @@ function UserManagement() {
                     View User
                 </MenuItem>
                 {isAdmin && (
-                    <>
-                        <MenuItem onClick={handleEdit} className="pop-menu-item">
-                            <EditOutlined fontSize="small" className="pop-menu-icon" />
-                            Edit User
-                        </MenuItem>
-                        <MenuItem onClick={handleRole} className="pop-menu-item">
-                            <BadgeOutlined fontSize="small" className="pop-menu-icon" />
-                            Change Role
-                        </MenuItem>
-                    </>
+                    <MenuItem onClick={handleEdit} className="pop-menu-item">
+                        <EditOutlined fontSize="small" className="pop-menu-icon" />
+                        Edit User
+                    </MenuItem>
                 )}
-                {(isAdmin || (menuUser && user && menuUser.id === user.id)) && (
+                {isOwner && (
+                    <MenuItem onClick={handleRole} className="pop-menu-item">
+                        <BadgeOutlined fontSize="small" className="pop-menu-icon" />
+                        Change Role
+                    </MenuItem>
+                )}
+                {(isOwner || (menuUser && user && menuUser.id === user.id)) && (
                     <MenuItem onClick={handleReset} className="pop-menu-item">
                         <LockReset fontSize="small" className="pop-menu-icon" />
-                        {isAdmin ? "Reset Password" : "Change Password"}
+                        {isOwner ? "Reset Password" : "Change Password"}
                     </MenuItem>
                 )}
                 {isAdmin && (
@@ -875,11 +959,15 @@ function UserManagement() {
                                 Deactivate
                             </MenuItem>
                         )}
-                        <Divider />
-                        <MenuItem onClick={handleDeleteOpen} className="pop-menu-item danger">
-                            <DeleteOutlineOutlined fontSize="small" className="pop-menu-icon" />
-                            Delete
-                        </MenuItem>
+                        {isOwner && (
+                            <>
+                                <Divider />
+                                <MenuItem onClick={handleDeleteOpen} className="pop-menu-item danger">
+                                    <DeleteOutlineOutlined fontSize="small" className="pop-menu-icon" />
+                                    Delete
+                                </MenuItem>
+                            </>
+                        )}
                     </>
                 )}
             </Menu>
@@ -887,7 +975,7 @@ function UserManagement() {
             {/* ======= ADD USER DIALOG ======= */}
             <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle className="modal-title">
-                    Add New User
+                    Add Admin / HR User
                     <IconButton className="modal-close" onClick={() => setAddOpen(false)} size="small">
                         <Close fontSize="small" />
                     </IconButton>
@@ -908,9 +996,8 @@ function UserManagement() {
                             <FormControl fullWidth>
                                 <InputLabel>Role</InputLabel>
                                 <Select label="Role" name="role" value={form.role} onChange={handleFormChange}>
-                                    <MenuItem value="User">User</MenuItem>
-                                    <MenuItem value="Staff">Staff</MenuItem>
-                                    <MenuItem value="Admin">Admin</MenuItem>
+                                    <MenuItem value="HR">HR</MenuItem>
+                                    <MenuItem value="OWNER">Owner</MenuItem>
                                 </Select>
                             </FormControl>
                             <FormControl fullWidth>
@@ -973,9 +1060,8 @@ function UserManagement() {
                             <FormControl fullWidth>
                                 <InputLabel>Role</InputLabel>
                                 <Select label="Role" name="role" value={form.role} onChange={handleFormChange}>
-                                    <MenuItem value="User">User</MenuItem>
-                                    <MenuItem value="Staff">Staff</MenuItem>
-                                    <MenuItem value="Admin">Admin</MenuItem>
+                                    <MenuItem value="HR">HR</MenuItem>
+                                    <MenuItem value="OWNER">Owner</MenuItem>
                                 </Select>
                             </FormControl>
                             <FormControl fullWidth>
@@ -1037,7 +1123,7 @@ function UserManagement() {
                             <div className="view-meta">
                                 <div className="view-meta-item">
                                     <span className="view-meta-label">Role</span>
-                                    <Chip label={viewUser.role || "User"} size="small" />
+                                    <Chip label={viewUser.role || "—"} size="small" />
                                 </div>
                                 <div className="view-meta-item">
                                     <span className="view-meta-label">Status</span>
@@ -1085,9 +1171,8 @@ function UserManagement() {
                         <FormControl fullWidth>
                             <InputLabel>Role</InputLabel>
                             <Select label="Role" name="role" value={form.role} onChange={handleFormChange}>
-                                <MenuItem value="User">User</MenuItem>
-                                <MenuItem value="Staff">Staff</MenuItem>
-                                <MenuItem value="Admin">Admin</MenuItem>
+                                <MenuItem value="HR">HR</MenuItem>
+                                <MenuItem value="OWNER">Owner</MenuItem>
                             </Select>
                         </FormControl>
                     </DialogContent>

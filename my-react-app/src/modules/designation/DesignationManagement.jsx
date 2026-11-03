@@ -81,6 +81,11 @@ function DesignationManagement() {
     } catch (e) { console.error(e); }
   };
 
+  const pagedDesignations = designations.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
   return (
     <div className="dash-page">
       <Sidebar activeKey="designations" onLogout={handleLogout} title="HRMS" user={user} collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
@@ -101,7 +106,7 @@ function DesignationManagement() {
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <TableContainer component={Paper} className="desig-table" sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "#f9fafb" }}>
@@ -113,7 +118,7 @@ function DesignationManagement() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {designations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((des, idx) => (
+                  {pagedDesignations.map((des, idx) => (
                     <TableRow key={des.id} hover>
                       <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{des.title}</TableCell>
@@ -130,6 +135,41 @@ function DesignationManagement() {
                   )}
                 </TableBody>
               </Table>
+            </TableContainer>
+          )}
+
+          {!loading && (
+            <>
+              <div className="desig-cards">
+                {pagedDesignations.map((des) => (
+                  <div key={des.id} className="desig-card">
+                    <div className="desig-card-head">
+                      <div className="desig-card-title-wrap">
+                        <h3 className="desig-card-title">{des.title}</h3>
+                        <p className="desig-card-sub">{des.departmentName || "No department"}</p>
+                      </div>
+                      <Chip
+                        label={des.status}
+                        size="small"
+                        color={des.status === "Active" ? "success" : "default"}
+                        variant="outlined"
+                      />
+                    </div>
+                    <div className="desig-card-actions">
+                      <IconButton size="small" onClick={() => openEdit(des)} aria-label="Edit designation">
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(des.id)} aria-label="Delete designation">
+                        <DeleteOutlineOutlined fontSize="small" />
+                      </IconButton>
+                    </div>
+                  </div>
+                ))}
+                {designations.length === 0 && (
+                  <div className="desig-cards-empty">No designations found</div>
+                )}
+              </div>
+
               <TablePagination
                 component="div"
                 count={designations.length}
@@ -139,7 +179,7 @@ function DesignationManagement() {
                 onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
                 rowsPerPageOptions={[5, 10, 25, 50]}
               />
-            </TableContainer>
+            </>
           )}
         </div>
       </div>

@@ -1,797 +1,950 @@
-/* ============================================================
-   My Attendance — responsive layout
-   Same pattern as EmployeeProfile.css: CSS grid auto-fit so
-   cards fluidly resize instead of jumping at hard breakpoints.
-   ============================================================ */
+.emp-att-page {
+    background: #f3f4f8;
+}
 
-/* ---- Insight cards (late / avg hours / overtime / streak) ---- */
-/* ---- WIREFRAME ROW 2: 4 stat cards, ek row me, EQUAL width ----
-   Desktop par exactly 4 columns (auto-fit nahi — wireframe me
-   chaaron barabar hone chahiye). Mobile par 2x2 grid. */
+.emp-att-page .dash-content.emp-att-content {
+    padding: 16px 16px 104px;
+    background: #f3f4f8;
+}
 
-/* ---- WIREFRAME ROW 3: chart + history, 2 equal columns ----
-   Desktop par side-by-side (compare karne ke liye), mobile par
-   stack. `align-items: stretch` se dono cards barabar height me
-   aate hain. */
+.emp-att-shell {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+}
 
-/* Grid child ka min-width 0 — MUI Table / CardContent apni content
-   ke width se grid column ko push kar dete hain, aur phir dono cards
-   ek doosre ke upar "mix" ho jate hain. Ye ek line se wapas
-   equal-width columns par control deta hai. */
-
-/* ---- Hero aur uske neeche wale card ke beech ka gap ----
-   Layout flex column hai, to gap sirf margin se banta hai. Ye rule
-   spacing ko deterministic banata hai (collapse/parallax effect se
-   hero aur punch card kabhi overlap nahi karte), aur hero ke
-   decorative glow ko `isolate` se alag stack me rakhta hai. */
-.emp-page .emp-hero {
-    height: auto;
-    min-height: 0;
-    margin-bottom: 28px;
+.emp-att-header {
+    position: relative;
     overflow: hidden;
-    position: relative;
-    z-index: 0;
-    isolation: isolate;
-    flex: 0 0 auto;
+    padding: 16px 16px 64px;
+    color: #ffffff;
+    border-radius: 22px 22px 28px 28px;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 16px 34px rgba(75, 63, 209, 0.24);
 }
 
-.emp-page .emp-hero + * {
-    margin-top: 0;
-    position: relative;
-    z-index: 1;
-}
-
-/* ---- PUNCH STRIP (apne card ke andar) ----
-   Card surface khud deta hai (border/shadow), isliye strip ke andar
-   sirf padding + layout — koi double border nahi. Size stat cards
-   (`.emp-att-insight`) jitna hi compact rakha gaya hai. */
-
-/* "Hours Today" ka 8h progress — track + % ek hi line me, isliye
-   strip ki height stat cards jitni hi rehti hai. 0% par bhi track
-   dikhta hai (data missing vs shuru nahi hua — distinction clear). */
-
-/* ---- Bar graph: last 7 days worked hours ----
-   Koi chart library nahi hai (sirf MUI + axios), isliye pure CSS
-   flex bars — koi extra dependency nahi, poori tarah responsive. */
-/* ---- Bar graph card ----
-   Pehle sirf ek plain block tha; ab proper card hai — white surface,
-   border, soft shadow, aur upar header (title + total/peak stats). */
-.emp-att-chart-card {
-    margin-bottom: 0;
-    border-radius: 16px;
-    border: 1px solid #eef2f7;
-    background: #fff;
-    box-shadow: 0 4px 16px -8px rgba(15, 23, 42, .16);
-    transition: box-shadow .22s ease, transform .22s ease;
-    /* Duo grid me dono cards barabar height me — chart area flex
-       bana kar apne aap center me fit ho jaata hai, upar ka khaali
-       hissa awkward nahi lagta. */
-    display: flex;
-    flex-direction: column;
-}
-
-.emp-att-chart-card .MuiCardContent-root {
-    display: flex;
-    flex-direction: column;
-    flex: 0 0 auto;
-    min-height: 0;
-}
-
-.emp-att-chart-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 16px 34px -18px rgba(15, 23, 42, .3);
-}
-
-/* Chart ka wrapper — upar 40px "extra" jagah, jisse har bar ka
-   tooltip card ke andar hi khol jata hai. Pehle ye hatta tha to
-   `overflow: hidden` se upar wale bars ka tooltip POORA clip ho
-   jaata tha (In/Out/hours kabhi dikhta hi nahi tha).
-
-   `justify-content: flex-start` — dono cards ka content UPAR se
-   ek hi line par align hota hai (chart beech me float nahi karta,
-   warna table header ke saath "shift" lagta hai). */
-.emp-att-chart {
-    /* Tooltip ke liye upar jagah. Pehle `padding-top: 62px` ke saath
-       `margin-top: -40px` tha — woh duo-grid layout ke liye tha, jahan
-       chart ke upar card-head baithi thi. Ab chart apne card me akela
-       hai, to woh negative margin uske upar wale header ko overlap
-       kar raha tha. Sirf padding rakhi hai. */
-    padding: 26px 4px 18px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-}
-
-/* Desktop par horizontal scroll ki zaroorat nahi — 7 bars aaram se
-   fit hote hain. Mobile par scroll chalu rahega (niche media query). */
-.emp-att-bars-scroll {
-    overflow: visible;
-    padding-bottom: 2px;
-}
-
-/* ---- Dead CSS hata diya (month-summary ke saath gaya tha) ----
-   .emp-att-chart-head  — chart ka purana header (ab .emp-att-card-head hai)
-   .emp-att-chart-peak  — month summary ka count pill */
-
-.emp-att-bars {
-    position: relative;
-    display: flex;
-    align-items: stretch;
-    gap: 14px;
-    /* Chart ko bada kiya — 7 bars ab 8h baseline ke around
-       comfortably readable hain, desktop par scroll bhi nahi. */
-    height: 230px;
-    min-width: 560px;
-}
-
-/* Duo grid me column aadha hai, isliye 7 bars compact karke
-   aaj ki tarah side-by-side baith jate hain (scroll nahi).
-   Height / colors waise hi rehte hain. */
-.emp-att-duo .emp-att-bars {
-    min-width: 0;
-    gap: 10px;
-}
-
-.emp-att-duo .emp-att-bar-track {
-    max-width: 46px;
-}
-
-/* 8h reference line — isse pata chalta hai ki bar 8h se upar hai
-   ya neeche (overtime vs short day). */
-.emp-att-chart-ref {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 0;
-    border-top: 1px dashed #cbd5e1;
-    pointer-events: none;
-    z-index: 1;
-}
-
-.emp-att-chart-ref em {
-    position: absolute;
-    right: 0;
-    top: -8px;
-    font-size: 9.5px;
-    font-style: normal;
-    font-weight: 700;
-    color: #a3aebd;
-    background: #fff;
-    padding: 0 3px;
-    font-variant-numeric: tabular-nums;
-}
-
-.emp-att-bar-col {
-    position: relative;
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: default;
-}
-
-/* Value label — 0.0 bhi dikhta hai, sirf muted colour me */
-.emp-att-bar-val {
-    font-size: 12px;
-    font-weight: 800;
-    color: #64748b;
-    line-height: 1;
-    margin-bottom: 8px;
-    font-variant-numeric: tabular-nums;
-}
-
-.emp-att-bar-val.zero,
-.emp-att-bar-val.none,
-.emp-att-bar-val.stale {
-    color: #b6c0cd;
-}
-
-/* Aaj ka live ghanta — indigo, thoda chamakta hua (abhi chal raha hai) */
-.emp-att-bar-val.open {
-    color: #4f46e5;
-}
-
-.emp-att-bar-val.open::after {
+.emp-att-header::after {
     content: "";
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    margin-left: 3px;
+    position: absolute;
+    top: -72px;
+    right: -52px;
+    width: 190px;
+    height: 190px;
     border-radius: 50%;
-    background: #6366f1;
-    animation: empAttPulse 1.4s ease-in-out infinite;
-    vertical-align: middle;
-}
-
-@keyframes empAttPulse {
-
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: .35;
-        transform: scale(.7);
-    }
-}
-
-.emp-att-bar-track {
-    width: 100%;
-    max-width: 62px;
-    flex: 1 1 auto;
-    display: flex;
-    align-items: flex-end;
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-    border: 1px solid #eef2f7;
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    overflow: hidden;
-}
-.emp-att-bar-fill {
-    width: 100%;
-    min-height: 6px;
-    border-radius: 12px 12px 0 0;
-    /* Upar ki taraf halka highlight — bar ko 3D feel deta hai */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45);
-    transition: height .5s cubic-bezier(.22, 1, .36, 1), filter .2s ease;
-}
-
-/* Record hai par ghante 0 (check-in kiya, checkout nahi) — halka
-   grey outline, taaki "data hai, value 0" vs "data hi nahi"
-   me farak dikhe. */
-.emp-att-bar-fill.zero {
-    background: #e2e8f0;
-    border: 1px solid #cbd5e1;
-    border-bottom: none;
-    box-shadow: none;
-}
-
-/* Bilkul record nahi — dashed outline. Chart broken nahi lagta. */
-.emp-att-bar-fill.none {
-    background: repeating-linear-gradient(135deg, #f1f5f9 0 4px, #e8edf3 4px 8px);
-    border: 1px dashed #cbd5e1;
-    border-bottom: none;
-    box-shadow: none;
-}
-
-/* Purana record jisme checkout nahi — amber outline + upar se striped
-   pattern, taaki "data galat hai" vs "data hi nahi" alag dikhe. */
-.emp-att-bar-fill.stale {
-    background: repeating-linear-gradient(135deg, #fef3c7 0 4px, #fde68a 4px 8px);
-    border: 1px dashed #f59e0b;
-    border-bottom: none;
-    box-shadow: none;
-}
-
-.emp-att-bar-col:hover .emp-att-bar-fill {
-    filter: brightness(1.08) saturate(1.05);
-}
-
-/* Hover tooltip — date + exact ghante + late marker.
-   Pehle dark (#0f172a) background tha jo chart par ek black block
-   ki tarah lagta tha, isliye ab light card hai. Sirf un devices
-   par dikhta hai jahan hover possible hai (`hover: hover`), touch
-   par chip atak kar nahi rehta. */
-.emp-att-bar-tip {
-    position: absolute;
-    bottom: calc(100% - 6px);
-    left: 50%;
-    transform: translate(-50%, 4px);
-    z-index: 5;
-    width: max-content;
-    max-width: 190px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.4;
-    text-align: center;
-    white-space: normal;
-    box-shadow: 0 10px 24px -10px rgba(15, 23, 42, .35);
-    opacity: 0;
+    background: rgba(255, 255, 255, 0.1);
     pointer-events: none;
-    transition: opacity .18s ease, transform .18s ease;
 }
 
-@media (hover: hover) {
-
-    .emp-att-bar-col:hover .emp-att-bar-tip {
-        opacity: 1;
-        transform: translate(-50%, 0);
-    }
-}
-
-.emp-att-bar-label {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1.25;
-    margin-top: 10px;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #94a3b8;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-}
-
-.emp-att-bar-label b {
-    font-size: 12px;
-    font-weight: 800;
-    color: #475569;
-}
-
-/* Har bar ke neeche status chip — Present/Absent/Half Day/Late/Leave
-   bar ke hi colours follow karta hai, to reading aasan ho jaati hai. */
-.emp-att-bar-status {
-    margin-top: 7px;
-    padding: 3px 9px;
-    border-radius: 999px;
-    border: 1px solid;
-    font-size: 10.5px;
-    font-weight: 700;
-    line-height: 1.5;
-    white-space: nowrap;
-}
-
-/* Chart footer legend */
-.emp-att-chart-foot {
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid #f1f5f9;
-}
-
-/* Koi punch hi nahi (last 7 din) — blank white card ki jagah
-   clear message, taaki user ko lage chart toot gaya hai. */
-.emp-att-chart-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    min-height: 230px;
-    text-align: center;
-    color: #9ca3af;
-}
-
-.emp-att-chart-empty b {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: #6b7280;
-}
-
-.emp-att-chart-empty span {
-    font-size: 11.5px;
-}
-
-.emp-att-legend {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-}
-
-.emp-att-legend i {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    display: inline-block;
-}
-
-/* ---- Attendance history ----
-   Desktop par table, mobile par stacked cards — dono ek hi sliced
-   row-list se render hote hain, isliye pagination dono par same. */
-
-/* Month filter tabs — table ke upar, apni line me. Space kam ho to
-   scroll hote hain (nowrap + overflow), wrap nahi hote. */
-
-/* 30 / 90 / All — plain buttons, MUI dependency nahi */
-.emp-att-range {
-    display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: 999px;
-    background: #f1f5f9;
-    white-space: nowrap;
-}
-
-.emp-att-range button {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 700;
-    color: #64748b;
-    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
-    white-space: nowrap;
-}
-
-.emp-att-range button:hover {
-    color: #4338ca;
-}
-
-.emp-att-range button.active {
-    background: #fff;
-    color: #4f46e5;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
-}
-
-/* ---- Per-row timing bar (table "Timing" column + mobile card) ----
-   6 AM → 10 PM ka track; check-in se check-out tak ka segment
-   status ke colour me (green = full day, orange = half day,
-   indigo = aaj abhi chal raha hai, amber = checkout missing). */
-
-.emp-att-row-tl-track {
+.emp-att-header-top {
     position: relative;
-    display: block;
-    width: 100%;
-    height: 12px;
-    border-radius: 999px;
-    background: repeating-linear-gradient(90deg, #f1f5f9 0 5px, #e8edf3 5px 10px);
-    border: 1px solid #eef2f7;
-    overflow: hidden;
-}
-
-.emp-att-row-tl-track i {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    display: block;
-    border-radius: 999px;
-    min-width: 4px;
-}
-
-.emp-att-row-tl-track i.on {
-    background: linear-gradient(90deg, #34d399, #059669);
-}
-
-.emp-att-row-tl-track i.half {
-    background: linear-gradient(90deg, #fdba74, #ea580c);
-}
-
-.emp-att-row-tl-track i.open {
-    background: linear-gradient(90deg, #a5b4fc, #6366f1);
-}
-
-.emp-att-row-tl-track i.stale {
-    background: repeating-linear-gradient(135deg, #fde68a 0 4px, #f59e0b 4px 8px);
-}
-
-/* ---- Punch timeline: kab check-in / check-out hua ----
-   6 AM → 10 PM axis; har din ka check-in→check-out duration ek bar.
-   Ye "kitne ghante" ke saath "KAB" bhi dikhata hai. */
-
-/* Axis row aur har data row ka grid same hota hai, isliye labels
-   aur bars ek hi column me align rehte hain. */
-.emp-att-timeline-axis,
-
-.emp-att-tl-axis-track,
-
-/* Axis ka track pehle poora light-grey block banta tha — jo ek
-   "khali progress bar" jaisa dikhta tha. Ab sirf halka background
-   hai, koi filled bar nahi. */
-
-/* Track ka halka background + grid lines.
-   Background sirf halka hai (koi solid fill nahi) — isse khaali din
-   ka track "blank bar" jaisa nahi lagta. */
-
-@media (hover: hover) {
-}
-
-/* Desktop: table + vertical scroll (poori list ek hi box me),
-   header sticky rehta hai taaki 20+ rows par bhi column pata rahe.
-   `max-height` chhoti rakhi hai — isse history card ki lambai
-   control me rehti hai (chart card ke barabar). */
-/* Pehle is wrapper par `max-height: 320px; overflow-y: auto` tha,
-   jisse table apne andar hi scroll ho raha tha — rows "missing"
-   dikhte the aur last row tak pahunchne ke liye scroll karna padta
-   tha. Ab poora card apni natural height lete hai aur scroll
-   page ka apna flow hota hai. Sticky `thead` phir bhi kaam karta
-   hai kyunki wo card ke andar nahi, viewport ke saath chipakta hai. */
-.emp-att-table-wrap {
-    display: block;
-}
-
-.emp-att-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #f9fafb;
-    box-shadow: inset 0 -1px 0 #eef2f7;
-}
-
-.emp-att-cards {
-    display: none;
-
-    /* DELIBERATELY koi max-height / overflow-y nahi.
-       Yahan pehle `max-height: 68vh; overflow-y: auto; overscroll-behavior:
-       contain` laga tha — aur touch par list "atak" gayi. Wajah: mobile
-       par page KHUD bhi scroll hota hai, to ek aur scroll container
-       banana nested scroll ban gaya. Upar ungli rakhne par list scroll
-       hoti thi (page nahi), aur list ke end tak pahunchte hi `contain`
-       scroll chaining rok deta tha — dono milkar "scroll band ho gaya"
-       feel dete hain.
-
-       Ab zaroorat hi nahi: mobile par sirf 5 cards/page hote hain
-       (ROWS_PER_PAGE_MOBILE), to list chhoti hai aur page ko scroll
-       karne do. "Element move ho to page na scroll ho" wala kaam
-       JS me `useLayoutEffect` + `window.scrollTo` se already ho raha
-       hai — uske liye nested scroll ki zaroorat nahi thi. */
-}
-
-.emp-att-table {
-    min-width: 560px;
-}
-
-/* Mobile card list */
-.emp-att-card-row {
-    padding: 12px 14px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.emp-att-card-row:last-child {
-    border-bottom: none;
-}
-
-.emp-att-card-top {
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 10px;
 }
 
-.emp-att-card-top strong {
-    font-size: 13px;
-    font-weight: 700;
-    color: #171b2e;
+.emp-att-header-top h1 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    white-space: nowrap;
 }
 
-.emp-att-card-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+.emp-att-month-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 44px;
+    padding: 0 2px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.14);
 }
 
-.emp-att-card-grid>div {
+.emp-att-month-picker button {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    color: #ffffff;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.emp-att-month-picker button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.emp-att-month-picker button:disabled {
+    cursor: default;
+    opacity: 0.4;
+}
+
+.emp-att-month-picker button svg {
+    font-size: 21px;
+}
+
+.emp-att-month-picker > span {
+    min-width: 74px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.emp-att-overview {
+    position: relative;
+    z-index: 2;
+    margin-top: -48px;
+}
+
+.emp-att-today {
+    padding: 18px;
+    border: 1px solid rgba(31, 35, 64, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(31, 35, 64, 0.08);
+}
+
+.emp-att-today-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.emp-att-today-date {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
-    background: #f8fafc;
-    border-radius: 8px;
-    padding: 6px 8px;
 }
 
-.emp-att-card-grid span {
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: .4px;
-    text-transform: uppercase;
-    color: #94a3b8;
+.emp-att-today-date > span {
+    color: #5b6078;
+    font-size: 12px;
+    font-weight: 600;
 }
 
-.emp-att-card-grid b {
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #0f172a;
+.emp-att-today-date > strong {
+    color: #1f2340;
+    font-size: clamp(27px, 8vw, 34px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: 0.5px;
     font-variant-numeric: tabular-nums;
 }
 
-/* Mobile card ka timing bar — label + track ek line me */
-.emp-att-card-tl {
+.emp-att-today .emp-att-badge {
+    flex-shrink: 0;
+    padding: 5px 9px;
+}
+
+.emp-att-today-boxes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.emp-att-time-box {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid #eef0f6;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+
+.emp-att-time-box span {
+    color: #5b6078;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.emp-att-time-box strong {
+    color: #1f2340;
+    font-size: 17px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-att-location {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 8px;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+    color: #5b6078;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
 }
 
-.emp-att-card-tl-label {
+.emp-att-location svg {
     flex: 0 0 auto;
-    font-size: 9.5px;
+    font-size: 16px;
+    color: #6b7280;
+}
+
+.emp-att-location > span:first-of-type {
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-att-location a {
+    color: #4b3fd1;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.emp-att-location a:hover {
+    text-decoration: underline;
+}
+
+.emp-att-today-location {
+    margin-top: 11px;
+}
+
+.emp-att-inline-error.MuiAlert-root {
+    margin-top: 10px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.emp-att-punch {
+    display: inline-flex;
+    width: 100%;
+    min-height: 52px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 16px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+.emp-att-punch svg {
+    font-size: 20px;
+}
+
+.emp-att-punch.is-in {
+    background: #0b7a55;
+    box-shadow: 0 10px 22px rgba(11, 122, 85, 0.22);
+}
+
+.emp-att-punch.is-out {
+    background: #c2410c;
+    box-shadow: 0 10px 22px rgba(194, 65, 12, 0.24);
+}
+
+.emp-att-punch:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.emp-att-punch:disabled {
+    cursor: default;
+    transform: none;
+    opacity: 0.72;
+}
+
+.emp-att-punch.is-in:disabled {
+    background: #d7dbe6;
+    color: #5b6078;
+    box-shadow: none;
+}
+
+.emp-att-today-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.emp-att-today-skeleton .emp-att-today-boxes {
+    margin-top: 4px;
+}
+
+.emp-att-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.emp-att-page .emp-home-stat {
+    border-radius: 16px;
+    border-color: #eef0f6;
+    box-shadow: 0 8px 22px rgba(31, 35, 64, 0.05);
+}
+
+.emp-att-page .emp-home-stat span {
+    color: #5b6078;
+}
+
+.emp-att-page .emp-home-stat.is-green {
+    border-top-color: #0b7a55;
+}
+
+.emp-att-page .emp-home-stat.is-green strong {
+    color: #0b7a55;
+}
+
+.emp-att-page .emp-home-stat.is-red {
+    border-top-color: #dc2626;
+}
+
+.emp-att-page .emp-home-stat.is-red strong {
+    color: #dc2626;
+}
+
+.emp-att-page .emp-home-stat.is-amber {
+    border-top-color: #d97706;
+}
+
+.emp-att-page .emp-home-stat.is-amber strong {
+    color: #b45309;
+}
+
+.emp-att-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.emp-att-calendar-card,
+.emp-att-logs-card {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(31, 35, 64, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(31, 35, 64, 0.05);
+}
+
+.emp-att-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.emp-att-card-head h2 {
+    margin: 0;
+    color: #1f2340;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.emp-att-card-head > span {
+    color: #5b6078;
+    font-size: 11.5px;
     font-weight: 700;
-    letter-spacing: .4px;
-    text-transform: uppercase;
-    color: #94a3b8;
+    white-space: nowrap;
 }
 
-.emp-att-card-tl .emp-att-row-tl-track {
-    flex: 1 1 auto;
+.emp-att-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    margin-bottom: 4px;
 }
 
-.emp-att-empty {
+.emp-att-weekdays span {
+    color: #5b6078;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
     text-align: center;
-    padding: 32px 16px;
-    color: #9ca3af;
-}
-
-/* Aaj ki row par chhota tag — calendar view me aaj dhoondhna aasan ho */
-.emp-att-today-tag {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    color: #4338ca;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: .3px;
     text-transform: uppercase;
-    vertical-align: middle;
 }
 
-/* ---------------- Mobile ---------------- */
-
-/* Hero ka text block — flex child hai, isliye overflow guard
-   chahiye warna chhote screen par text bahar nikal jata hai */
-
-/* =========================
-   RESPONSIVE (wireframe ke
-   mutabik: desktop grid,
-   mobile ek column)
-   ========================= */
-
-/* Duo grid me history card aadha ho jata hai — 3 stats + button ek hi
-   line me tabhi theek baithte hain jab column kaafi bada ho. Neeche
-   button apni line par aa jata hai (3 stats ek line me rehte hain). */
-@media (max-width: 1300px) {
+.emp-att-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
 }
 
-/* Tablet: 4 stat cards 2x2, duo grid 1 column (2 cards side-by-side
-   bahut pathe ho jate hain) */
-@media (max-width: 1100px) {
+.emp-att-day {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    height: 44px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #1f2340;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
 
-    /* 1 column me chart ko wapas full width mila, to bars bhi
-       compact na ho — normal spacing wapas */
-    .emp-att-duo .emp-att-bars {
-        gap: 14px;
+.emp-att-day:hover {
+    background: #f0eefe;
+}
+
+.emp-att-day:focus-visible {
+    outline: 2px solid #4b3fd1;
+    outline-offset: 1px;
+}
+
+.emp-att-day.is-weekend {
+    background: #f6f7fb;
+    color: #6b7280;
+}
+
+.emp-att-day.is-weekend:hover {
+    background: #eceef6;
+}
+
+.emp-att-day.is-future {
+    opacity: 0.45;
+}
+
+.emp-att-day.is-today {
+    color: #ffffff;
+    background: #4b3fd1;
+}
+
+.emp-att-day.is-today:hover {
+    background: #4338ca;
+}
+
+.emp-att-day > span {
+    line-height: 1;
+}
+
+.emp-att-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    flex: 0 0 5px;
+    border-radius: 50%;
+}
+
+.emp-att-dot.is-present {
+    background: #0b7a55;
+}
+
+.emp-att-dot.is-late {
+    background: #d97706;
+}
+
+.emp-att-dot.is-absent {
+    background: #dc2626;
+}
+
+.emp-att-calendar-skeleton.MuiSkeleton-root {
+    border-radius: 50%;
+}
+
+.emp-att-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #eef0f6;
+}
+
+.emp-att-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #5b6078;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.emp-att-view-all {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 1px;
+    padding: 0 2px 0 8px;
+    border: 0;
+    border-radius: 10px;
+    color: #4b3fd1;
+    background: transparent;
+    font-size: 11.5px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.emp-att-view-all:hover {
+    background: #f1efff;
+}
+
+.emp-att-view-all svg {
+    font-size: 18px;
+}
+
+.emp-att-log-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.emp-att-log,
+.emp-att-history-row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 4px 10px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef0f6;
+}
+
+.emp-att-log:first-child,
+.emp-att-history-row:first-child {
+    padding-top: 0;
+}
+
+.emp-att-log:last-child,
+.emp-att-history-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.emp-att-log-date {
+    display: flex;
+    width: 44px;
+    min-height: 46px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    border-radius: 12px;
+    background: #f3f4f8;
+    color: #1f2340;
+}
+
+.emp-att-log-date span {
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.emp-att-log-date strong {
+    color: #5b6078;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.emp-att-log-date em {
+    color: #8a90a6;
+    font-size: 8.5px;
+    font-style: normal;
+    font-weight: 700;
+}
+
+.emp-att-log-main,
+.emp-att-history-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.emp-att-log-main > strong,
+.emp-att-history-main > strong {
+    color: #1f2340;
+    font-size: 12.5px;
+    font-weight: 800;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-att-log .emp-att-badge,
+.emp-att-history-row .emp-att-badge {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 2px;
+}
+
+.emp-att-log-skeleton,
+.emp-att-history-skeleton {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef0f6;
+}
+
+.emp-att-log-skeleton:last-child,
+.emp-att-history-skeleton:last-child {
+    border-bottom: 0;
+}
+
+.emp-att-log-skeleton > div,
+.emp-att-history-skeleton > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.emp-att-empty-text {
+    margin: 12px 0 0;
+    padding: 14px 8px;
+    color: #5b6078;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.emp-att-badge {
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.emp-att-badge svg {
+    font-size: 14px;
+}
+
+.emp-att-badge.is-green {
+    color: #047857;
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+
+.emp-att-badge.is-amber {
+    color: #a16207;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.emp-att-badge.is-red {
+    color: #b91c1c;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.emp-att-badge.is-orange {
+    color: #c2410c;
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.emp-att-badge.is-blue {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.emp-att-badge.is-purple {
+    color: #4338ca;
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+.emp-att-badge.is-neutral {
+    color: #5b6078;
+    background: #f3f4f8;
+    border-color: #e5e7f0;
+}
+
+.emp-att-error-card {
+    padding: 24px 18px;
+    border: 1px solid rgba(31, 35, 64, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(31, 35, 64, 0.08);
+    text-align: center;
+}
+
+.emp-att-error-card p {
+    margin: 0 0 14px;
+    color: #5b6078;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.emp-att-error-card .MuiButton-root {
+    border-radius: 12px;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: none;
+    font-weight: 700;
+    text-transform: none;
+}
+
+.emp-att-sheet-paper.MuiDrawer-paper {
+    right: 0;
+    left: 0;
+    width: min(100%, 720px);
+    max-height: 82vh;
+    margin: 0 auto;
+    border-radius: 24px 24px 0 0;
+    background: #ffffff;
+}
+
+.emp-att-sheet {
+    padding: 8px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+.emp-att-sheet-handle {
+    width: 42px;
+    height: 4px;
+    margin: 0 auto 12px;
+    border-radius: 999px;
+    background: #d9dce7;
+}
+
+.emp-att-sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.emp-att-sheet-head > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.emp-att-sheet-head span {
+    color: #5b6078;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.emp-att-sheet-head h2 {
+    margin: 0;
+    color: #1f2340;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.emp-att-sheet-head .MuiIconButton-root {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    margin: -6px -6px 0 0;
+    color: #5b6078;
+}
+
+.emp-att-sheet-badge {
+    margin-top: 14px;
+}
+
+.emp-att-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.emp-att-sheet-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid #eef0f6;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+
+.emp-att-sheet-field:last-child {
+    grid-column: 1 / -1;
+}
+
+.emp-att-sheet-field > span {
+    color: #5b6078;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+.emp-att-sheet-field > strong {
+    color: #1f2340;
+    font-size: 15px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-att-sheet-empty {
+    display: flex;
+    min-height: 180px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #5b6078;
+    text-align: center;
+}
+
+.emp-att-sheet-empty svg {
+    margin-bottom: 3px;
+    font-size: 30px;
+    color: #9aa0b4;
+}
+
+.emp-att-sheet-empty strong {
+    color: #1f2340;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.emp-att-sheet-empty span {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.emp-att-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 22px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 16px 34px rgba(75, 63, 209, 0.22);
+}
+
+.emp-att-history-header > button,
+.emp-att-history-header > span {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+}
+
+.emp-att-history-header > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.16);
+    cursor: pointer;
+}
+
+.emp-att-history-header > button:hover {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+.emp-att-history-header h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.emp-att-history-body {
+    margin-top: 16px;
+}
+
+.emp-att-history-card {
+    padding: 14px;
+    border: 1px solid rgba(31, 35, 64, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(31, 35, 64, 0.05);
+}
+
+.emp-att-history-list {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 769px) {
+    .emp-att-page .dash-content.emp-att-content {
+        padding: 22px 28px 40px;
     }
 
-    .emp-att-duo .emp-att-bar-track {
-        max-width: 56px;
+    .emp-att-columns {
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        align-items: start;
     }
 }
 
-@media (max-width: 700px) {
-
-    /* Punch strip: 3 stats 3 columns me hi rahe (chhote hain),
-       button full width apni line par */
-
-    /* Hero ka layout ab AttendanceHeader component `sx` se khud
-       handle karta hai (wrap + space-between), isliye yahan sirf
-       padding/radius chhote karte hain — flex-direction ya
-       justify-content set karne se dono systems ek doosre se
-       ladte hain. Typography `h5` par hai (variant="h5"), isliye
-       pehle ka `h1` selector nahi lagta. */
-    .emp-hero {
-        padding: 16px 18px;
-        border-radius: 14px;
+@media (max-width: 430px) {
+    .emp-att-calendar-card {
+        padding-right: 4px;
+        padding-left: 4px;
     }
 
-    .emp-hero h5 {
+    .emp-att-calendar-card .emp-att-card-head,
+    .emp-att-calendar-card .emp-att-weekdays,
+    .emp-att-calendar-card .emp-att-legend,
+    .emp-att-calendar-card .emp-att-empty-text {
+        margin-right: 8px;
+        margin-left: 8px;
+    }
+
+    .emp-att-day {
+        height: 44px;
+    }
+}
+
+@media (max-width: 360px) {
+    .emp-att-header {
+        padding: 14px 12px 60px;
+    }
+
+    .emp-att-header-top h1 {
         font-size: 19px;
-        letter-spacing: -0.3px;
     }
 
-    .emp-hero p {
-        font-size: 13px;
-        line-height: 1.45;
-    }
-
-    /* Mobile par chart bada rahe, par horizontal scroll chalu —
-       bars squeeze nahi hote, koi cut nahi hota. */
-    .emp-att-chart {
-        /* Mobile par chhota tooltip (≈32px) chahiye. Upar wale
-           negative-margin hack ko bhi yahan se hata diya — wo
-           desktop wale rule ka leftover tha. */
-        padding: 34px 4px 14px;
-    }
-
-    .emp-att-bars {
-        height: 180px;
-        gap: 10px;
-    }
-
-    .emp-att-bar-track {
-        max-width: 44px;
-        border-radius: 10px 10px 0 0;
-    }
-
-    .emp-att-bar-fill {
-        border-radius: 10px 10px 0 0;
-    }
-
-    /* Tooltip chhoti screen par bar se bahar nikal sakta hai —
-       chhota karke overflow rok dete hain */
-    .emp-att-bar-tip {
-        max-width: 120px;
-        font-size: 10px;
-        padding: 5px 7px;
-    }
-
-    /* 7 din ke dates chhote font me, par poore dikhte hain */
-    .emp-att-bar-label {
-        font-size: 10.5px;
-    }
-
-    .emp-att-bar-label b {
-        font-size: 11px;
-    }
-
-    .emp-att-range button {
-        padding: 4px 9px;
-        font-size: 11px;
-    }
-
-    /* Chart card ka header mobile par compact ho jaata hai */
-    .emp-att-chart-card {
-        margin-bottom: 16px;
-        border-radius: 14px;
-    }
-
-    /* Table chhoti screen par nahi dikhegi — stacked cards
-       (Check In / Check Out / Hours / Timing / Status ek card me) */
-    .emp-att-table-wrap {
-        display: none;
-    }
-
-    /* Mobile par chart scrollable rahega, par height thodi kam.
-       `overflow-x: auto` saath `overflow-y: visible` valid nahi hota
-       (browser dono ko `auto` bana deta hai) — isliye tooltip ke
-       liye upar padding/negative margin hi kaam karta hai, jo
-       `.emp-att-chart` par already laga hai. */
-    .emp-att-bars-scroll {
-        margin: 0 -4px;
-        padding: 0 4px;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .emp-att-bar-status {
-        font-size: 9.5px;
-        padding: 2px 7px;
-    }
-
-    .emp-att-cards {
-        display: block;
-    }
-
-    /* History head + tabs: chhoti screen par title upar, tabs niche
-       scrollable — doosre card ke content se mix nahi honge. */
-
-    /* Pagination compact */
-    .emp-att-cards+.MuiTablePagination-root,
-    .MuiTablePagination-root {
-        padding: 6px 8px;
-    }
-}
-
-@media (max-width: 400px) {
-
-    /* Bas typography aur padding chhoti — layout pehle wale query
-       se inherit ho jaata hai. */
-    .emp-hero {
-        padding: 14px 16px;
-    }
-
-    .emp-hero h5 {
-        font-size: 17px;
-    }
-
-    .emp-hero p {
+    .emp-att-month-picker > span {
+        min-width: 68px;
         font-size: 12px;
+    }
+
+    .emp-att-today {
+        padding: 15px;
+    }
+
+    .emp-att-today-date > strong {
+        font-size: 26px;
+    }
+
+    .emp-att-page .dash-content.emp-att-content {
+        padding-right: 12px;
+        padding-left: 12px;
     }
 }

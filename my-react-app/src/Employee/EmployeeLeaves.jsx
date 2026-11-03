@@ -1,59 +1,68 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Alert, Button, Skeleton, Snackbar } from "@mui/material";
 import {
-    Alert,
-    Box,
-    Button,
-    Container,
-    Grid,
-    Snackbar,
-} from "@mui/material";
-import { AddRounded, EventOutlined } from "@mui/icons-material";
+    AccessTimeOutlined,
+    AddRounded,
+    AssignmentOutlined,
+    EventOutlined,
+    PaymentsOutlined,
+    PersonOutlined,
+} from "@mui/icons-material";
 
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
+import useIsMobile from "../hooks/useIsMobile";
+import { useLeave } from "../context/LeaveContext";
+import BottomNav from "./components/dashboard/BottomNav";
+import LeaveHeader from "./components/leaves/LeaveHeader";
+import BalanceCard from "./components/leaves/BalanceCard";
+import UpcomingHolidaysCard from "./components/leaves/UpcomingHolidaysCard";
+import StatusSummaryCards from "./components/leaves/StatusSummaryCards";
+import LeaveRequestsToolbar from "./components/leaves/LeaveRequestsToolbar";
+import LeaveRequestsTable from "./components/leaves/LeaveRequestsTable";
+import LeavePagination from "./components/leaves/LeavePagination";
+import LeaveRequestCard from "./components/leaves/LeaveRequestCard";
+import RequestSheet from "./components/leaves/RequestSheet";
+import RequestDetailPanel from "./components/leaves/RequestDetailPanel";
+import ApplyLeaveForm from "./components/leaves/ApplyLeaveForm";
+import CancelLeaveDialog from "./components/leaves/CancelLeaveDialog";
+import {
+    balanceTypes,
+    formatDate,
+    formatRangeShort,
+    typeLabel,
+} from "./components/leaves/leaveShared";
+
 import "../Admin/AdminDashboard.css";
+import "./EmployeeDashboard.css";
 import "./EmployeeLeaves.css";
 
-import { useLeave } from "../context/LeaveContext";
-import PageHeroBanner from "./components/PageHeroBanner";
-import LeaveStatCards from "./components/leaves/LeaveStatCards";
-import LeaveBalanceCard from "./components/leaves/LeaveBalanceCard";
-import MonthlyRequestsChart from "./components/leaves/MonthlyRequestsChart";
-import LeaveHistory, { HISTORY_ANCHOR_ID } from "./components/leaves/LeaveHistory";
-import ApplyLeaveDialog from "./components/leaves/ApplyLeaveDialog";
-import CancelLeaveDialog from "./components/leaves/CancelLeaveDialog";
-import { INDIGO } from "./components/leaves/leaveShared";
+const PAGE_SIZE = 10;
 
 const EMPLOYEE_NAV_ITEMS = [
-    { key: "my-dashboard", label: "My Dashboard", icon: EventOutlined },
-    { key: "my-profile", label: "My Profile", icon: EventOutlined },
-    { key: "my-attendance", label: "My Attendance", icon: EventOutlined },
+    { key: "my-dashboard", label: "My Dashboard", icon: AssignmentOutlined },
+    { key: "my-profile", label: "My Profile", icon: PersonOutlined },
+    { key: "my-attendance", label: "My Attendance", icon: AccessTimeOutlined },
     { key: "my-leaves", label: "My Leaves", icon: EventOutlined },
-    { key: "my-payslips", label: "My Payslips", icon: EventOutlined },
+    { key: "my-payslips", label: "My Payslips", icon: PaymentsOutlined },
 ];
 
 function EmployeeLeaves() {
     const navigate = useNavigate();
-
-    /* Saara data shared store se — isiliye admin approval / cancel ke baad
-       is page ke numbers (stat cards, chart, balance) turant change hote
-       hain, chahe page reload na ho. */
+    const isMobile = useIsMobile();
     const {
         myLeaves,
         balance,
         loading,
         submitting,
         error,
-        me,
         applyLeave,
         cancelLeave,
+        reload,
         clearError,
     } = useLeave();
 
-    /* Login ke baad `user` localStorage me hota hai — pehle render hi
-       sahi ho, isliye lazy initializer (useEffect me set karte to sidebar
-       ek render khali dikhta). */
     const [user] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem("user") || "null");
@@ -62,15 +71,78 @@ function EmployeeLeaves() {
         }
     });
     const [collapsed, setCollapsed] = useState(false);
-    const [notice, setNotice] = useState("");
+    const [filter, setFilter] = useState("All");
+    const [year, setYear] = useState(() => String(new Date().getFullYear()));
+    const [search, setSearch] = useState("");
+    const [page, setPage] = useState(0);
+    const [selectedLeave, setSelectedLeave] = useState(null);
     const [applyOpen, setApplyOpen] = useState(false);
-    /* Cancel confirm dialog ka state — `cancelTarget` = jis record ke liye
-       user ne "Cancel" dabaya. */
     const [cancelTarget, setCancelTarget] = useState(null);
     const [cancelling, setCancelling] = useState(false);
-    /* History ka filter page ke upar — taaki stat cards aur filter chips
-       ek hi state ko control karein (card click = chip select). */
-    const [historyFilter, setHistoryFilter] = useState("All");
+    const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
+
+    const types = useMemo(() => balanceTypes(balance), [balance]);
+
+    const yearOptions = useMemo(() => {
+        const options = new Set([String(new Date().getFullYear())]);
+        myLeaves.forEach((leave) => {
+            const leaveYear = String(leave.from || leave.appliedOn || "").slice(0, 4);
+            if (/^\d{4}$/.test(leaveYear)) options.add(leaveYear);
+        });
+        return [...options].sort((a, b) => Number(b) - Number(a));
+    }, [myLeaves]);
+
+    const baseLeaves = useMemo(() => {
+        const query = search.trim().toLowerCase();
+
+        return myLeaves.filter((leave) => {
+            const leaveYear = String(leave.from || leave.appliedOn || "").slice(0, 4);
+            if (leaveYear !== String(year)) return false;
+            if (!query) return true;
+
+            const haystack = [
+                typeLabel(leave.type),
+                leave.type,
+                leave.from,
+                leave.to,
+                formatDate(leave.from),
+                formatDate(leave.to),
+                formatRangeShort(leave.from, leave.to),
+            ].join(" ").toLowerCase();
+
+            return haystack.includes(query);
+        });
+    }, [myLeaves, year, search]);
+
+    const counts = useMemo(() => ({
+        All: baseLeaves.length,
+        Pending: baseLeaves.filter((leave) => leave.status === "Pending").length,
+        Approved: baseLeaves.filter((leave) => leave.status === "Approved").length,
+        Rejected: baseLeaves.filter((leave) => leave.status === "Rejected").length,
+    }), [baseLeaves]);
+
+    const filteredLeaves = useMemo(() => (
+        filter === "All"
+            ? baseLeaves
+            : baseLeaves.filter((leave) => leave.status === filter)
+    ), [baseLeaves, filter]);
+
+    const pageCount = Math.max(1, Math.ceil(filteredLeaves.length / PAGE_SIZE));
+    const safePage = Math.min(page, pageCount - 1);
+    const pageLeaves = filteredLeaves.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
+    useEffect(() => {
+        setPage(0);
+    }, [filter, year, search]);
+
+    const initialError = Boolean(error && !loading && !balance);
+    const showInlineError = Boolean(error && balance && !applyOpen);
+    const displayName = user
+        ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee"
+        : "Employee";
+    const emptyMessage = filter === "All"
+        ? "Abhi koi leave request nahi."
+        : "Is status mein koi request nahi.";
 
     const handleLogout = () => {
         localStorage.removeItem("user");
@@ -78,81 +150,69 @@ function EmployeeLeaves() {
         navigate("/login");
     };
 
-    /* Stat card click → wahi filter history table par laga do, aur user ko
-       list tak le jao (table page ke neeche hoti hai). "Total" ka matlab
-       koi filter nahi = All. */
-    const handleStatSelect = (statKey) => {
-        const next = statKey === "total" ? "All" : `${statKey[0].toUpperCase()}${statKey.slice(1)}`;
-        setHistoryFilter(next);
-        const anchor = document.getElementById(HISTORY_ANCHOR_ID);
-        if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    const openApply = () => {
+        if (loading || types.length === 0) return;
+        clearError();
+        setApplyOpen(true);
+    };
+
+    const closeApply = () => {
+        if (submitting) return;
+        setApplyOpen(false);
+        clearError();
     };
 
     const handleApply = async (payload) => {
+        await applyLeave(payload);
+        setApplyOpen(false);
+        setPage(0);
+        clearError();
+        setToast({
+            open: true,
+            severity: "success",
+            message: "Request bhej di gayi",
+        });
+    };
+
+    const handleRequestCancel = (leave) => {
+        setSelectedLeave(null);
+        setCancelTarget(leave);
+    };
+
+    const handleCancel = async () => {
+        if (!cancelTarget) return;
+        setCancelling(true);
         try {
-            await applyLeave(payload);
-            /* Context ne record list + notifications turant patch kar diye
-               hain — isiliye yahan koi refetch nahi, list/stat/chart isi
-               frame me update ho jaate hain. */
-            setApplyOpen(false);
-            setNotice("Leave request submitted — waiting for approval.");
-        } catch {
-            /* `error` context me chala gaya; page ka Alert dikha dega aur
-               dialog khula rahega taaki user apna form na bhare. */
+            await cancelLeave(cancelTarget.id);
+            setCancelTarget(null);
+            setToast({
+                open: true,
+                severity: "success",
+                message: "Leave request cancel ho gayi.",
+            });
+        } catch (cancelError) {
+            setCancelTarget(null);
+            setToast({
+                open: true,
+                severity: "error",
+                message: cancelError?.message || "Leave request cancel nahi ho paayi.",
+            });
+        } finally {
+            setCancelling(false);
         }
     };
 
-    const handleCancel = useCallback(
-        async (leave) => {
-            setCancelling(true);
-            try {
-                const updated = await cancelLeave(leave.id);
-                setCancelTarget(null);
-                setNotice(`${updated.type} leave request cancelled.`);
-            } catch (e) {
-                setCancelTarget(null);
-                setNotice(e?.message || "Could not cancel the leave request.");
-            } finally {
-                setCancelling(false);
-            }
-        },
-        [cancelLeave]
-    );
+    const handleRetry = () => {
+        clearError();
+        reload();
+    };
 
-    const stats = useMemo(
-        () => ({
-            total: myLeaves.length,
-            approved: myLeaves.filter((l) => l.status === "Approved").length,
-            pending: myLeaves.filter((l) => l.status === "Pending").length,
-            rejected: myLeaves.filter((l) => l.status === "Rejected").length,
-        }),
-        [myLeaves]
-    );
-
-    /* Pending days abhi balance me katte nahi (approval ka wait), isliye
-       balance card ke footer me yahi count dikhaya jaata hai. */
-    const pendingDays = useMemo(
-        () => myLeaves.filter((l) => l.status === "Pending").reduce((sum, l) => sum + (l.days || 0), 0),
-        [myLeaves]
-    );
-
-    const displayName = user
-        ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee"
-        : me?.name || "Employee";
-
-    /* Banner ka month chip — chart aur history dono 6 mahine (including
-       current month) dikhate hain, to chip bhi wahi period bataati hai. */
-    const periodLabel = useMemo(
-        () =>
-            new Date().toLocaleDateString("en-IN", {
-                month: "short",
-                year: "numeric",
-            }),
-        []
-    );
+    const closeToast = () => {
+        setToast((previous) => ({ ...previous, open: false }));
+    };
 
     return (
-        <div className="dash-page emp-page">
+        <div className="dash-page emp-page emp-leave-page">
             <Sidebar
                 activeKey="my-leaves"
                 onLogout={handleLogout}
@@ -162,6 +222,7 @@ function EmployeeLeaves() {
                 collapsed={collapsed}
                 onToggleCollapse={() => setCollapsed(!collapsed)}
             />
+
             <div className={`dash-main ${collapsed ? "collapsed" : ""}`}>
                 <Navbar
                     userName={displayName}
@@ -172,129 +233,164 @@ function EmployeeLeaves() {
                     onToggleSidebar={() => setCollapsed(!collapsed)}
                 />
 
-                <div className="dash-content">
-                    <Box className="emp-leave-page">
-                        <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
-                            {/* ---- Page hero (shared with My Attendance) -------------
-                                Title, subtitle aur "Last 6 months" chips dono pages
-                                par ek jaise hain; "Apply Leave" button banner ke
-                                action slot me hai, isliye alag header ki zaroorat
-                                nahi. */}
-                            <PageHeroBanner
-                                title="My Leaves"
-                                subtitle="Apply for leave and track your requests"
-                                chips={[
-                                    { label: "Last 6 months", variant: "text" },
-                                    { label: periodLabel, variant: "outlined" },
-                                    { label: "Demo data", variant: "outlined", color: "warning" },
-                                ]}
-                                action={
-                                    <Button
-                                        variant="contained"
-                                        startIcon={<AddRounded />}
-                                        onClick={() => setApplyOpen(true)}
-                                        sx={{
-                                            /* Gradient ke upar white surface + indigo
-                                               text: white chips ke saath bhi match
-                                               karta hai aur action turant dikhta hai. */
-                                            bgcolor: "#ffffff",
-                                            color: INDIGO,
-                                            minHeight: 44,
-                                            whiteSpace: "nowrap",
-                                            fontWeight: 700,
-                                            textTransform: "none",
-                                            borderRadius: 2.5,
-                                            px: 2.5,
-                                            boxShadow: "0 8px 20px -8px rgba(79,70,229,0.55)",
-                                            "&:hover": { bgcolor: "#f4f2ff", transform: "translateY(-1px)" },
-                                        }}
-                                    >
-                                        Apply Leave
-                                    </Button>
-                                }
-                            />
+                <div className="dash-content emp-leave-content">
+                    <div className="emp-leave-shell">
+                        <LeaveHeader
+                            onApply={openApply}
+                            applyDisabled={loading || types.length === 0}
+                            showAction={!isMobile}
+                        />
 
-                            {error && (
-                                <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2.5 }} onClose={clearError}>
-                                    {error}
-                                </Alert>
-                            )}
+                        {initialError ? (
+                            <div className="emp-leave-error-card">
+                                <p>{error}</p>
+                                <Button variant="contained" onClick={handleRetry}>
+                                    Retry
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="emp-leave-layout">
+                                <div className="emp-leave-left">
+                                    <BalanceCard balance={balance} loading={loading} />
+                                    <UpcomingHolidaysCard />
+                                </div>
 
-                            {/* ---- Top section ---------------------------------
-                                Desktop (md+):
-                                  Row 1 → 4 stat cards, poori width (12/12)
-                                  Row 2 → Monthly Requests chart (8/12) +
-                                          Leave Balance (4/12), ek hi row me
+                                <div className="emp-leave-main">
+                                    {showInlineError && (
+                                        <Alert
+                                            severity="error"
+                                            className="emp-leave-inline-alert"
+                                            onClose={clearError}
+                                        >
+                                            {error}
+                                        </Alert>
+                                    )}
 
-                                Ab kisi Grid item par `gridRow`/`gridColumn`
-                                nahi hai — teeno normal auto-placement se
-                                baithte hain, isliye koi row/column override
-                                se ladai nahi hoti.
-
-                                Mobile (xs): teeno full width. `order` sirf xs
-                                par lagta hai (balance chart se pehle), taaki
-                                stack order stats (2x2) → balance → chart
-                                bana rahe. */}
-                            <Grid container spacing={2} alignItems="stretch">
-                                {/* Row 1 — stat cards, poori width (clickable filters) */}
-                                <Grid size={{ xs: 12, md: 12 }}>
-                                    <LeaveStatCards
-                                        stats={stats}
-                                        loading={loading}
-                                        activeKey={historyFilter === "All" ? "total" : historyFilter.toLowerCase()}
-                                        onSelect={handleStatSelect}
+                                    <StatusSummaryCards
+                                        value={filter}
+                                        counts={counts}
+                                        onChange={setFilter}
                                     />
-                                </Grid>
 
-                                {/* Row 2, left — Monthly Requests chart */}
-                                <Grid size={{ xs: 12, md: 8 }} sx={{ order: { xs: 2, md: 0 } }}>
-                                    <MonthlyRequestsChart leaves={myLeaves} loading={loading} />
-                                </Grid>
+                                    <LeaveRequestsToolbar
+                                        years={yearOptions}
+                                        year={year}
+                                        onYearChange={setYear}
+                                        search={search}
+                                        onSearchChange={setSearch}
+                                    />
 
-                                {/* Row 2, right — Leave Balance */}
-                                <Grid size={{ xs: 12, md: 4 }} sx={{ order: { xs: 1, md: 0 } }}>
-                                    <LeaveBalanceCard balance={balance} loading={loading} pendingDays={pendingDays} />
-                                </Grid>
-                            </Grid>
+                                    {isMobile ? (
+                                        <>
+                                            <div className="emp-leave-list" aria-live="polite">
+                                                {loading ? (
+                                                    [0, 1, 2, 3].map((item) => (
+                                                        <div className="emp-leave-request-skeleton" key={item}>
+                                                            <Skeleton variant="text" width="52%" height={22} />
+                                                            <Skeleton variant="text" width="68%" height={18} />
+                                                            <Skeleton variant="rounded" width={72} height={24} />
+                                                        </div>
+                                                    ))
+                                                ) : filteredLeaves.length === 0 ? (
+                                                    <p className="emp-leave-empty-text">{emptyMessage}</p>
+                                                ) : (
+                                                    pageLeaves.map((leave) => (
+                                                        <LeaveRequestCard
+                                                            key={leave.id}
+                                                            leave={leave}
+                                                            onSelect={setSelectedLeave}
+                                                        />
+                                                    ))
+                                                )}
+                                            </div>
 
-                            <LeaveHistory
-                                leaves={myLeaves}
-                                loading={loading}
-                                filter={historyFilter}
-                                onFilterChange={setHistoryFilter}
-                                onApply={() => setApplyOpen(true)}
-                                onCancel={setCancelTarget}
-                            />
-                        </Container>
-                    </Box>
+                                            {!loading && (
+                                                <LeavePagination
+                                                    page={safePage}
+                                                    pageCount={pageCount}
+                                                    total={filteredLeaves.length}
+                                                    pageSize={PAGE_SIZE}
+                                                    onChange={setPage}
+                                                />
+                                            )}
+                                        </>
+                                    ) : (
+                                        <LeaveRequestsTable
+                                            leaves={pageLeaves}
+                                            loading={loading}
+                                            total={filteredLeaves.length}
+                                            page={safePage}
+                                            pageSize={PAGE_SIZE}
+                                            pageCount={pageCount}
+                                            emptyMessage={emptyMessage}
+                                            onPageChange={setPage}
+                                            onSelect={setSelectedLeave}
+                                            onCancel={handleRequestCancel}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <ApplyLeaveDialog
+            {isMobile && <BottomNav />}
+
+            {isMobile && (
+                <button
+                    type="button"
+                    className="emp-leave-apply"
+                    onClick={openApply}
+                    disabled={loading || types.length === 0}
+                    aria-label="Apply for leave"
+                >
+                    <AddRounded aria-hidden="true" />
+                    <span>Apply Leave</span>
+                </button>
+            )}
+
+            {isMobile ? (
+                <RequestSheet
+                    open={Boolean(selectedLeave)}
+                    leave={selectedLeave}
+                    onClose={() => setSelectedLeave(null)}
+                    onCancel={handleRequestCancel}
+                />
+            ) : (
+                <RequestDetailPanel
+                    open={Boolean(selectedLeave)}
+                    leave={selectedLeave}
+                    onClose={() => setSelectedLeave(null)}
+                    onCancel={handleRequestCancel}
+                />
+            )}
+
+            <ApplyLeaveForm
                 open={applyOpen}
-                onClose={() => setApplyOpen(false)}
-                onSubmit={handleApply}
-                submitting={submitting}
                 balance={balance}
-                leaves={myLeaves}
+                existingLeaves={myLeaves}
+                submitting={submitting}
+                onClose={closeApply}
+                onSubmit={handleApply}
             />
 
             <CancelLeaveDialog
-                open={!!cancelTarget}
+                open={Boolean(cancelTarget)}
                 leave={cancelTarget}
                 onClose={() => setCancelTarget(null)}
-                onConfirm={() => handleCancel(cancelTarget)}
+                onConfirm={handleCancel}
                 cancelling={cancelling}
             />
 
             <Snackbar
-                open={!!notice}
+                open={toast.open}
                 autoHideDuration={4000}
-                onClose={() => setNotice("")}
-                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+                onClose={closeToast}
+                anchorOrigin={{ vertical: "top", horizontal: "center" }}
             >
-                <Alert onClose={() => setNotice("")} severity="success" sx={{ width: "100%", borderRadius: 2.5 }}>
-                    {notice}
+                <Alert onClose={closeToast} severity={toast.severity} sx={{ width: "100%" }}>
+                    {toast.message}
                 </Alert>
             </Snackbar>
         </div>

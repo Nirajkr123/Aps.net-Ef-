@@ -15,6 +15,9 @@ import {
     FolderCopyOutlined,
     ListAltOutlined,
     EventAvailableOutlined,
+    MapOutlined,
+    ScheduleOutlined,
+    AssignmentTurnedInOutlined,
 } from "@mui/icons-material";
 
 import useIsMobile from "../hooks/useIsMobile";
@@ -36,8 +39,11 @@ const ROUTE_MAP = {
     /* HR/OWNER ka leave-approval module. Employee ka apna "My Leaves"
        alag route (`/my-leaves`) hai, isiliye key alag rakha. */
     leaves: "/admin/leaves",
+    shifts: "/shifts",
+    "shift-assignments": "/shift-assignments",
     users: "/users",
     locations: "/locations",
+    "work-locations": "/work-locations",
     settings: "/settings",
 };
 
@@ -52,8 +58,11 @@ const ROLE_NAV_MAP = {
         { key: "designations", label: "Designations", icon: BadgeOutlined },
         { key: "directory", label: "Employee Directory", icon: ListAltOutlined },
         { key: "leaves", label: "Leave Requests", icon: EventAvailableOutlined },
-        { key: "users", label: "Users", icon: PeopleAltOutlined },
+        { key: "shifts", label: "Shifts", icon: ScheduleOutlined },
+        { key: "shift-assignments", label: "Shift Assignments", icon: AssignmentTurnedInOutlined },
+        { key: "users", label: "Admin & HR Users", icon: PeopleAltOutlined },
         { key: "locations", label: "Locations", icon: LocationCityOutlined },
+        { key: "work-locations", label: "Work Locations", icon: MapOutlined },
         { key: "settings", label: "Settings", icon: SettingsOutlined },
     ],
     HR: [
@@ -62,7 +71,10 @@ const ROLE_NAV_MAP = {
         { key: "designations", label: "Designations", icon: BadgeOutlined },
         { key: "directory", label: "Employee Directory", icon: ListAltOutlined },
         { key: "leaves", label: "Leave Requests", icon: EventAvailableOutlined },
-        { key: "users", label: "Users", icon: PeopleAltOutlined },
+        { key: "shifts", label: "Shifts", icon: ScheduleOutlined },
+        { key: "shift-assignments", label: "Shift Assignments", icon: AssignmentTurnedInOutlined },
+        { key: "users", label: "Admin & HR Users", icon: PeopleAltOutlined },
+        { key: "work-locations", label: "Work Locations", icon: MapOutlined },
         { key: "settings", label: "Settings", icon: SettingsOutlined },
     ],
     EMPLOYEE: [
