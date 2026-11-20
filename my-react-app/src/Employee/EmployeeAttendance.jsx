@@ -12,9 +12,6 @@ import {
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
 import attendanceServ from "../services/attendanceService";
-import useIsMobile from "../hooks/useIsMobile";
-import StatCard from "./components/dashboard/StatCard";
-import BottomNav from "./components/dashboard/BottomNav";
 import AttendanceHeader from "./components/attendance/AttendanceHeader";
 import TodayCard from "./components/attendance/TodayCard";
 import MonthCalendar from "./components/attendance/MonthCalendar";
@@ -22,14 +19,13 @@ import DaySheet from "./components/attendance/DaySheet";
 import RecentLogs from "./components/attendance/RecentLogs";
 import AttendanceHistoryView from "./components/attendance/AttendanceHistoryView";
 import useAttendancePunch from "./components/attendance/useAttendancePunch";
+import useTodayState from "./components/attendance/useTodayState";
 import {
     dayKey,
     formatDuration,
     monthRange,
     normalizeRow,
-    rowStatus,
     unwrapList,
-    unwrapOne,
 } from "./components/attendance/attendanceUtils";
 
 import "../Admin/AdminDashboard.css";
@@ -46,7 +42,6 @@ const EMPLOYEE_NAV_ITEMS = [
 
 function EmployeeAttendance() {
     const navigate = useNavigate();
-    const isMobile = useIsMobile();
     const [searchParams, setSearchParams] = useSearchParams();
     const isHistoryView = searchParams.get("view") === "history";
 
@@ -55,17 +50,33 @@ function EmployeeAttendance() {
         () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     );
     const [rows, setRows] = useState([]);
-    const [todayRecord, setTodayRecord] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [elapsed, setElapsed] = useState("00:00:00");
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [selectedDay, setSelectedDay] = useState(null);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [toast, setToast] = useState({ open: false, severity: "success", message: "" });
     const requestRef = useRef(0);
 
-    const todayKey = dayKey(new Date());
+    const {
+        state: todayState,
+        loading: todayLoading,
+        error: todayError,
+        now,
+        elapsedSeconds,
+        refresh: refreshTodayState,
+    } = useTodayState();
+
+    const todayRecord = useMemo(() => {
+        if (!todayState?.attendance) return null;
+        return normalizeRow({
+            ...todayState.attendance,
+            date: todayState.attendanceDate,
+        });
+    }, [todayState]);
+
+    const todayKey = dayKey(todayState?.attendanceDate || new Date());
+    const elapsed = formatDuration(elapsedSeconds * 1000);
     const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const canGoNext = selectedMonth.getFullYear() < currentMonth.getFullYear()
         || (
@@ -81,34 +92,21 @@ function EmployeeAttendance() {
         setError("");
 
         const { from, to } = monthRange(selectedMonth);
-        const [historyResult, todayResult] = await Promise.allSettled([
-            attendanceServ.getMyHistory(from, to),
-            attendanceServ.getToday(),
-        ]);
 
-        if (requestRef.current !== requestId) return;
-
-        let message = "";
-
-        if (historyResult.status === "fulfilled") {
-            setRows(unwrapList(historyResult.value).map(normalizeRow));
-        } else {
+        try {
+            const response = await attendanceServ.getMyHistory(from, to);
+            if (requestRef.current !== requestId) return;
+            setRows(unwrapList(response).map(normalizeRow));
+        } catch (requestError) {
+            if (requestRef.current !== requestId) return;
             setRows([]);
-            message = historyResult.reason?.response?.data?.message
-                || "Attendance history load nahi ho paayi.";
+            setError(
+                requestError.response?.data?.message
+                || "Attendance history load nahi ho paayi."
+            );
+        } finally {
+            if (requestRef.current === requestId && !silent) setLoading(false);
         }
-
-        if (todayResult.status === "fulfilled") {
-            setTodayRecord(normalizeRow(unwrapOne(todayResult.value)));
-        } else {
-            setTodayRecord(null);
-            message = message
-                || todayResult.reason?.response?.data?.message
-                || "Today's attendance load nahi ho paayi.";
-        }
-
-        if (message) setError(message);
-        if (!silent) setLoading(false);
     }, [selectedMonth]);
 
     useEffect(() => {
@@ -124,26 +122,12 @@ function EmployeeAttendance() {
         loadMonth();
     }, [loadMonth]);
 
-    useEffect(() => {
-        if (!todayRecord?.checkInTime) {
-            setElapsed("00:00:00");
-            return undefined;
-        }
-
-        const start = new Date(todayRecord.checkInTime).getTime();
-        const end = todayRecord.checkOutTime ? new Date(todayRecord.checkOutTime).getTime() : null;
-        const tick = () => setElapsed(formatDuration((end ?? Date.now()) - start));
-        tick();
-
-        if (end) return undefined;
-
-        const timer = setInterval(tick, 1000);
-        return () => clearInterval(timer);
-    }, [todayRecord?.checkInTime, todayRecord?.checkOutTime]);
-
     const handlePunchSuccess = useCallback(async () => {
-        await loadMonth(true);
-    }, [loadMonth]);
+        await Promise.all([
+            loadMonth(true),
+            refreshTodayState({ silent: true }),
+        ]);
+    }, [loadMonth, refreshTodayState]);
 
     const {
         punch,
@@ -152,6 +136,8 @@ function EmployeeAttendance() {
         punchError,
     } = useAttendancePunch({
         todayRecord,
+        todayState,
+        now,
         onSuccess: handlePunchSuccess,
     });
 
@@ -160,8 +146,9 @@ function EmployeeAttendance() {
         if (result.ok) {
             setToast({
                 open: true,
-                severity: "success",
-                message: result.mode === "out" ? "Check-out successful" : "Check-in successful",
+                severity: result.warning ? "warning" : "success",
+                message: result.warning
+                    || (result.mode === "out" ? "Check-out successful" : "Check-in successful"),
             });
         } else {
             setToast({
@@ -172,23 +159,10 @@ function EmployeeAttendance() {
         }
     };
 
-    const stats = useMemo(() => {
-        let present = 0;
-        let late = 0;
-        let absent = 0;
-
-        rows.forEach((row) => {
-            const status = rowStatus({
-                ...row,
-                isToday: dayKey(row.date) === todayKey,
-            });
-            if (status === "Present") present += 1;
-            else if (status === "Late") late += 1;
-            else if (status === "Absent") absent += 1;
-        });
-
-        return { present, late, absent };
-    }, [rows, todayKey]);
+    const retryAll = () => {
+        loadMonth();
+        refreshTodayState();
+    };
 
     const selectedRecord = useMemo(() => {
         if (!selectedDay) return null;
@@ -271,42 +245,24 @@ function EmployeeAttendance() {
                                     {error ? (
                                         <div className="emp-att-error-card">
                                             <p>{error}</p>
-                                            <Button variant="contained" onClick={() => loadMonth()}>
+                                            <Button variant="contained" onClick={retryAll}>
                                                 Retry
                                             </Button>
                                         </div>
                                     ) : (
                                         <>
                                             <TodayCard
+                                                state={todayState}
                                                 record={todayRecord}
-                                                loading={loading}
+                                                loading={todayLoading}
+                                                stateError={todayError}
                                                 elapsed={elapsed}
+                                                now={now}
                                                 punchLoading={punchLoading}
                                                 punchStage={punchStage}
                                                 punchError={punchError}
                                                 onPunch={handlePunch}
                                             />
-
-                                            <div className="emp-att-stats">
-                                                <StatCard
-                                                    value={stats.present}
-                                                    label="Present"
-                                                    tone="green"
-                                                    loading={loading}
-                                                />
-                                                <StatCard
-                                                    value={stats.late}
-                                                    label="Late"
-                                                    tone="amber"
-                                                    loading={loading}
-                                                />
-                                                <StatCard
-                                                    value={stats.absent}
-                                                    label="Absent"
-                                                    tone="red"
-                                                    loading={loading}
-                                                />
-                                            </div>
 
                                             <div className="emp-att-columns">
                                                 <MonthCalendar
@@ -331,8 +287,6 @@ function EmployeeAttendance() {
                     </div>
                 </div>
             </div>
-
-            {isMobile && <BottomNav />}
 
             <DaySheet
                 open={sheetOpen}

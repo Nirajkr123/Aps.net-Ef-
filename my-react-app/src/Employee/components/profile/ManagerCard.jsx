@@ -1,25 +1,48 @@
 import React from "react";
-import { PersonOutlined, PhoneOutlined } from "@mui/icons-material";
+import { PhoneOutlined } from "@mui/icons-material";
+import { Skeleton } from "@mui/material";
 
-function ManagerCard({ name, phone }) {
-    if (!name || !phone) return null;
+function getInitials(name) {
+    return String(name || "")
+        .split(" ")
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+}
 
-    const telHref = `tel:${String(phone).replace(/[^\d+]/g, "")}`;
+function ManagerCard({ name, phone, loading = false }) {
+    if (loading) {
+        return (
+            <section className="emp-prof-card emp-prof-manager" aria-label="Reporting manager">
+                <Skeleton variant="rounded" width={44} height={44} sx={{ borderRadius: 2 }} />
+                <div className="emp-prof-manager-text">
+                    <Skeleton variant="text" width={110} height={16} />
+                    <Skeleton variant="text" width={150} height={22} />
+                </div>
+            </section>
+        );
+    }
+
+    if (!name || String(name).trim() === "") return null;
+
+    const telHref = phone ? `tel:${String(phone).replace(/[^\d+]/g, "")}` : null;
 
     return (
-        <section className="emp-profile-card emp-profile-manager" aria-label="Reporting manager">
-            <span className="emp-profile-manager-icon">
-                <PersonOutlined />
-            </span>
+        <section className="emp-prof-card emp-prof-manager" aria-label="Reporting manager">
+            <span className="emp-prof-manager-avatar">{getInitials(name)}</span>
 
-            <div className="emp-profile-manager-text">
-                <strong>{name}</strong>
+            <div className="emp-prof-manager-text">
                 <small>Reporting manager</small>
+                <strong>{name}</strong>
             </div>
 
-            <a className="emp-profile-call" href={telHref} aria-label={`Call ${name}`}>
-                <PhoneOutlined />
-            </a>
+            {telHref && (
+                <a className="emp-prof-call" href={telHref} aria-label="Call manager">
+                    <PhoneOutlined />
+                </a>
+            )}
         </section>
     );
 }

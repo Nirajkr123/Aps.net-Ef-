@@ -179,6 +179,49 @@
     font-variant-numeric: tabular-nums;
 }
 
+.emp-att-shift-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 12px;
+}
+
+.emp-att-shift-name {
+    color: #1f2340;
+    font-size: 12.5px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.emp-att-window {
+    color: #4b3fd1;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+}
+
+.emp-att-window.is-check_in_closed,
+.emp-att-window.is-closed {
+    color: #b45309;
+}
+
+.emp-att-window-note {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    color: #5b6078;
+    background: #f8f9fc;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.emp-att-window-note.is-warn {
+    color: #a16207;
+    background: #fffbeb;
+}
+
 .emp-att-location {
     display: flex;
     align-items: center;

@@ -26,14 +26,21 @@
         public double? CheckInDistanceMeters { get; set; }
         public double? CheckOutDistanceMeters { get; set; }
         public DateTime? MissingPunchDetectedAt { get; set; }
+        public string Source { get; set; } = "SELF";
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public string? Warning { get; set; }
+        public List<string>? Flags { get; set; }
 
-        // Extra fields for admin table view (joined from employees table)
+        // Extra fields for admin table view (joined from employees and shift tables)
         public string? EmployeeName { get; set; }
         public string? EmployeeCode { get; set; }
         public string? EmployeeEmail { get; set; }
         public string? Department { get; set; }
+        public string? ShiftName { get; set; }
+        public DateTime? ShiftStartDt { get; set; }
+        public DateTime? ShiftEndDt { get; set; }
+        public bool? ShiftCrossesMidnight { get; set; }
     }
 
     public class AttendanceUpdateDto
@@ -41,6 +48,7 @@
         public DateTime? CheckInTime { get; set; }
         public DateTime? CheckOutTime { get; set; }
         public string? Status { get; set; }
+        public string? Reason { get; set; }
     }
 
     public class LocationDto

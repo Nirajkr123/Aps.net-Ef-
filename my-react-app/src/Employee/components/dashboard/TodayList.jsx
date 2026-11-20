@@ -2,7 +2,9 @@ import React from "react";
 import { Skeleton } from "@mui/material";
 import {
     AccessTimeOutlined,
+    CakeOutlined,
     CheckCircleOutlined,
+    EventAvailableOutlined,
     EventOutlined,
     ReceiptLongOutlined,
 } from "@mui/icons-material";
@@ -11,14 +13,18 @@ const ICONS = {
     attendance: <CheckCircleOutlined />,
     leave: <EventOutlined />,
     payslip: <ReceiptLongOutlined />,
+    holiday: <EventAvailableOutlined />,
+    birthday: <CakeOutlined />,
 };
 
 function TodayList({ items = [], loading = false, onViewAll }) {
     return (
         <section className="emp-home-today">
             <div className="emp-home-section-head">
-                <h2>Aaj ka din</h2>
-                <button type="button" onClick={onViewAll}>View all</button>
+                <h2>Today</h2>
+                <button type="button" onClick={onViewAll} aria-label="View all today updates">
+                    View all
+                </button>
             </div>
 
             {loading ? (
@@ -30,7 +36,7 @@ function TodayList({ items = [], loading = false, onViewAll }) {
             ) : items.length === 0 ? (
                 <div className="emp-home-today-empty">
                     <AccessTimeOutlined sx={{ fontSize: 22 }} />
-                    <span>Aaj ke liye abhi koi update nahi hai.</span>
+                    <span>No updates for today.</span>
                 </div>
             ) : (
                 <div className="emp-home-today-list">

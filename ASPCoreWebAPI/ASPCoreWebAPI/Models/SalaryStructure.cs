@@ -10,5 +10,8 @@ namespace ASPCoreWebAPI.Models
         public DateTime EffectiveFrom { get; set; }
         public int? CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        public string? EmployeeName { get; set; }
+        public string? EmployeeCode { get; set; }
     }
 }

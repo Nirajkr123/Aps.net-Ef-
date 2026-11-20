@@ -554,6 +554,39 @@ public class ShiftRepositoryTests
         Assert.Equal(ShiftConflictReasons.RestGap, Assert.Single(result.Skipped).Reason);
     }
 
+    [Fact]
+    public async Task GetByIdAsync_ReturnsRuleOverridesAndPendingSnapshot()
+    {
+        await _database.ResetAsync();
+        await _database.ExecuteAsync(
+            """
+            UPDATE "shift"
+               SET early_checkin_minutes = 30,
+                   grace_minutes = 12,
+                   late_limit_minutes = 90,
+                   checkout_buffer_minutes = 180,
+                   pending_rules = '{"grace_minutes": 20, "checkout_buffer_minutes": 300}'::jsonb,
+                   pending_rules_from = DATE '2026-11-11'
+             WHERE shift_id = 1;
+            """);
+
+        var shift = await _repository.GetByIdAsync(1);
+        var plain = await _repository.GetByIdAsync(2);
+
+        Assert.NotNull(shift);
+        Assert.Equal(30, shift!.EarlyCheckinMinutes);
+        Assert.Equal(12, shift.GraceMinutes);
+        Assert.Equal(90, shift.LateLimitMinutes);
+        Assert.Equal(180, shift.CheckoutBufferMinutes);
+        Assert.Contains("grace_minutes", shift.PendingRules);
+        Assert.Equal(new DateTime(2026, 11, 11), shift.PendingRulesFrom);
+
+        Assert.NotNull(plain);
+        Assert.Null(plain!.EarlyCheckinMinutes);
+        Assert.Null(plain.PendingRules);
+        Assert.Null(plain.PendingRulesFrom);
+    }
+
     private Task InsertConfigVersionAsync(
         DateTime effectiveFrom,
         int minGap = 240,

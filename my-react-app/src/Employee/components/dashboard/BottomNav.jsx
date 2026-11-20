@@ -21,7 +21,9 @@ function BottomNav() {
     return (
         <nav className="emp-bottom-nav" aria-label="Mobile navigation">
             {ITEMS.map((item) => {
-                const active = pathname === item.path;
+                const active =
+                    pathname === item.path
+                    || (item.path === "/my-profile" && pathname.startsWith("/profile/"));
                 return (
                     <button
                         key={item.path}

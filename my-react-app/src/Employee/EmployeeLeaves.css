@@ -841,8 +841,7 @@
     font-size: 21px;
 }
 
-.emp-leave-sheet-paper.MuiDrawer-paper,
-.emp-leave-form-paper.MuiDrawer-paper {
+.emp-leave-sheet-paper.MuiDrawer-paper {
     left: 0;
     right: 0;
     width: 100%;
@@ -853,6 +852,12 @@
     background: #ffffff;
 }
 
+.emp-leave-form-paper.MuiDialog-paper {
+    max-height: 92vh;
+    border-radius: 22px;
+    background: #ffffff;
+}
+
 .emp-leave-sheet,
 .emp-leave-form {
     display: flex;
@@ -860,6 +865,31 @@
     max-height: 92vh;
     min-height: 0;
     padding-top: 8px;
+}
+
+.emp-leave-form {
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .emp-leave-form-paper.MuiDialog-paper {
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .emp-leave-form {
+        min-height: 100vh;
+        max-height: 100vh;
+    }
+
+    .emp-leave-form-body {
+        flex: 1 1 auto;
+    }
+
+    .emp-leave-form-actions {
+        flex: 0 0 auto;
+        margin-top: auto;
+    }
 }
 
 .emp-leave-sheet-handle {
@@ -1110,7 +1140,9 @@
 
 .emp-leave-form-actions {
     display: flex;
+    flex: 0 0 auto;
     gap: 10px;
+    margin-top: auto;
     padding: 14px 20px calc(20px + env(safe-area-inset-bottom));
     border-top: 1px solid #f0f1f6;
     background: #ffffff;

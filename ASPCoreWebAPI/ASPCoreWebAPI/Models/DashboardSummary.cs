@@ -47,6 +47,8 @@ namespace ASPCoreWebAPI.Models
         public string? DepartmentName { get; set; }
         public string? DesignationTitle { get; set; }
         public string? ManagerName { get; set; }
+        public string? ShiftName { get; set; }
+        public string? ShiftTiming { get; set; }
         public string? ProfilePhotoUrl { get; set; }
         public bool ProfileComplete { get; set; }
     }

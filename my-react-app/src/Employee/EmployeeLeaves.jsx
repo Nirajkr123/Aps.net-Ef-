@@ -14,11 +14,10 @@ import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
 import useIsMobile from "../hooks/useIsMobile";
 import { useLeave } from "../context/LeaveContext";
-import BottomNav from "./components/dashboard/BottomNav";
 import LeaveHeader from "./components/leaves/LeaveHeader";
 import BalanceCard from "./components/leaves/BalanceCard";
 import UpcomingHolidaysCard from "./components/leaves/UpcomingHolidaysCard";
-import StatusSummaryCards from "./components/leaves/StatusSummaryCards";
+import FilterPills from "../components/admin/FilterPills";
 import LeaveRequestsToolbar from "./components/leaves/LeaveRequestsToolbar";
 import LeaveRequestsTable from "./components/leaves/LeaveRequestsTable";
 import LeavePagination from "./components/leaves/LeavePagination";
@@ -266,10 +265,16 @@ function EmployeeLeaves() {
                                         </Alert>
                                     )}
 
-                                    <StatusSummaryCards
+                                    <FilterPills
+                                        ariaLabel="Filter leave requests by status"
                                         value={filter}
-                                        counts={counts}
                                         onChange={setFilter}
+                                        options={[
+                                            { key: "All", label: "All", count: counts.All },
+                                            { key: "Pending", label: "Pending", count: counts.Pending },
+                                            { key: "Approved", label: "Approved", count: counts.Approved },
+                                            { key: "Rejected", label: "Rejected", count: counts.Rejected },
+                                        ]}
                                     />
 
                                     <LeaveRequestsToolbar
@@ -334,8 +339,6 @@ function EmployeeLeaves() {
                     </div>
                 </div>
             </div>
-
-            {isMobile && <BottomNav />}
 
             {isMobile && (
                 <button

@@ -123,6 +123,8 @@ namespace ASPCoreWebAPI.Controllers
                     DepartmentName = employee.DepartmentName,
                     DesignationTitle = employee.DesignationTitle,
                     ManagerName = employee.ManagerName,
+                    ShiftName = employee.ShiftName,
+                    ShiftTiming = employee.ShiftTiming,
                     ProfilePhotoUrl = employee.ProfilePhotoUrl,
                     ProfileComplete = employee.ProfileComplete,
                 },

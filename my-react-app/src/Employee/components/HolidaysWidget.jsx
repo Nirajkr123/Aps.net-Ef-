@@ -17,12 +17,7 @@ function HolidaysWidget() {
                 const { data } = await holidayServ.getUpcoming();
                 setHolidays(data.slice(0, 3));
             } catch {
-                // TODO: Backend API — GET /api/Holidays/upcoming
-                setHolidays([
-                    { id: 1, name: "Ganesh Chaturthi", date: "2026-09-15" },
-                    { id: 2, name: "Gandhi Jayanti", date: "2026-10-02" },
-                    { id: 3, name: "Dussehra", date: "2026-10-10" },
-                ]);
+                setHolidays([]);
             } finally {
                 setLoading(false);
             }

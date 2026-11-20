@@ -11,6 +11,12 @@ namespace ASPCoreWebAPI.Models
         public TimeOnly EndTime { get; set; }
         public bool CrossesMidnight { get; set; }
         public bool IsActive { get; set; } = true;
+        public int? EarlyCheckinMinutes { get; set; }
+        public int? GraceMinutes { get; set; }
+        public int? LateLimitMinutes { get; set; }
+        public int? CheckoutBufferMinutes { get; set; }
+        public string? PendingRules { get; set; }
+        public DateTime? PendingRulesFrom { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

@@ -74,6 +74,70 @@ public class AttendanceConfigRepositoryTests
         Assert.Equal(2, await CountConfigsAsync());
     }
 
+    [Fact]
+    public async Task GetEffectiveAsync_ReturnsEnforcementPolicyDefaults()
+    {
+        await _database.ResetAsync();
+
+        var config = await _repository.GetEffectiveAsync(new DateTime(2026, 1, 1));
+
+        Assert.Equal(30, config.PunchEarlyMinutes);
+        Assert.Equal(10, config.LateGraceMinutes);
+        Assert.Equal(120, config.PunchLateMinutes);
+        Assert.Equal(240, config.CheckoutBufferMinutes);
+        Assert.Equal(4m, config.HalfDayMinHours);
+        Assert.Equal(8m, config.FullDayMinHours);
+        Assert.Equal("Asia/Kolkata", config.TimezoneId);
+        Assert.Equal("WARN", config.EnforcementMode);
+        Assert.True(config.MissedCheckoutCountsAsPresent);
+    }
+
+    [Fact]
+    public async Task CreateVersionAsync_PersistsEnforcementPolicyFields()
+    {
+        await _database.ResetAsync();
+
+        var created = await _repository.CreateVersionAsync(
+            new AttendanceConfigUpdateRequest
+            {
+                EffectiveFrom = new DateTime(2026, 6, 1),
+                CheckoutBufferMinutes = 300,
+                HalfDayMinHours = 4.5m,
+                FullDayMinHours = 9m,
+                TimezoneId = "Asia/Kolkata",
+                EnforcementMode = "ENFORCE",
+                MissedCheckoutCountsAsPresent = false
+            },
+            updatedBy: 1);
+
+        Assert.Equal(300, created.CheckoutBufferMinutes);
+        Assert.Equal(4.5m, created.HalfDayMinHours);
+        Assert.Equal(9m, created.FullDayMinHours);
+        Assert.Equal("Asia/Kolkata", created.TimezoneId);
+        Assert.Equal("ENFORCE", created.EnforcementMode);
+        Assert.False(created.MissedCheckoutCountsAsPresent);
+    }
+
+    [Fact]
+    public async Task CreateVersionAsync_InheritsUnspecifiedEnforcementFields()
+    {
+        await _database.ResetAsync();
+
+        var created = await _repository.CreateVersionAsync(
+            new AttendanceConfigUpdateRequest
+            {
+                EffectiveFrom = new DateTime(2026, 6, 1),
+                StandardHours = 11
+            },
+            updatedBy: 1);
+
+        Assert.Equal(30, created.PunchEarlyMinutes);
+        Assert.Equal(10, created.LateGraceMinutes);
+        Assert.Equal(240, created.CheckoutBufferMinutes);
+        Assert.Equal("Asia/Kolkata", created.TimezoneId);
+        Assert.Equal("WARN", created.EnforcementMode);
+    }
+
     private Task<long> CountConfigsAsync() =>
         _database.ScalarAsync<long>("SELECT COUNT(*) FROM attendance_config;");
 }

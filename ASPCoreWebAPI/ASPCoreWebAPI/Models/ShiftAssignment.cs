@@ -34,6 +34,31 @@ namespace ASPCoreWebAPI.Models
         public DateTime CreatedAt { get; set; }
     }
 
+    /* Flat audit row: ek employee + ek batch. Batch me kai daily
+       shift_assignment rows hoti hain, UI ke liye employee-wise collapse
+       karke ek row bhejte hain. */
+    public class ShiftAssignmentLogRow
+    {
+        public int BatchId { get; set; }
+        public int EmpId { get; set; }
+        public string EmployeeName { get; set; } = string.Empty;
+        public string? EmployeeCode { get; set; }
+        public string? DepartmentName { get; set; }
+        public int ShiftId { get; set; }
+        public string ShiftName { get; set; } = string.Empty;
+        public TimeOnly StartTime { get; set; }
+        public TimeOnly EndTime { get; set; }
+        public decimal DurationHours { get; set; }
+        public DateTime FromDate { get; set; }
+        public DateTime ToDate { get; set; }
+        public string? WorkDescription { get; set; }
+        public string Status { get; set; } = "Active";
+        public int? CreatedBy { get; set; }
+        public string? CreatedByName { get; set; }
+        public string? CreatedByRole { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
     public class BulkAssignRequest
     {
         public int ShiftId { get; set; }

@@ -8,6 +8,7 @@ node_modules/
 *.cache
 ASPCoreWebAPI/ASPCoreWebAPI/bin/
 ASPCoreWebAPI/ASPCoreWebAPI/obj/
+ASPCoreWebAPI/ASPCoreWebAPI/private/
 
 # Firebase secret
 serviceAccountKey.json

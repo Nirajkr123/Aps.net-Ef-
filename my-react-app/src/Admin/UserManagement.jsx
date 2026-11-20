@@ -1,60 +1,55 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import adminServ from "../services/adminService";
 import {
-    Chip,
-    CircularProgress,
+    Alert,
     Dialog,
-    DialogTitle,
-    DialogContent,
     DialogActions,
-    TextField,
-    Button,
-    Menu,
-    MenuItem,
-    Divider,
-    IconButton,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TablePagination,
-    TableRow,
-    Paper,
+    DialogContent,
+    DialogTitle,
     FormControl,
     InputLabel,
+    MenuItem,
     Select,
     Snackbar,
-    Alert,
+    TextField,
 } from "@mui/material";
 import {
-    MoreVert,
-    Add,
-    Search,
-    VisibilityOutlined,
-    EditOutlined,
-    LockReset,
+    Add as AddIcon,
+    BadgeOutlined,
     Block,
     CheckCircle,
+    CloseRounded,
     DeleteOutlineOutlined,
-    BadgeOutlined,
-    Close,
-    Group,
-    CheckCircleOutlined,
-    BlockOutlined,
+    EditOutlined,
+    GroupOutlined,
+    LockReset,
+    VisibilityOutlined,
 } from "@mui/icons-material";
 
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import adminServ from "../services/adminService";
 
 import "./AdminDashboard.css";
 import "./UserManagement.css";
 
-const STATUS_COLORS = {
-    Active: "success",
-    Inactive: "error",
-};
+import {
+    ConfirmModal,
+    DataTable,
+    EmptyState,
+    FilterPills,
+    FormDrawer,
+    MobileCard,
+    MobileCardList,
+    PageHeader,
+    Pagination,
+    RowActions,
+    SearchInput,
+    StatusBadge,
+} from "../components/admin";
+
+const PAGE_SIZE = 10;
+const MOBILE_BATCH = 5;
 
 const EMPTY_FORM = {
     firstName: "",
@@ -68,7 +63,7 @@ const EMPTY_FORM = {
     status: "Active",
 };
 
-function formatLastLogin(value) {
+const formatLastLogin = (value) => {
     if (!value) return "Never";
     const date = new Date(value);
     const now = new Date();
@@ -78,20 +73,23 @@ function formatLastLogin(value) {
     }
     if (diffH < 48) return "Yesterday";
     if (diffH < 168) return `${Math.floor(diffH / 24)} days ago`;
-    return date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-}
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+};
+
+const userName = (u) =>
+    [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || u?.email || "Unnamed user";
+
+const initialsOf = (u) => (userName(u) || "?").charAt(0).toUpperCase();
 
 function UserManagement() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const dateFilter = searchParams.get("filter") || "";
+
     const [user, setUser] = useState(null);
     const isAdmin = user?.role === "OWNER" || user?.role === "HR";
     const isOwner = user?.role === "OWNER";
+
     const [collapsed, setCollapsed] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -100,56 +98,40 @@ function UserManagement() {
     const [states, setStates] = useState([]);
     const [districts, setDistricts] = useState([]);
     const [allDistricts, setAllDistricts] = useState([]);
+    const [formDistricts, setFormDistricts] = useState([]);
 
-    // Filters
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
     const [stateFilter, setStateFilter] = useState("");
     const [districtFilter, setDistrictFilter] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [activeStatFilter, setActiveStatFilter] = useState("");
 
-    // Pagination
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [mobileVisible, setMobileVisible] = useState(MOBILE_BATCH);
 
-    // Action menu
-    const [menuAnchor, setMenuAnchor] = useState(null);
-    const [menuUser, setMenuUser] = useState(null);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [form, setForm] = useState(EMPTY_FORM);
+    const [formErrors, setFormErrors] = useState({});
+    const [formError, setFormError] = useState("");
+    const [saving, setSaving] = useState(false);
 
-    // Dialogs
-    const [addOpen, setAddOpen] = useState(false);
-    const [editUser, setEditUser] = useState(null);
     const [viewUser, setViewUser] = useState(null);
     const [roleUser, setRoleUser] = useState(null);
     const [resetUser, setResetUser] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    // Form state
-    const [form, setForm] = useState({});
-    const [formError, setFormError] = useState("");
-    const [saving, setSaving] = useState(false);
-
-    // Toast
     const [toast, setToast] = useState({ text: "", type: "success", open: false });
-
-    const notifRef = useRef(null);
-    const [notifOpen, setNotifOpen] = useState(false);
-    const [notifReadIds, setNotifReadIds] = useState(() => {
-        try { return JSON.parse(localStorage.getItem("notifReadIds")) || []; } catch { return []; }
-    });
 
     useEffect(() => {
         try {
-            const stored = JSON.parse(localStorage.getItem("user") || "null");
-            setUser(stored);
+            setUser(JSON.parse(localStorage.getItem("user") || "null"));
         } catch {
             setUser(null);
         }
     }, []);
 
-    const showToast = (text, type = "success") =>
-        setToast({ text, type, open: true });
+    const showToast = (text, type = "success") => setToast({ text, type, open: true });
 
     const handleLogout = () => {
         localStorage.removeItem("user");
@@ -180,52 +162,73 @@ function UserManagement() {
         }
     }, []);
 
-    const loadDistricts = useCallback(async (stateId) => {
+    const loadAllDistricts = useCallback(async () => {
         try {
-            const { data } = await adminServ.getDistricts(stateId);
-            const list = Array.isArray(data) ? data : [];
-            setDistricts(list);
-            if (!stateId) setAllDistricts(list);
+            const { data } = await adminServ.getDistricts();
+            setAllDistricts(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Load districts error:", err);
+        }
+    }, []);
+
+    const loadFilterDistricts = useCallback(async (stateId) => {
+        if (!stateId) {
+            setDistricts([]);
+            return;
+        }
+        try {
+            const { data } = await adminServ.getDistricts(stateId);
+            setDistricts(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Load filter districts error:", err);
+        }
+    }, []);
+
+    const loadFormDistricts = useCallback(async (stateId) => {
+        if (!stateId) {
+            setFormDistricts([]);
+            return;
+        }
+        try {
+            const { data } = await adminServ.getDistricts(stateId);
+            setFormDistricts(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Load form districts error:", err);
         }
     }, []);
 
     useEffect(() => {
         loadUsers();
         loadStates();
-        loadDistricts();
-    }, [loadUsers, loadStates, loadDistricts]);
+        loadAllDistricts();
+    }, [loadUsers, loadStates, loadAllDistricts]);
+
+    useEffect(() => {
+        loadFilterDistricts(stateFilter);
+        setDistrictFilter("");
+    }, [stateFilter, loadFilterDistricts]);
+
+    useEffect(() => {
+        setPage(0);
+        setMobileVisible(MOBILE_BATCH);
+    }, [search, roleFilter, stateFilter, districtFilter, statusFilter, dateFilter]);
 
     const displayName =
         [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
         user?.email ||
         "Admin";
 
-    // Reset district filter when state changes
-    useEffect(() => {
-        if (stateFilter) loadDistricts(stateFilter);
-        else setDistrictFilter("");
-    }, [stateFilter, loadDistricts]);
-
-    const districtOptions = useMemo(() => {
-        if (stateFilter) return districts;
-        return [];
-    }, [stateFilter, districts]);
-
     const filteredUsers = useMemo(() => {
         const q = search.trim().toLowerCase();
         const now = new Date();
         return users.filter((u) => {
-            const name = [u.firstName, u.lastName].filter(Boolean).join(" ").toLowerCase();
+            const name = userName(u).toLowerCase();
             const email = (u.email || "").toLowerCase();
             if (q && !name.includes(q) && !email.includes(q)) return false;
             if (roleFilter && u.role !== roleFilter) return false;
             if (stateFilter && u.stateId !== Number(stateFilter)) return false;
             if (districtFilter && u.districtId !== Number(districtFilter)) return false;
             if (statusFilter && u.status !== statusFilter) return false;
-            if (activeStatFilter === "active" && u.status !== "Active") return false;
-            if (activeStatFilter === "inactive" && u.status === "Active") return false;
             if (dateFilter && u.createdAt) {
                 const created = new Date(u.createdAt);
                 if (dateFilter === "today") {
@@ -240,130 +243,138 @@ function UserManagement() {
             }
             return true;
         });
-    }, [users, search, roleFilter, stateFilter, districtFilter, statusFilter, activeStatFilter, dateFilter]);
+    }, [users, search, roleFilter, stateFilter, districtFilter, statusFilter, dateFilter]);
 
     const roles = useMemo(
         () => [...new Set(users.map((u) => u.role).filter(Boolean))],
         [users]
     );
 
-    const userStats = useMemo(() => {
+    const stats = useMemo(() => {
         const total = users.length;
         const active = users.filter((u) => u.status === "Active").length;
         const inactive = users.filter((u) => u.status !== "Active").length;
-        return { total, active, inactive };
+        const owners = users.filter((u) => u.role === "OWNER").length;
+        return { total, active, inactive, owners };
     }, [users]);
 
-    const openMenu = (event, u) => {
-        event.stopPropagation();
-        setMenuAnchor(event.currentTarget);
-        setMenuUser(u);
-    };
-    const closeMenu = () => {
-        setMenuAnchor(null);
-        setMenuUser(null);
+    const stateName = (sid) =>
+        (states.find((s) => s.id === sid) || {}).name || "—";
+    const districtName = (did) =>
+        (allDistricts.find((d) => d.id === did) || {}).name || "—";
+
+    const hasFilters = Boolean(
+        search || roleFilter || stateFilter || districtFilter || statusFilter || dateFilter
+    );
+
+    const resetFilters = () => {
+        setSearch("");
+        setRoleFilter("");
+        setStateFilter("");
+        setDistrictFilter("");
+        setStatusFilter("");
+        if (dateFilter) navigate("/users");
     };
 
-    const handleView = () => {
-        setViewUser(menuUser);
-        closeMenu();
-    };
-    const handleEdit = () => {
-        setEditUser(menuUser);
-        setForm({
-            firstName: menuUser.firstName || "",
-            lastName: menuUser.lastName || "",
-            email: menuUser.email || "",
-            role: menuUser.role || "HR",
-            stateId: menuUser.stateId || "",
-            districtId: menuUser.districtId || "",
-            status: menuUser.status || "Active",
-        });
-        if (menuUser.stateId) loadDistricts(menuUser.stateId);
-        else setDistricts([]);
-        setFormError("");
-        closeMenu();
-    };
-    const handleRole = () => {
-        setRoleUser(menuUser);
-        setForm((f) => ({ ...f, role: menuUser.role || "HR" }));
-        setFormError("");
-        closeMenu();
-    };
-    const handleReset = () => {
-        setResetUser(menuUser);
-        setForm((f) => ({ ...f, password: "", currentPassword: "" }));
-        setFormError("");
-        closeMenu();
-    };
-    const handleDeleteOpen = () => {
-        setDeleteTarget(menuUser);
-        closeMenu();
+    const guard = (fn) => (event) => {
+        event?.stopPropagation?.();
+        fn();
     };
 
     const openAdd = () => {
+        setEditing(null);
         setForm(EMPTY_FORM);
-        setDistricts([]);
+        setFormErrors({});
         setFormError("");
-        setAddOpen(true);
+        setFormDistricts([]);
+        setDrawerOpen(true);
     };
 
-    const handleFormChange = (e) => {
-        const { name, value } = e.target;
-        setForm((f) => ({ ...f, [name]: value }));
+    const openEdit = (u) => {
+        setEditing(u);
+        setForm({
+            firstName: u.firstName || "",
+            lastName: u.lastName || "",
+            email: u.email || "",
+            password: "",
+            currentPassword: "",
+            role: u.role || "HR",
+            stateId: u.stateId || "",
+            districtId: u.districtId || "",
+            status: u.status || "Active",
+        });
+        setFormErrors({});
+        setFormError("");
+        if (u.stateId) loadFormDistricts(u.stateId);
+        else setFormDistricts([]);
+        setDrawerOpen(true);
+    };
+
+    const openRole = (u) => {
+        setRoleUser(u);
+        setForm((prev) => ({ ...prev, role: u.role || "HR" }));
+        setFormError("");
+    };
+
+    const openReset = (u) => {
+        setResetUser(u);
+        setForm((prev) => ({ ...prev, password: "", currentPassword: "" }));
+        setFormError("");
+    };
+
+    const handleFormChange = (event) => {
+        const { name, value } = event.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
         if (name === "stateId") {
-            setForm((f) => ({ ...f, districtId: "" }));
-            if (value) loadDistricts(value);
-            else setDistricts([]);
+            setForm((prev) => ({ ...prev, districtId: "" }));
+            loadFormDistricts(value);
         }
     };
 
-    const handleAddSubmit = async (e) => {
-        e.preventDefault();
-        setFormError("");
-        setSaving(true);
-        try {
-            const payload = {
-                firstName: form.firstName.trim(),
-                lastName: form.lastName.trim(),
-                email: form.email.trim(),
-                password: form.password,
-                role: form.role,
-                stateId: form.stateId ? Number(form.stateId) : null,
-                districtId: form.districtId ? Number(form.districtId) : null,
-            };
-            await adminServ.createUser(payload);
-            setAddOpen(false);
-            showToast("User created successfully!");
-            await loadUsers();
-        } catch (err) {
-            console.error("Add user error:", err);
-            setFormError(err.response?.data?.message || "Could not reach the server.");
-        } finally {
-            setSaving(false);
+    const validateForm = () => {
+        const next = {};
+        if (!String(form.firstName || "").trim()) next.firstName = true;
+        if (!String(form.lastName || "").trim()) next.lastName = true;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.email || "").trim())) next.email = true;
+        if (!editing && String(form.password || "").length < 8) next.password = true;
+        if (!form.role) next.role = true;
+
+        setFormErrors(next);
+        if (Object.keys(next).length > 0) {
+            setFormError("Please fill all required fields correctly.");
+            return false;
         }
+        return true;
     };
 
-    const handleEditSubmit = async (e) => {
-        e.preventDefault();
-        setFormError("");
+    const handleSave = async () => {
+        if (!validateForm()) return;
         setSaving(true);
+        setFormError("");
         try {
             const payload = {
-                firstName: form.firstName.trim(),
-                lastName: form.lastName.trim(),
-                email: form.email.trim(),
+                firstName: String(form.firstName).trim(),
+                lastName: String(form.lastName).trim(),
+                email: String(form.email).trim(),
                 role: form.role,
                 stateId: form.stateId ? Number(form.stateId) : null,
                 districtId: form.districtId ? Number(form.districtId) : null,
                 status: form.status,
             };
-            await adminServ.updateUser(editUser.id, payload);
-            setEditUser(null);
-            showToast("User updated successfully!");
+
+            if (editing) {
+                await adminServ.updateUser(editing.id, payload);
+                showToast("User updated successfully.");
+            } else {
+                await adminServ.createUser({ ...payload, password: form.password });
+                showToast("User created successfully.");
+            }
+
+            setDrawerOpen(false);
             await loadUsers();
+            setPage(0);
+            setMobileVisible(MOBILE_BATCH);
         } catch (err) {
-            console.error("Edit user error:", err);
             setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
@@ -375,67 +386,66 @@ function UserManagement() {
         const endpoint = target === "Active" ? "activate" : "deactivate";
         try {
             await adminServ.toggleUser(u.id, endpoint);
-            showToast(`User ${target.toLowerCase()} successfully!`);
+            showToast(`User ${target.toLowerCase()} successfully.`);
             await loadUsers();
         } catch (err) {
             console.error("Status toggle error:", err);
-            showToast("Failed to update status", "error");
+            showToast("Failed to update status.", "error");
         }
     };
 
     const handleDelete = async () => {
         if (!deleteTarget) return;
+        setSaving(true);
         try {
             await adminServ.deleteUser(deleteTarget.id);
             setDeleteTarget(null);
-            showToast("User deleted successfully!");
+            showToast("User deleted successfully.");
             await loadUsers();
         } catch (err) {
             console.error("Delete error:", err);
-            showToast("Failed to delete user", "error");
+            showToast("Failed to delete user.", "error");
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleRoleSubmit = async (e) => {
-        e.preventDefault();
+    const handleRoleSubmit = async (event) => {
+        event.preventDefault();
         setFormError("");
         setSaving(true);
         try {
             await adminServ.assignRole(roleUser.id, form.role);
             setRoleUser(null);
-            showToast("Role updated successfully!");
+            showToast("Role updated successfully.");
             await loadUsers();
         } catch (err) {
-            console.error("Role change error:", err);
             setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
         }
     };
 
-    const handleResetSubmit = async (e) => {
-        e.preventDefault();
+    const handleResetSubmit = async (event) => {
+        event.preventDefault();
         setFormError("");
 
         const isSelf = resetUser && user && resetUser.id === user.id;
 
-        if (isSelf) {
-            if (!form.currentPassword) {
-                setFormError("Current password is required");
-                return;
-            }
+        if (isSelf && !form.currentPassword) {
+            setFormError("Current password is required.");
+            return;
         }
-
         if (!form.password) {
-            setFormError("New password is required");
+            setFormError("New password is required.");
             return;
         }
         if (form.password.length < 8) {
-            setFormError("New password must be at least 8 characters");
+            setFormError("New password must be at least 8 characters.");
             return;
         }
         if (isSelf && form.currentPassword === form.password) {
-            setFormError("New password must be different from current password");
+            setFormError("New password must be different from current password.");
             return;
         }
 
@@ -447,58 +457,175 @@ function UserManagement() {
 
             await adminServ.resetPassword(resetUser.id, body);
             setResetUser(null);
-            showToast(isSelf ? "Password changed successfully!" : "Password reset successfully!");
+            showToast(isSelf ? "Password changed successfully." : "Password reset successfully.");
         } catch (err) {
-            console.error("Reset error:", err);
             setFormError(err.response?.data?.message || "Could not reach the server.");
         } finally {
             setSaving(false);
         }
     };
 
-    // Normalize state/district for dialog selects
-    const stateName = (sid) =>
-        (states.find((s) => s.id === sid) || {}).name || "—";
-    const districtName = (did) =>
-        (allDistricts.find((d) => d.id === did) || {}).name || "—";
+    const rowActions = (u) => {
+        const actions = [
+            {
+                key: "view",
+                label: "View user",
+                ariaLabel: `View ${userName(u)}`,
+                icon: VisibilityOutlined,
+                onClick: guard(() => setViewUser(u)),
+            },
+        ];
 
-    // Notifications
-    const notifications = users.slice(0, 5).map((u) => ({
-        id: u.id,
-        title: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email,
-        sub: u.status === "Active" ? "Active member" : "Inactive member",
-    }));
+        if (isAdmin) {
+            actions.push({
+                key: "edit",
+                label: "Edit user",
+                ariaLabel: `Edit ${userName(u)}`,
+                icon: EditOutlined,
+                onClick: guard(() => openEdit(u)),
+            });
+        }
 
-    const unreadNotifications = notifications.filter((n) => !notifReadIds.includes(n.id));
+        if (isOwner) {
+            actions.push({
+                key: "role",
+                label: "Change role",
+                ariaLabel: `Change role for ${userName(u)}`,
+                icon: BadgeOutlined,
+                onClick: guard(() => openRole(u)),
+            });
+        }
 
-    const markNotifAsRead = (id) => {
-        const updated = [...new Set([...notifReadIds, id])];
-        setNotifReadIds(updated);
-        localStorage.setItem("notifReadIds", JSON.stringify(updated));
+        if (isOwner || (user && u.id === user.id)) {
+            actions.push({
+                key: "reset",
+                label: isOwner ? "Reset password" : "Change password",
+                ariaLabel: isOwner ? `Reset password for ${userName(u)}` : "Change your password",
+                icon: LockReset,
+                onClick: guard(() => openReset(u)),
+            });
+        }
+
+        if (isAdmin) {
+            const active = u.status === "Active";
+            actions.push({
+                key: "toggle",
+                label: active ? "Deactivate" : "Activate",
+                ariaLabel: active ? `Deactivate ${userName(u)}` : `Activate ${userName(u)}`,
+                icon: active ? Block : CheckCircle,
+                onClick: guard(() => handleStatusToggle(u)),
+            });
+        }
+
+        if (isOwner) {
+            actions.push({
+                key: "delete",
+                label: "Delete",
+                ariaLabel: `Delete ${userName(u)}`,
+                icon: DeleteOutlineOutlined,
+                tone: "danger",
+                onClick: guard(() => setDeleteTarget(u)),
+            });
+        }
+
+        return actions;
     };
 
-    const markAllNotifsAsRead = () => {
-        const ids = notifications.map((n) => n.id);
-        const updated = [...new Set([...notifReadIds, ...ids])];
-        setNotifReadIds(updated);
-        localStorage.setItem("notifReadIds", JSON.stringify(updated));
-    };
+    const columns = [
+        {
+            key: "member",
+            header: "Member",
+            render: (u) => (
+                <span className="um-person">
+                    <span className="um-avatar" aria-hidden="true">
+                        {initialsOf(u)}
+                    </span>
+                    <span className="um-person-copy">
+                        <span className="admin-cell-primary">{userName(u)}</span>
+                        <span className="admin-cell-sub">{u.email || "No email"}</span>
+                    </span>
+                </span>
+            ),
+        },
+        {
+            key: "role",
+            header: "Role",
+            render: (u) => (
+                <span className={`um-role-badge${u.role === "OWNER" ? " is-owner" : ""}`}>
+                    {u.role || "—"}
+                </span>
+            ),
+        },
+        {
+            key: "state",
+            header: "State",
+            render: (u) => u.state || stateName(u.stateId) || "—",
+        },
+        {
+            key: "district",
+            header: "District",
+            render: (u) => u.district || districtName(u.districtId) || "—",
+        },
+        {
+            key: "status",
+            header: "Status",
+            render: (u) => <StatusBadge status={u.status || "Active"} />,
+        },
+        {
+            key: "lastLogin",
+            header: "Last login",
+            render: (u) => <span className="um-lastlogin">{formatLastLogin(u.lastLogin)}</span>,
+        },
+        {
+            key: "actions",
+            header: "Actions",
+            align: "right",
+            render: (u) => <RowActions actions={rowActions(u)} />,
+        },
+    ];
 
-    const pagedUsers = filteredUsers.slice(
-        page * rowsPerPage,
-        page * rowsPerPage + rowsPerPage
+    const emptyState = (
+        <EmptyState
+            icon={<GroupOutlined />}
+            title={hasFilters ? "No users match these filters." : "No admin or HR users yet."}
+            subtitle={
+                hasFilters
+                    ? "Try a different name, role, state or status."
+                    : "Add the first admin or HR account to get started."
+            }
+            action={
+                hasFilters ? (
+                    <button type="button" className="admin-btn is-ghost-dark" onClick={resetFilters}>
+                        Reset filters
+                    </button>
+                ) : isOwner ? (
+                    <button type="button" className="admin-btn is-primary-solid" onClick={openAdd}>
+                        New Admin / HR
+                    </button>
+                ) : null
+            }
+        />
     );
 
-    const userName = (u) =>
-        [u.firstName, u.lastName].filter(Boolean).join(" ") || u.name || u.email;
+    const pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+    const safePage = Math.min(page, pageCount - 1);
+    const pagedUsers = filteredUsers.slice(
+        safePage * PAGE_SIZE,
+        safePage * PAGE_SIZE + PAGE_SIZE
+    );
+    const mobileUsers = filteredUsers.slice(0, mobileVisible);
 
-    const emptyMessage =
-        search || roleFilter || stateFilter || districtFilter || statusFilter
-            ? "No users match your filters."
-            : "No admin or HR users yet. Click 'New Admin / HR' to add one.";
+    const dateFilterLabel =
+        dateFilter === "today"
+            ? "Today's signups"
+            : dateFilter === "week"
+              ? "This week's signups"
+              : dateFilter === "trend"
+                ? "Last 7 days"
+                : "";
 
     return (
-        <div className="dash-page">
+        <div className="dash-page admin-page-shell">
             <Sidebar
                 activeKey="users"
                 onLogout={handleLogout}
@@ -509,768 +636,526 @@ function UserManagement() {
 
             <div className={`dash-main ${collapsed ? "collapsed" : ""}`}>
                 <Navbar
-                    search={search}
-                    onSearchChange={setSearch}
-                    searchPlaceholder="Search by name or email..."
                     userName={displayName}
                     userRole={user?.role || "Administrator"}
                     user={user}
                     collapsed={collapsed}
                     onToggleSidebar={() => setCollapsed((c) => !c)}
-                    notificationCount={unreadNotifications.length}
-                    onNotificationsClick={() => setNotifOpen((o) => !o)}
                     onLogout={handleLogout}
-                    onNavigate={(key) => {
-                        if (key === "settings") navigate("/settings");
-                    }}
                 />
 
                 <div className="dash-content">
-                    <div className="dash-header">
-                        <div>
-                            <h1 className="dash-title">Admin &amp; HR Users</h1>
-                            <p className="dash-subtitle">
-                                Manage admin and HR accounts and their access
-                            </p>
-                        </div>
-                        {isOwner && (
-                            <div className="dash-header-actions">
+                    <div className="admin-page">
+                        <PageHeader
+                            title="Admin & HR Users"
+                            subtitle="Manage admin and HR accounts and their access"
+                            actions={
+                                isOwner
+                                    ? [
+                                          {
+                                              key: "add",
+                                              label: "New Admin / HR",
+                                              icon: AddIcon,
+                                              variant: "primary",
+                                              onClick: openAdd,
+                                          },
+                                      ]
+                                    : []
+                            }
+                        />
+
+                        {dateFilter && (
+                            <div className="um-filter-banner">
+                                <span className="um-filter-banner-text">
+                                    Showing: {dateFilterLabel} — {filteredUsers.length} user
+                                    {filteredUsers.length === 1 ? "" : "s"} found
+                                </span>
                                 <button
                                     type="button"
-                                    className="dash-btn dash-btn-primary"
-                                    onClick={openAdd}
+                                    className="um-filter-banner-clear"
+                                    onClick={resetFilters}
                                 >
-                                    <Add fontSize="small" />
-                                    New Admin / HR
+                                    Clear filter
                                 </button>
                             </div>
                         )}
-                    </div>
 
-                    {loading && (
-                        <div className="dash-loading">
-                            <CircularProgress size={32} />
-                            <p className="dash-loading-text">Loading users...</p>
-                        </div>
-                    )}
-
-                    {error && !loading && <div className="dash-error">{error}</div>}
-
-                    {!loading && !error && (
-                        <>
-                            {/* STAT CARDS */}
-                            <div className="um-stats-grid">
-                                <div
-                                    className={`um-stat-card clickable ${activeStatFilter === "total" ? "um-stat-active" : ""}`}
-                                    onClick={() => setActiveStatFilter(activeStatFilter === "total" ? "" : "total")}
-                                >
-                                    <div className="um-stat-top">
-                                        <div className="um-stat-icon um-stat-icon-violet">
-                                            <Group fontSize="inherit" />
-                                        </div>
-                                    </div>
-                                    <p className="um-stat-value">{userStats.total}</p>
-                                    <p className="um-stat-label">Total Users</p>
-                                    <p className="um-stat-caption">All registered accounts</p>
-                                </div>
-                                <div
-                                    className={`um-stat-card clickable ${activeStatFilter === "active" ? "um-stat-active" : ""}`}
-                                    onClick={() => setActiveStatFilter(activeStatFilter === "active" ? "" : "active")}
-                                >
-                                    <div className="um-stat-top">
-                                        <div className="um-stat-icon um-stat-icon-green">
-                                            <CheckCircleOutlined fontSize="inherit" />
-                                        </div>
-                                    </div>
-                                    <p className="um-stat-value">{userStats.active}</p>
-                                    <p className="um-stat-label">Active Users</p>
-                                    <p className="um-stat-caption">Currently active accounts</p>
-                                </div>
-                                <div
-                                    className={`um-stat-card clickable ${activeStatFilter === "inactive" ? "um-stat-active" : ""}`}
-                                    onClick={() => setActiveStatFilter(activeStatFilter === "inactive" ? "" : "inactive")}
-                                >
-                                    <div className="um-stat-top">
-                                        <div className="um-stat-icon um-stat-icon-rose">
-                                            <BlockOutlined fontSize="inherit" />
-                                        </div>
-                                    </div>
-                                    <p className="um-stat-value">{userStats.inactive}</p>
-                                    <p className="um-stat-label">Inactive Users</p>
-                                    <p className="um-stat-caption">Disabled or locked accounts</p>
-                                </div>
-                            </div>
-
-                            {(dateFilter || activeStatFilter) && (
-                                <div className="um-filter-banner">
-                                    <span className="um-filter-banner-text">
-                                        Showing: {
-                                            activeStatFilter === "total" ? "All Users" :
-                                            activeStatFilter === "active" ? "Active Users" :
-                                            activeStatFilter === "inactive" ? "Inactive Users" :
-                                            dateFilter === "today" ? "Today's Signups" :
-                                            dateFilter === "week" ? "This Week's Signups" :
-                                            dateFilter === "trend" ? "7-Day Trend Users" :
-                                            "All Users"
-                                        }
-                                        {" "} — {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""} found
-                                    </span>
+                        {error && (
+                            <Alert
+                                severity="error"
+                                action={
                                     <button
-                                        className="um-filter-banner-clear"
-                                        onClick={() => {
-                                            setActiveStatFilter("");
-                                            if (dateFilter) navigate("/users");
-                                        }}
+                                        type="button"
+                                        className="admin-btn is-ghost-dark"
+                                        onClick={loadUsers}
                                     >
-                                        Clear Filter ×
+                                        Retry
                                     </button>
-                                </div>
-                            )}
+                                }
+                            >
+                                {error}
+                            </Alert>
+                        )}
 
-                        <Paper className="um-paper" elevation={0}>
-                            {/* Filters */}
-                            <div className="um-toolbar">
-                                <div className="um-search">
-                                    <Search fontSize="small" />
-                                    <input
-                                        className="um-search-input"
-                                        placeholder="Search by name or email..."
-                                        value={search}
-                                        onChange={(e) => {
-                                            setSearch(e.target.value);
-                                            setPage(0);
-                                        }}
-                                    />
-                                </div>
+                        <div className="admin-toolbar">
+                            <div className="admin-toolbar-left">
+                                <SearchInput
+                                    value={search}
+                                    onChange={setSearch}
+                                    placeholder="Search by name or email..."
+                                    ariaLabel="Search users"
+                                />
 
-                                <FormControl className="um-select">
-                                    <InputLabel>Role</InputLabel>
+                                <FormControl size="small" sx={{ minWidth: 140 }}>
+                                    <InputLabel id="um-role-filter">Role</InputLabel>
                                     <Select
+                                        labelId="um-role-filter"
                                         label="Role"
                                         value={roleFilter}
-                                        onChange={(e) => {
-                                            setRoleFilter(e.target.value);
-                                            setPage(0);
-                                        }}
+                                        onChange={(event) => setRoleFilter(event.target.value)}
                                     >
-                                        <MenuItem value="">All Roles</MenuItem>
-                                        {roles.map((r) => (
-                                            <MenuItem key={r} value={r}>{r}</MenuItem>
+                                        <MenuItem value="">All roles</MenuItem>
+                                        {roles.map((role) => (
+                                            <MenuItem key={role} value={role}>
+                                                {role}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
 
-                                <FormControl className="um-select">
-                                    <InputLabel>State</InputLabel>
+                                <FormControl size="small" sx={{ minWidth: 150 }}>
+                                    <InputLabel id="um-state-filter">State</InputLabel>
                                     <Select
+                                        labelId="um-state-filter"
                                         label="State"
                                         value={stateFilter}
-                                        onChange={(e) => {
-                                            setStateFilter(e.target.value);
-                                            setPage(0);
-                                        }}
+                                        onChange={(event) => setStateFilter(event.target.value)}
                                     >
-                                        <MenuItem value="">All States</MenuItem>
-                                        {states.map((s) => (
-                                            <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                                        <MenuItem value="">All states</MenuItem>
+                                        {states.map((state) => (
+                                            <MenuItem key={state.id} value={state.id}>
+                                                {state.name}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
 
-                                <FormControl className="um-select">
-                                    <InputLabel>District</InputLabel>
+                                <FormControl size="small" sx={{ minWidth: 150 }}>
+                                    <InputLabel id="um-district-filter">District</InputLabel>
                                     <Select
+                                        labelId="um-district-filter"
                                         label="District"
                                         value={districtFilter}
                                         disabled={!stateFilter}
-                                        onChange={(e) => {
-                                            setDistrictFilter(e.target.value);
-                                            setPage(0);
-                                        }}
+                                        onChange={(event) => setDistrictFilter(event.target.value)}
                                     >
-                                        <MenuItem value="">All Districts</MenuItem>
-                                        {districtOptions.map((d) => (
-                                            <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                                        <MenuItem value="">All districts</MenuItem>
+                                        {districts.map((district) => (
+                                            <MenuItem key={district.id} value={district.id}>
+                                                {district.name}
+                                            </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
-
-                                <FormControl className="um-select">
-                                    <InputLabel>Status</InputLabel>
-                                    <Select
-                                        label="Status"
-                                        value={statusFilter}
-                                        onChange={(e) => {
-                                            setStatusFilter(e.target.value);
-                                            setPage(0);
-                                        }}
-                                    >
-                                        <MenuItem value="">All Status</MenuItem>
-                                        <MenuItem value="Active">Active</MenuItem>
-                                        <MenuItem value="Inactive">Inactive</MenuItem>
-                                    </Select>
-                                </FormControl>
                             </div>
 
-                            {/* Table */}
-                            <TableContainer className="um-table-container">
-                                <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Name</TableCell>
-                                            <TableCell>Email</TableCell>
-                                            <TableCell>Role</TableCell>
-                                            <TableCell>State</TableCell>
-                                            <TableCell>District</TableCell>
-                                            <TableCell>Status</TableCell>
-                                            <TableCell>Last Login</TableCell>
-                                            <TableCell align="center">Action</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {pagedUsers
-                                            .map((u) => {
-                                                const name = userName(u);
-                                                return (
-                                                    <TableRow key={u.id} hover sx={{ cursor: "pointer" }} onClick={() => setViewUser(u)}>
-                                                        <TableCell>
-                                                            <div className="um-user-cell">
-                                                                <div className="um-avatar">
-                                                                    {(name || "?").charAt(0).toUpperCase()}
-                                                                </div>
-                                                                <span className="um-user-name">{name}</span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="um-email">
-                                                            {u.email}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Chip
-                                                                label={u.role || "—"}
-                                                                size="small"
-                                                                 className={`um-role-chip ${u.role === "OWNER" ? "admin" : ""}`}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell>{u.state || stateName(u.stateId) || "—"}</TableCell>
-                                                        <TableCell>{u.district || districtName(u.districtId) || "—"}</TableCell>
-                                                        <TableCell>
-                                                            <Chip
-                                                                label={u.status || "Active"}
-                                                                size="small"
-                                                                color={STATUS_COLORS[u.status] || "default"}
-                                                                variant="outlined"
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="um-lastlogin">
-                                                            {formatLastLogin(u.lastLogin)}
-                                                        </TableCell>
-                                                        <TableCell align="center">
-                                                            <IconButton
-                                                                aria-label="More options"
-                                                                onClick={(e) => openMenu(e, u)}
-                                                                size="small"
-                                                            >
-                                                                <MoreVert fontSize="small" />
-                                                            </IconButton>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        {filteredUsers.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={8} align="center" className="um-empty">
-                                                    {emptyMessage}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-
-                            <div className="um-cards">
-                                {pagedUsers.map((u) => {
-                                    const name = userName(u);
-                                    return (
-                                        <div
-                                            key={u.id}
-                                            className="um-card"
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() => setViewUser(u)}
-                                            onKeyDown={(e) => {
-                                                if (e.target !== e.currentTarget) return;
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault();
-                                                    setViewUser(u);
-                                                }
-                                            }}
-                                        >
-                                            <div className="um-card-head">
-                                                <div className="um-user-cell">
-                                                    <div className="um-avatar">
-                                                        {(name || "?").charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div className="um-card-identity">
-                                                        <span className="um-user-name">{name}</span>
-                                                        <span className="um-card-email">{u.email}</span>
-                                                    </div>
-                                                </div>
-                                                <IconButton
-                                                    aria-label="More options"
-                                                    onClick={(e) => openMenu(e, u)}
-                                                    size="small"
-                                                >
-                                                    <MoreVert fontSize="small" />
-                                                </IconButton>
-                                            </div>
-
-                                            <div className="um-card-chips">
-                                                <Chip
-                                                    label={u.role || "—"}
-                                                    size="small"
-                                                    className={`um-role-chip ${u.role === "OWNER" ? "admin" : ""}`}
-                                                />
-                                                <Chip
-                                                    label={u.status || "Active"}
-                                                    size="small"
-                                                    color={STATUS_COLORS[u.status] || "default"}
-                                                    variant="outlined"
-                                                />
-                                            </div>
-
-                                            <div className="um-card-meta">
-                                                <div>
-                                                    <span>State</span>
-                                                    <strong>{u.state || stateName(u.stateId) || "—"}</strong>
-                                                </div>
-                                                <div>
-                                                    <span>District</span>
-                                                    <strong>{u.district || districtName(u.districtId) || "—"}</strong>
-                                                </div>
-                                                <div>
-                                                    <span>Last login</span>
-                                                    <strong>{formatLastLogin(u.lastLogin)}</strong>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {filteredUsers.length === 0 && (
-                                    <div className="um-cards-empty">{emptyMessage}</div>
-                                )}
+                            <div className="admin-toolbar-right">
+                                <FilterPills
+                                    ariaLabel="Filter users by status"
+                                    value={statusFilter}
+                                    onChange={setStatusFilter}
+                                    options={[
+                                        { key: "", label: "All", count: users.length },
+                                        { key: "Active", label: "Active", count: stats.active },
+                                        { key: "Inactive", label: "Inactive", count: stats.inactive },
+                                    ]}
+                                />
                             </div>
+                        </div>
 
-                            <TablePagination
-                                component="div"
-                                count={filteredUsers.length}
-                                page={page}
-                                onPageChange={(e, p) => setPage(p)}
-                                rowsPerPage={rowsPerPage}
-                                onRowsPerPageChange={(e) => {
-                                    setRowsPerPage(parseInt(e.target.value, 10));
-                                    setPage(0);
-                                }}
-                                rowsPerPageOptions={[5, 10, 25, 50]}
-                            />
-                        </Paper>
-                        </>
-                    )}
+                        <DataTable
+                            ariaLabel="Admin and HR users"
+                            columns={columns}
+                            rows={pagedUsers}
+                            rowKey="id"
+                            loading={loading}
+                            skeletonRows={PAGE_SIZE}
+                            empty={emptyState}
+                            onRowClick={(u) => setViewUser(u)}
+                        />
+
+                        <Pagination
+                            page={safePage}
+                            pageSize={PAGE_SIZE}
+                            total={filteredUsers.length}
+                            onPageChange={setPage}
+                        />
+
+                        <MobileCardList
+                            items={mobileUsers}
+                            loading={loading}
+                            getKey={(u) => u.id}
+                            hasMore={filteredUsers.length > mobileVisible}
+                            onLoadMore={() => setMobileVisible((prev) => prev + MOBILE_BATCH)}
+                            empty={emptyState}
+                            renderItem={(u) => (
+                                <MobileCard
+                                    title={userName(u)}
+                                    subtitle={u.email || "No email"}
+                                    badge={<StatusBadge status={u.status || "Active"} />}
+                                    fields={[
+                                        { label: "Role", value: u.role || "—" },
+                                        { label: "State", value: u.state || stateName(u.stateId) },
+                                        {
+                                            label: "District",
+                                            value: u.district || districtName(u.districtId),
+                                        },
+                                        {
+                                            label: "Last login",
+                                            value: formatLastLogin(u.lastLogin),
+                                        },
+                                    ]}
+                                    actions={rowActions(u)}
+                                    ariaLabel={`${userName(u)} account`}
+                                />
+                            )}
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* ======= NOTIFICATIONS DROPDOWN ======= */}
-            <div className="notif-wrap">
-                {notifOpen && (
-                    <div className="notif-pop" ref={notifRef}>
-                        <div className="notif-pop-head">
-                            <span className="notif-pop-title">Notifications</span>
-                            <span className="notif-pop-count">{unreadNotifications.length}</span>
+            <FormDrawer
+                open={drawerOpen}
+                title={editing ? "Edit User" : "New Admin / HR"}
+                submitLabel={editing ? "Save Changes" : "Create User"}
+                saving={saving}
+                error={formError}
+                onClose={() => {
+                    if (!saving) setDrawerOpen(false);
+                }}
+                onSubmit={handleSave}
+            >
+                <div className="admin-form">
+                    <div className="admin-form-row">
+                        <TextField
+                            label="First name"
+                            name="firstName"
+                            value={form.firstName}
+                            onChange={handleFormChange}
+                            error={Boolean(formErrors.firstName)}
+                            fullWidth
+                            size="small"
+                            autoFocus
+                        />
+                        <TextField
+                            label="Last name"
+                            name="lastName"
+                            value={form.lastName}
+                            onChange={handleFormChange}
+                            error={Boolean(formErrors.lastName)}
+                            fullWidth
+                            size="small"
+                        />
+                    </div>
+
+                    <TextField
+                        label="Email"
+                        name="email"
+                        type="email"
+                        value={form.email}
+                        onChange={handleFormChange}
+                        error={Boolean(formErrors.email)}
+                        fullWidth
+                        size="small"
+                    />
+
+                    {!editing && (
+                        <TextField
+                            label="Password"
+                            name="password"
+                            type="password"
+                            value={form.password}
+                            onChange={handleFormChange}
+                            error={Boolean(formErrors.password)}
+                            fullWidth
+                            size="small"
+                        />
+                    )}
+
+                    <div className="admin-form-row">
+                        <FormControl fullWidth size="small">
+                            <InputLabel id="um-form-role">Role</InputLabel>
+                            <Select
+                                labelId="um-form-role"
+                                label="Role"
+                                name="role"
+                                value={form.role}
+                                onChange={handleFormChange}
+                            >
+                                <MenuItem value="HR">HR</MenuItem>
+                                <MenuItem value="OWNER">Owner</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small">
+                            <InputLabel id="um-form-status">Status</InputLabel>
+                            <Select
+                                labelId="um-form-status"
+                                label="Status"
+                                name="status"
+                                value={form.status}
+                                onChange={handleFormChange}
+                            >
+                                <MenuItem value="Active">Active</MenuItem>
+                                <MenuItem value="Inactive">Inactive</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </div>
+
+                    <div className="admin-form-row">
+                        <FormControl fullWidth size="small">
+                            <InputLabel id="um-form-state">State</InputLabel>
+                            <Select
+                                labelId="um-form-state"
+                                label="State"
+                                name="stateId"
+                                value={form.stateId}
+                                onChange={handleFormChange}
+                            >
+                                <MenuItem value="">Select state</MenuItem>
+                                {states.map((state) => (
+                                    <MenuItem key={state.id} value={state.id}>
+                                        {state.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small">
+                            <InputLabel id="um-form-district">District</InputLabel>
+                            <Select
+                                labelId="um-form-district"
+                                label="District"
+                                name="districtId"
+                                value={form.districtId}
+                                disabled={!form.stateId}
+                                onChange={handleFormChange}
+                            >
+                                <MenuItem value="">Select district</MenuItem>
+                                {formDistricts.map((district) => (
+                                    <MenuItem key={district.id} value={district.id}>
+                                        {district.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </div>
+                </div>
+            </FormDrawer>
+
+            <Dialog
+                open={Boolean(viewUser)}
+                onClose={() => setViewUser(null)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: "18px", overflow: "hidden" } }}
+            >
+                {viewUser && (
+                    <div className="um-view-head">
+                        <span className="um-avatar um-avatar-lg" aria-hidden="true">
+                            {initialsOf(viewUser)}
+                        </span>
+                        <div className="um-view-copy">
+                            <h2>{userName(viewUser)}</h2>
+                            <p>{viewUser.email || "No email"}</p>
                         </div>
-                        <div className="notif-pop-list">
-                            {notifications.length === 0 && (
-                                <p className="notif-empty">No notifications yet.</p>
-                            )}
-                            {notifications.map((n) => (
-                                <div
-                                    className={`notif-item ${notifReadIds.includes(n.id) ? "notif-item-read" : ""}`}
-                                    key={n.id}
-                                    onClick={() => markNotifAsRead(n.id)}
-                                    style={{ cursor: "pointer" }}
-                                >
-                                    <span className="notif-item-dot" />
-                                    <div className="notif-item-body">
-                                        <p className="notif-item-title">
-                                            {[users.find(u => u.id === n.id)?.firstName, users.find(u => u.id === n.id)?.lastName].filter(Boolean).join(" ") || n.title}
-                                        </p>
-                                        <p className="notif-item-sub">{n.sub}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <button className="notif-pop-footer" onClick={() => { markAllNotifsAsRead(); setNotifOpen(false); }}>
-                            Mark all as read
+                        <button
+                            type="button"
+                            className="admin-icon-btn"
+                            aria-label="Close user details"
+                            onClick={() => setViewUser(null)}
+                        >
+                            <CloseRounded fontSize="small" />
                         </button>
                     </div>
                 )}
-            </div>
-
-            {/* ======= ACTION MENU ======= */}
-            <Menu
-                anchorEl={menuAnchor}
-                open={Boolean(menuAnchor)}
-                onClose={closeMenu}
-                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                transformOrigin={{ vertical: "top", horizontal: "right" }}
-                PaperProps={{ className: "pop-menu" }}
-            >
-                <MenuItem onClick={handleView} className="pop-menu-item">
-                    <VisibilityOutlined fontSize="small" className="pop-menu-icon" />
-                    View User
-                </MenuItem>
-                {isAdmin && (
-                    <MenuItem onClick={handleEdit} className="pop-menu-item">
-                        <EditOutlined fontSize="small" className="pop-menu-icon" />
-                        Edit User
-                    </MenuItem>
-                )}
-                {isOwner && (
-                    <MenuItem onClick={handleRole} className="pop-menu-item">
-                        <BadgeOutlined fontSize="small" className="pop-menu-icon" />
-                        Change Role
-                    </MenuItem>
-                )}
-                {(isOwner || (menuUser && user && menuUser.id === user.id)) && (
-                    <MenuItem onClick={handleReset} className="pop-menu-item">
-                        <LockReset fontSize="small" className="pop-menu-icon" />
-                        {isOwner ? "Reset Password" : "Change Password"}
-                    </MenuItem>
-                )}
-                {isAdmin && (
-                    <>
-                        <Divider />
-                        {menuUser && menuUser.status !== "Active" ? (
-                            <MenuItem onClick={() => { handleStatusToggle(menuUser); closeMenu(); }} className="pop-menu-item">
-                                <CheckCircle fontSize="small" className="pop-menu-icon" />
-                                Activate
-                            </MenuItem>
-                        ) : (
-                            <MenuItem onClick={() => { handleStatusToggle(menuUser); closeMenu(); }} className="pop-menu-item">
-                                <Block fontSize="small" className="pop-menu-icon" />
-                                Deactivate
-                            </MenuItem>
-                        )}
-                        {isOwner && (
-                            <>
-                                <Divider />
-                                <MenuItem onClick={handleDeleteOpen} className="pop-menu-item danger">
-                                    <DeleteOutlineOutlined fontSize="small" className="pop-menu-icon" />
-                                    Delete
-                                </MenuItem>
-                            </>
-                        )}
-                    </>
-                )}
-            </Menu>
-
-            {/* ======= ADD USER DIALOG ======= */}
-            <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle className="modal-title">
-                    Add Admin / HR User
-                    <IconButton className="modal-close" onClick={() => setAddOpen(false)} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <form onSubmit={handleAddSubmit}>
-                    <DialogContent className="modal-body">
-                        {formError && <div className="modal-error">{formError}</div>}
-                        <div className="modal-grid">
-                            <TextField label="First Name" name="firstName" value={form.firstName}
-                                onChange={handleFormChange} fullWidth required />
-                            <TextField label="Last Name" name="lastName" value={form.lastName}
-                                onChange={handleFormChange} fullWidth required />
-                            <TextField label="Email" name="email" type="email" value={form.email}
-                                onChange={handleFormChange} fullWidth required sx={{ gridColumn: "1 / -1" }} />
-                            <TextField label="Password" name="password" type="password" value={form.password}
-                                onChange={handleFormChange} fullWidth required sx={{ gridColumn: "1 / -1" }} />
-
-                            <FormControl fullWidth>
-                                <InputLabel>Role</InputLabel>
-                                <Select label="Role" name="role" value={form.role} onChange={handleFormChange}>
-                                    <MenuItem value="HR">HR</MenuItem>
-                                    <MenuItem value="OWNER">Owner</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>Status</InputLabel>
-                                <Select label="Status" name="status" value={form.status} onChange={handleFormChange}>
-                                    <MenuItem value="Active">Active</MenuItem>
-                                    <MenuItem value="Inactive">Inactive</MenuItem>
-                                </Select>
-                            </FormControl>
-
-                            <FormControl fullWidth>
-                                <InputLabel>State</InputLabel>
-                                <Select label="State" name="stateId" value={form.stateId} onChange={handleFormChange}>
-                                    <MenuItem value="">Select State</MenuItem>
-                                    {states.map((s) => (
-                                        <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>District</InputLabel>
-                                <Select label="District" name="districtId" value={form.districtId}
-                                    disabled={!form.stateId} onChange={handleFormChange}>
-                                    <MenuItem value="">Select District</MenuItem>
-                                    {districts.map((d) => (
-                                        <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </div>
-                    </DialogContent>
-                    <DialogActions className="modal-actions">
-                        <Button onClick={() => setAddOpen(false)} className="modal-btn-cancel">Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={saving} className="modal-btn-submit">
-                            {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "Create User"}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            {/* ======= EDIT USER DIALOG ======= */}
-            <Dialog open={Boolean(editUser)} onClose={() => setEditUser(null)} maxWidth="sm" fullWidth>
-                <DialogTitle className="modal-title">
-                    Edit User
-                    <IconButton className="modal-close" onClick={() => setEditUser(null)} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <form onSubmit={handleEditSubmit}>
-                    <DialogContent className="modal-body">
-                        {formError && <div className="modal-error">{formError}</div>}
-                        <div className="modal-grid">
-                            <TextField label="First Name" name="firstName" value={form.firstName}
-                                onChange={handleFormChange} fullWidth required />
-                            <TextField label="Last Name" name="lastName" value={form.lastName}
-                                onChange={handleFormChange} fullWidth required />
-                            <TextField label="Email" name="email" type="email" value={form.email}
-                                onChange={handleFormChange} fullWidth required sx={{ gridColumn: "1 / -1" }} />
-
-                            <FormControl fullWidth>
-                                <InputLabel>Role</InputLabel>
-                                <Select label="Role" name="role" value={form.role} onChange={handleFormChange}>
-                                    <MenuItem value="HR">HR</MenuItem>
-                                    <MenuItem value="OWNER">Owner</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>Status</InputLabel>
-                                <Select label="Status" name="status" value={form.status} onChange={handleFormChange}>
-                                    <MenuItem value="Active">Active</MenuItem>
-                                    <MenuItem value="Inactive">Inactive</MenuItem>
-                                </Select>
-                            </FormControl>
-
-                            <FormControl fullWidth>
-                                <InputLabel>State</InputLabel>
-                                <Select label="State" name="stateId" value={form.stateId} onChange={handleFormChange}>
-                                    <MenuItem value="">Select State</MenuItem>
-                                    {states.map((s) => (
-                                        <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <FormControl fullWidth>
-                                <InputLabel>District</InputLabel>
-                                <Select label="District" name="districtId" value={form.districtId}
-                                    disabled={!form.stateId} onChange={handleFormChange}>
-                                    <MenuItem value="">Select District</MenuItem>
-                                    {districts.map((d) => (
-                                        <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </div>
-                    </DialogContent>
-                    <DialogActions className="modal-actions">
-                        <Button onClick={() => setEditUser(null)} className="modal-btn-cancel">Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={saving} className="modal-btn-submit">
-                            {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "Save Changes"}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
-
-            {/* ======= VIEW USER DIALOG ======= */}
-            <Dialog open={Boolean(viewUser)} onClose={() => setViewUser(null)} maxWidth="xs" fullWidth>
-                <DialogTitle className="modal-title">
-                    User Details
-                    <IconButton className="modal-close" onClick={() => setViewUser(null)} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent className="modal-body view-body">
+                <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: "#f8f9fc" }}>
                     {viewUser && (
-                        <>
-                            <div className="view-avatar">
-                                {(viewUser.firstName || viewUser.email || "?").charAt(0).toUpperCase()}
+                        <div className="um-view-grid">
+                            <div>
+                                <span>Role</span>
+                                <strong className={`um-role-badge${viewUser.role === "OWNER" ? " is-owner" : ""}`}>
+                                    {viewUser.role || "—"}
+                                </strong>
                             </div>
-                            <p className="view-name">
-                                {[viewUser.firstName, viewUser.lastName].filter(Boolean).join(" ") || viewUser.email}
-                            </p>
-                            <p className="view-email">{viewUser.email}</p>
-                            <div className="view-meta">
-                                <div className="view-meta-item">
-                                    <span className="view-meta-label">Role</span>
-                                    <Chip label={viewUser.role || "—"} size="small" />
-                                </div>
-                                <div className="view-meta-item">
-                                    <span className="view-meta-label">Status</span>
-                                    <Chip label={viewUser.status || "Active"} size="small" color={STATUS_COLORS[viewUser.status] || "default"} variant="outlined" />
-                                </div>
-                                <div className="view-meta-item">
-                                    <span className="view-meta-label">State</span>
-                                    <span className="view-meta-value">{viewUser.state || stateName(viewUser.stateId) || "—"}</span>
-                                </div>
-                                <div className="view-meta-item">
-                                    <span className="view-meta-label">District</span>
-                                    <span className="view-meta-value">{viewUser.district || districtName(viewUser.districtId) || "—"}</span>
-                                </div>
-                                <div className="view-meta-item">
-                                    <span className="view-meta-label">Last Login</span>
-                                    <span className="view-meta-value">{formatLastLogin(viewUser.lastLogin)}</span>
-                                </div>
-                                <div className="view-meta-item">
-                                    <span className="view-meta-label">User ID</span>
-                                    <span className="view-meta-value">#{viewUser.id}</span>
-                                </div>
+                            <div>
+                                <span>Status</span>
+                                <strong>
+                                    <StatusBadge status={viewUser.status || "Active"} />
+                                </strong>
                             </div>
-                        </>
+                            <div>
+                                <span>State</span>
+                                <strong>{viewUser.state || stateName(viewUser.stateId)}</strong>
+                            </div>
+                            <div>
+                                <span>District</span>
+                                <strong>{viewUser.district || districtName(viewUser.districtId)}</strong>
+                            </div>
+                            <div>
+                                <span>Last login</span>
+                                <strong>{formatLastLogin(viewUser.lastLogin)}</strong>
+                            </div>
+                            <div>
+                                <span>User ID</span>
+                                <strong>#{viewUser.id}</strong>
+                            </div>
+                        </div>
                     )}
                 </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2.5, pt: 1.5, bgcolor: "#f8f9fc" }}>
+                    <button
+                        type="button"
+                        className="admin-btn is-ghost-dark"
+                        onClick={() => setViewUser(null)}
+                    >
+                        Close
+                    </button>
+                </DialogActions>
             </Dialog>
 
-            {/* ======= CHANGE ROLE DIALOG ======= */}
-            <Dialog open={Boolean(roleUser)} onClose={() => setRoleUser(null)} maxWidth="xs" fullWidth>
-                <DialogTitle className="modal-title">
-                    Change Role
-                    <IconButton className="modal-close" onClick={() => setRoleUser(null)} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
+            <Dialog
+                open={Boolean(roleUser)}
+                onClose={() => setRoleUser(null)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: "18px" } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 18 }}>Change Role</DialogTitle>
                 <form onSubmit={handleRoleSubmit}>
-                    <DialogContent className="modal-body">
-                        {formError && <div className="modal-error">{formError}</div>}
-                        <p className="confirm-text">
-                            Changing role for{" "}
-                            <strong>
-                                {roleUser ? [roleUser.firstName, roleUser.lastName].filter(Boolean).join(" ") || roleUser.email : ""}
-                            </strong>
+                    <DialogContent>
+                        {formError && (
+                            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+                                {formError}
+                            </Alert>
+                        )}
+                        <p className="um-dialog-note">
+                            Changing role for <strong>{roleUser ? userName(roleUser) : ""}</strong>
                         </p>
-                        <FormControl fullWidth>
-                            <InputLabel>Role</InputLabel>
-                            <Select label="Role" name="role" value={form.role} onChange={handleFormChange}>
+                        <FormControl fullWidth size="small">
+                            <InputLabel id="um-dialog-role">Role</InputLabel>
+                            <Select
+                                labelId="um-dialog-role"
+                                label="Role"
+                                name="role"
+                                value={form.role}
+                                onChange={handleFormChange}
+                            >
                                 <MenuItem value="HR">HR</MenuItem>
                                 <MenuItem value="OWNER">Owner</MenuItem>
                             </Select>
                         </FormControl>
                     </DialogContent>
-                    <DialogActions className="modal-actions">
-                        <Button onClick={() => setRoleUser(null)} className="modal-btn-cancel">Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={saving} className="modal-btn-submit">
-                            {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "Update Role"}
-                        </Button>
+                    <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+                        <button
+                            type="button"
+                            className="admin-btn is-ghost-dark"
+                            onClick={() => setRoleUser(null)}
+                            disabled={saving}
+                        >
+                            Cancel
+                        </button>
+                        <button type="submit" className="admin-btn is-primary-solid" disabled={saving}>
+                            {saving ? "Updating…" : "Update Role"}
+                        </button>
                     </DialogActions>
                 </form>
             </Dialog>
 
-            {/* ======= RESET PASSWORD DIALOG ======= */}
-            {(() => {
-                const isSelf = resetUser && user && resetUser.id === user.id;
-                return (
-                    <Dialog open={Boolean(resetUser)} onClose={() => setResetUser(null)} maxWidth="xs" fullWidth>
-                        <DialogTitle className="modal-title">
-                            {isSelf ? "Change Password" : "Reset Password"}
-                            <IconButton className="modal-close" onClick={() => setResetUser(null)} size="small">
-                                <Close fontSize="small" />
-                            </IconButton>
-                        </DialogTitle>
-                        <form onSubmit={handleResetSubmit}>
-                            <DialogContent className="modal-body">
-                                {formError && <div className="modal-error">{formError}</div>}
-                                {!isSelf && (
-                                    <p className="confirm-text">
-                                        Reset password for{" "}
-                                        <strong>
-                                            {resetUser ? [resetUser.firstName, resetUser.lastName].filter(Boolean).join(" ") || resetUser.email : ""}
-                                        </strong>
-                                    </p>
-                                )}
-                                {isSelf && (
-                                    <p className="confirm-text">
-                                        Change your password. Enter your current password first.
-                                    </p>
-                                )}
-                                {isSelf && (
-                                    <TextField label="Current Password" name="currentPassword" type="password"
-                                        value={form.currentPassword || ""} onChange={handleFormChange}
-                                        fullWidth required sx={{ mt: 1 }} />
-                                )}
-                                <TextField label="New Password" name="password" type="password"
-                                    value={form.password || ""} onChange={handleFormChange}
-                                    fullWidth required sx={{ mt: isSelf ? 2 : 1 }} />
-                                <p style={{ fontSize: "12px", color: "#9aa0b8", margin: "6px 0 0" }}>
-                                    Must be at least 8 characters.
-                                </p>
-                            </DialogContent>
-                            <DialogActions className="modal-actions">
-                                <Button onClick={() => setResetUser(null)} className="modal-btn-cancel">Cancel</Button>
-                                <Button type="submit" variant="contained" disabled={saving} className="modal-btn-submit">
-                                    {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : (isSelf ? "Change Password" : "Reset Password")}
-                                </Button>
-                            </DialogActions>
-                        </form>
-                    </Dialog>
-                );
-            })()}
-
-            {/* ======= DELETE CONFIRM DIALOG ======= */}
-            <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-                <DialogTitle className="modal-title confirm-title">
-                    Delete User
-                    <IconButton className="modal-close" onClick={() => setDeleteTarget(null)} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
+            <Dialog
+                open={Boolean(resetUser)}
+                onClose={() => setResetUser(null)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: "18px" } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 18 }}>
+                    {resetUser && user && resetUser.id === user.id ? "Change Password" : "Reset Password"}
                 </DialogTitle>
-                <DialogContent className="modal-body">
-                    <p className="confirm-text">
-                        Are you sure you want to delete{" "}
-                        <strong>
-                            {deleteTarget
-                                ? [deleteTarget.firstName, deleteTarget.lastName].filter(Boolean).join(" ") || deleteTarget.email
-                                : ""}
-                        </strong>
-                        ? This action cannot be undone.
-                    </p>
-                </DialogContent>
-                <DialogActions className="modal-actions">
-                    <Button onClick={() => setDeleteTarget(null)} className="modal-btn-cancel">Cancel</Button>
-                    <Button onClick={handleDelete} className="modal-btn-danger">Delete</Button>
-                </DialogActions>
+                <form onSubmit={handleResetSubmit}>
+                    <DialogContent>
+                        {formError && (
+                            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+                                {formError}
+                            </Alert>
+                        )}
+                        {resetUser && user && resetUser.id === user.id ? (
+                            <p className="um-dialog-note">
+                                Enter your current password, then choose a new one.
+                            </p>
+                        ) : (
+                            <p className="um-dialog-note">
+                                Set a new password for <strong>{resetUser ? userName(resetUser) : ""}</strong>
+                            </p>
+                        )}
+                        {resetUser && user && resetUser.id === user.id && (
+                            <TextField
+                                label="Current password"
+                                name="currentPassword"
+                                type="password"
+                                value={form.currentPassword}
+                                onChange={handleFormChange}
+                                fullWidth
+                                size="small"
+                                sx={{ mb: 2 }}
+                            />
+                        )}
+                        <TextField
+                            label="New password"
+                            name="password"
+                            type="password"
+                            value={form.password}
+                            onChange={handleFormChange}
+                            fullWidth
+                            size="small"
+                        />
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+                        <button
+                            type="button"
+                            className="admin-btn is-ghost-dark"
+                            onClick={() => setResetUser(null)}
+                            disabled={saving}
+                        >
+                            Cancel
+                        </button>
+                        <button type="submit" className="admin-btn is-primary-solid" disabled={saving}>
+                            {saving ? "Saving…" : resetUser && user && resetUser.id === user.id ? "Change Password" : "Reset Password"}
+                        </button>
+                    </DialogActions>
+                </form>
             </Dialog>
+
+            <ConfirmModal
+                open={Boolean(deleteTarget)}
+                title="Delete user"
+                message="Ye wapas nahi hoga."
+                confirmLabel="Delete"
+                loading={saving}
+                onConfirm={handleDelete}
+                onClose={() => setDeleteTarget(null)}
+            />
 
             <Snackbar
                 open={toast.open}
-                autoHideDuration={3000}
+                autoHideDuration={4000}
                 onClose={() => setToast((t) => ({ ...t, open: false }))}
                 anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
             >
                 <Alert
                     onClose={() => setToast((t) => ({ ...t, open: false }))}
                     severity={toast.type}
-                    variant="filled"
-                    sx={{ width: "100%" }}
+                    sx={{ width: "100%", borderRadius: 2.5 }}
                 >
                     {toast.text}
                 </Alert>

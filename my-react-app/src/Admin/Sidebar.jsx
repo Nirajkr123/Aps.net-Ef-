@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
     DashboardOutlined,
     PeopleAltOutlined,
-    BarChartOutlined,
     SettingsOutlined,
     LogoutOutlined,
     ChevronLeft,
@@ -12,12 +11,14 @@ import {
     LocationCityOutlined,
     AccountTreeOutlined,
     BadgeOutlined,
-    FolderCopyOutlined,
     ListAltOutlined,
     EventAvailableOutlined,
     MapOutlined,
     ScheduleOutlined,
     AssignmentTurnedInOutlined,
+    PaymentsOutlined,
+    AccessTimeOutlined,
+    CalendarMonthOutlined,
 } from "@mui/icons-material";
 
 import useIsMobile from "../hooks/useIsMobile";
@@ -39,6 +40,9 @@ const ROUTE_MAP = {
     /* HR/OWNER ka leave-approval module. Employee ka apna "My Leaves"
        alag route (`/my-leaves`) hai, isiliye key alag rakha. */
     leaves: "/admin/leaves",
+    attendance: "/admin/attendance",
+    "attendance-register": "/admin/attendance/register",
+    payroll: "/payroll",
     shifts: "/shifts",
     "shift-assignments": "/shift-assignments",
     users: "/users",
@@ -58,8 +62,15 @@ const ROLE_NAV_MAP = {
         { key: "designations", label: "Designations", icon: BadgeOutlined },
         { key: "directory", label: "Employee Directory", icon: ListAltOutlined },
         { key: "leaves", label: "Leave Requests", icon: EventAvailableOutlined },
+        { key: "attendance", label: "Attendance", icon: AccessTimeOutlined },
+        {
+            key: "attendance-register",
+            label: "Attendance Register",
+            icon: CalendarMonthOutlined,
+        },
+        { key: "payroll", label: "Payroll", icon: PaymentsOutlined },
         { key: "shifts", label: "Shifts", icon: ScheduleOutlined },
-        { key: "shift-assignments", label: "Shift Assignments", icon: AssignmentTurnedInOutlined },
+        { key: "shift-assignments", label: "Shift Assign", icon: AssignmentTurnedInOutlined },
         { key: "users", label: "Admin & HR Users", icon: PeopleAltOutlined },
         { key: "locations", label: "Locations", icon: LocationCityOutlined },
         { key: "work-locations", label: "Work Locations", icon: MapOutlined },
@@ -71,8 +82,15 @@ const ROLE_NAV_MAP = {
         { key: "designations", label: "Designations", icon: BadgeOutlined },
         { key: "directory", label: "Employee Directory", icon: ListAltOutlined },
         { key: "leaves", label: "Leave Requests", icon: EventAvailableOutlined },
+        { key: "attendance", label: "Attendance", icon: AccessTimeOutlined },
+        {
+            key: "attendance-register",
+            label: "Attendance Register",
+            icon: CalendarMonthOutlined,
+        },
+        { key: "payroll", label: "Payroll", icon: PaymentsOutlined },
         { key: "shifts", label: "Shifts", icon: ScheduleOutlined },
-        { key: "shift-assignments", label: "Shift Assignments", icon: AssignmentTurnedInOutlined },
+        { key: "shift-assignments", label: "Shift Assign", icon: AssignmentTurnedInOutlined },
         { key: "users", label: "Admin & HR Users", icon: PeopleAltOutlined },
         { key: "work-locations", label: "Work Locations", icon: MapOutlined },
         { key: "settings", label: "Settings", icon: SettingsOutlined },
@@ -166,7 +184,10 @@ function Sidebar({
                     <BoltOutlined fontSize="inherit" />
                 </div>
                 {!railOnly && (
-                    <span className="sidebar-logo-text">{title}</span>
+                    <div className="sidebar-logo-copy">
+                        <span className="sidebar-logo-text">{title}</span>
+                        <span className="sidebar-logo-subtitle">Workspace</span>
+                    </div>
                 )}
                 <button
                     type="button"
@@ -197,18 +218,20 @@ function Sidebar({
                         ) : (
                             initial
                         )}
+                        <span className="sidebar-user-status" aria-hidden="true" />
                     </div>
                     {!railOnly && (
                         <div className="sidebar-user-meta">
                             <p className="sidebar-user-name">{displayName}</p>
-                            <p className="sidebar-user-role">{roleLabel}</p>
+                            <span className="sidebar-user-role">{roleLabel}</span>
                         </div>
                     )}
                 </div>
             )}
 
             {/* NAV */}
-            <nav className="sidebar-nav">
+            <nav className="sidebar-nav" aria-label="Main navigation">
+                {!railOnly && <span className="sidebar-nav-caption">Navigation</span>}
                 {items.map((item) => {
                     const Icon = item.icon;
                     const isActive = item.key === activeKey;
@@ -218,13 +241,25 @@ function Sidebar({
                             key={item.key}
                             className={`sidebar-nav-item ${isActive ? "active" : ""}`}
                             title={railOnly ? item.label : undefined}
+                            role="button"
+                            tabIndex={0}
+                            aria-current={isActive ? "page" : undefined}
                             onClick={() => handleNavClick(item.key)}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    handleNavClick(item.key);
+                                }
+                            }}
                         >
                             <span className="sidebar-nav-icon">
                                 <Icon fontSize="inherit" />
                             </span>
                             {!railOnly && (
                                 <span className="sidebar-nav-label">{item.label}</span>
+                            )}
+                            {isActive && (
+                                <span className="sidebar-nav-active-mark" aria-hidden="true" />
                             )}
                         </div>
                     );
@@ -238,7 +273,16 @@ function Sidebar({
             <div
                 className="sidebar-logout"
                 title={railOnly ? "Logout" : undefined}
+                role="button"
+                tabIndex={0}
+                aria-label="Logout"
                 onClick={onLogout}
+                onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onLogout();
+                    }
+                }}
             >
                 <span className="sidebar-nav-icon">
                     <LogoutOutlined fontSize="inherit" />

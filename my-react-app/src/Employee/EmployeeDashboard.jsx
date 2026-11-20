@@ -2,24 +2,33 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
-import { Alert, Button } from "@mui/material";
+import { Alert, Button, Snackbar } from "@mui/material";
 import {
-    PersonOutlined, EventOutlined, AccessTimeOutlined, AssignmentOutlined, PaymentsOutlined,
+    AccessTimeOutlined,
+    AssignmentOutlined,
+    CheckCircleOutlined,
+    EventOutlined,
+    PersonOutlined,
+    PaymentsOutlined,
+    TrendingUpOutlined,
 } from "@mui/icons-material";
 
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
 import dashboardServ from "../services/dashboardService";
-import attendanceServ from "../services/attendanceService";
-import { getLocation } from "../utils/geolocation";
+import { useLeave } from "../context/LeaveContext";
+import ApplyLeaveForm from "./components/leaves/ApplyLeaveForm";
+import useAttendancePunch from "./components/attendance/useAttendancePunch";
+import useTodayState from "./components/attendance/useTodayState";
 import useIsMobile from "../hooks/useIsMobile";
 
 import HeaderCard from "./components/dashboard/HeaderCard";
-import StatCard from "./components/dashboard/StatCard";
+import DashboardStatCard from "./components/dashboard/DashboardStatCard";
+import LeaveBreakdownCard from "./components/dashboard/LeaveBreakdownCard";
 import LeaveModal from "./components/dashboard/LeaveModal";
 import TodayList from "./components/dashboard/TodayList";
-import BottomNav from "./components/dashboard/BottomNav";
-import WorkingHoursChart from "./components/dashboard/WorkingHoursChart";
+import QuickActions from "./components/dashboard/QuickActions";
+import WeeklyHoursMiniChart from "./components/dashboard/WeeklyHoursMiniChart";
 import DashboardFab from "./components/dashboard/DashboardFab";
 
 import "../Admin/AdminDashboard.css";
@@ -33,8 +42,6 @@ const EMPLOYEE_NAV_ITEMS = [
     { key: "my-payslips", label: "My Payslips", icon: PaymentsOutlined },
 ];
 
-const DEFAULT_WIDGETS = ["headerCard", "stats", "today", "weeklyHours"];
-
 const pad = (value) => String(value).padStart(2, "0");
 
 const formatDuration = (ms) => {
@@ -43,6 +50,13 @@ const formatDuration = (ms) => {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+};
+
+const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
 };
 
 function EmployeeDashboard() {
@@ -55,9 +69,23 @@ function EmployeeDashboard() {
     const [error, setError] = useState("");
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [elapsed, setElapsed] = useState("00:00:00");
-    const [actionLoading, setActionLoading] = useState(false);
-    const [actionStage, setActionStage] = useState("");
     const [leaveOpen, setLeaveOpen] = useState(false);
+    const [applyOpen, setApplyOpen] = useState(false);
+    const [toast, setToast] = useState({
+        open: false,
+        severity: "success",
+        message: "",
+    });
+
+    const { balance, myLeaves, submitting, applyLeave } = useLeave();
+
+    const {
+        state: todayState,
+        error: todayStateError,
+        now,
+        elapsedSeconds,
+        refresh: refreshTodayState,
+    } = useTodayState();
 
     const loadSummary = useCallback(async (showLoader = false) => {
         if (showLoader) setLoading(true);
@@ -66,7 +94,7 @@ function EmployeeDashboard() {
             const { data } = await dashboardServ.getSummary();
             setSummary(data);
         } catch (e) {
-            setError(e.response?.data?.message || e.message || "Dashboard data load nahi ho paaya. Please refresh karke try karein.");
+            setError(e.response?.data?.message || e.message || "Dashboard data could not be loaded. Please refresh and try again.");
         } finally {
             setLoading(false);
         }
@@ -109,27 +137,59 @@ function EmployeeDashboard() {
         navigate("/login");
     };
 
-    const handlePunch = async () => {
-        const mode = summary?.checkInTime && !summary?.checkOutTime ? "out" : "in";
-        setError("");
-        setActionLoading(true);
-        setActionStage("locating");
-        try {
-            const location = await getLocation();
-            setActionStage("saving");
-            if (mode === "in") {
-                await attendanceServ.checkIn(location);
-            } else {
-                await attendanceServ.checkOut(location);
-            }
-            await loadSummary();
-        } catch (e) {
-            setError(e.response?.data?.message || e.message || `${mode === "in" ? "Check-in" : "Check-out"} failed`);
-        } finally {
-            setActionLoading(false);
-            setActionStage("");
+    const todayRecord = useMemo(() => {
+        if (todayState?.attendance) {
+            return {
+                ...todayState.attendance,
+                date: todayState.attendanceDate,
+            };
         }
-    };
+
+        return {
+            checkInTime: summary?.checkInTime,
+            checkOutTime: summary?.checkOutTime,
+        };
+    }, [todayState, summary?.checkInTime, summary?.checkOutTime]);
+
+    const displayElapsed = todayState ? formatDuration(elapsedSeconds * 1000) : elapsed;
+
+    const handlePunchSuccess = useCallback(async () => {
+        await Promise.all([
+            loadSummary(),
+            refreshTodayState({ silent: true }),
+        ]);
+    }, [loadSummary, refreshTodayState]);
+
+    const {
+        punch,
+        punchLoading,
+        punchStage,
+        punchError,
+        punchWarning,
+        clearPunchError,
+        clearPunchWarning,
+    } = useAttendancePunch({
+        todayRecord,
+        todayState,
+        now,
+        onSuccess: handlePunchSuccess,
+    });
+
+    const openApplyLeave = useCallback(() => {
+        setLeaveOpen(false);
+        setApplyOpen(true);
+    }, []);
+
+    const handleApplyLeave = useCallback(async (payload) => {
+        const created = await applyLeave(payload);
+        setApplyOpen(false);
+        setToast({
+            open: true,
+            severity: "success",
+            message: "Leave request submitted for approval.",
+        });
+        return created;
+    }, [applyLeave]);
 
     const displayName = useMemo(() => {
         if (summary?.employee) {
@@ -139,51 +199,16 @@ function EmployeeDashboard() {
         return "Employee";
     }, [summary?.employee, user]);
 
-    const leaveRemaining = summary?.leave?.remaining ?? 0;
-    const presentThisMonth = summary?.presentThisMonth ?? 0;
-    const hoursThisWeek = summary?.hoursThisWeek ?? 0;
+    const leave = summary?.leave || null;
+    const leaveRemaining = Number(leave?.remaining) || 0;
+    const presentThisMonth = Number(summary?.presentThisMonth) || 0;
+    const hoursThisWeek = Number(summary?.hoursThisWeek) || 0;
     const todayItems = summary?.todayItems || [];
     const weeklyHours = summary?.weeklyHours || [];
-    const widgets = summary?.widgets?.length ? summary.widgets : DEFAULT_WIDGETS;
-
-    const widgetRenderers = {
-        headerCard: () => (
-            <HeaderCard
-                employee={summary?.employee}
-                status={summary?.status}
-                checkInTime={summary?.checkInTime}
-                checkOutTime={summary?.checkOutTime}
-                locationName={summary?.locationName}
-                elapsed={elapsed}
-                isLate={summary?.isLate}
-                loading={loading}
-                actionLoading={actionLoading}
-                actionStage={actionStage}
-                onPunch={handlePunch}
-            />
-        ),
-        stats: () => (
-            <div className="emp-home-stats">
-                <StatCard
-                    value={leaveRemaining}
-                    label="Leave days left"
-                    tone="amber"
-                    loading={loading}
-                    onClick={() => setLeaveOpen(true)}
-                    ariaLabel={`Leave days left: ${leaveRemaining}. View leave balance.`}
-                />
-                <StatCard value={presentThisMonth} label="Present this month" tone="blue" loading={loading} />
-                <StatCard value={`${Number(hoursThisWeek).toFixed(1)}h`} label="Hours this week" tone="purple" loading={loading} />
-            </div>
-        ),
-        today: () => (
-            <TodayList items={todayItems} loading={loading} onViewAll={() => navigate("/my-attendance")} />
-        ),
-        weeklyHours: () => (
-            <WorkingHoursChart days={weeklyHours} total={hoursThisWeek} loading={loading} />
-        ),
-    };
-
+    const activeDays = weeklyHours.filter((day) => Number(day.hours) > 0);
+    const averageHours = activeDays.length
+        ? activeDays.reduce((sum, day) => sum + Number(day.hours), 0) / activeDays.length
+        : null;
     const showErrorOnly = !summary && !!error && !loading;
 
     return (
@@ -211,7 +236,23 @@ function EmployeeDashboard() {
                 />
 
                 <div className="dash-content emp-home-content">
-                    {error && summary && <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }}>{error}</Alert>}
+                    {error && summary && (
+                        <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }} onClose={() => setError("")}>
+                            {error}
+                        </Alert>
+                    )}
+
+                    {punchError && (
+                        <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }} onClose={clearPunchError}>
+                            {punchError}
+                        </Alert>
+                    )}
+
+                    {punchWarning && (
+                        <Alert severity="warning" sx={{ mb: 1.5, borderRadius: 2 }} onClose={clearPunchWarning}>
+                            {punchWarning}
+                        </Alert>
+                    )}
 
                     {showErrorOnly ? (
                         <div className="emp-home-error">
@@ -220,39 +261,133 @@ function EmployeeDashboard() {
                         </div>
                     ) : (
                         <div className="emp-home-widgets">
-                            {widgets.map((widget) => {
-                                const render = widgetRenderers[widget];
-                                if (!render) return null;
-                                return (
-                                    <div className={`emp-home-widget is-${widget}`} key={widget}>
-                                        {render()}
-                                    </div>
-                                );
-                            })}
+                            <HeaderCard
+                                employee={summary?.employee}
+                                status={summary?.status}
+                                checkInTime={summary?.checkInTime}
+                                checkOutTime={summary?.checkOutTime}
+                                locationName={summary?.locationName}
+                                elapsed={displayElapsed}
+                                isLate={summary?.isLate}
+                                todayState={todayState}
+                                todayStateError={todayStateError}
+                                now={now}
+                                greeting={getGreeting()}
+                                loading={loading}
+                                actionLoading={punchLoading}
+                                actionStage={punchStage}
+                                onPunch={punch}
+                            />
+
+                            <div className="emp-home-stats">
+                                <DashboardStatCard
+                                    icon={<EventOutlined />}
+                                    value={leaveRemaining}
+                                    label="Leave days left"
+                                    tone="#d97706"
+                                    bg="#fffbeb"
+                                    loading={loading}
+                                    onClick={() => setLeaveOpen(true)}
+                                    ariaLabel={`Leave days left: ${leaveRemaining}. View leave balance.`}
+                                />
+                                <DashboardStatCard
+                                    icon={<CheckCircleOutlined />}
+                                    value={presentThisMonth}
+                                    label="Present this month"
+                                    tone="#2563eb"
+                                    bg="#eff6ff"
+                                    loading={loading}
+                                />
+                                <DashboardStatCard
+                                    icon={<AccessTimeOutlined />}
+                                    value={`${hoursThisWeek.toFixed(1)}h`}
+                                    label="Hours this week"
+                                    tone="#4f46e5"
+                                    bg="#eef2ff"
+                                    loading={loading}
+                                    className="is-hours"
+                                />
+                                <DashboardStatCard
+                                    icon={<TrendingUpOutlined />}
+                                    value={averageHours == null ? "—" : `${averageHours.toFixed(1)}h`}
+                                    label="Avg hours / day"
+                                    tone="#059669"
+                                    bg="#ecfdf5"
+                                    loading={loading}
+                                    className="is-average"
+                                />
+                            </div>
+
+                            <div className="emp-home-columns">
+                                <div className="emp-home-column-main">
+                                    <TodayList
+                                        items={todayItems}
+                                        loading={loading}
+                                        onViewAll={() => navigate("/my-attendance")}
+                                    />
+                                    <WeeklyHoursMiniChart
+                                        days={weeklyHours}
+                                        total={hoursThisWeek}
+                                        loading={loading}
+                                    />
+                                </div>
+
+                                <aside className="emp-home-column-side" aria-label="Dashboard details">
+                                    <LeaveBreakdownCard
+                                        leave={leave}
+                                        loading={loading}
+                                        onOpen={() => setLeaveOpen(true)}
+                                    />
+                                    <QuickActions
+                                        onApplyLeave={openApplyLeave}
+                                        onViewPayslips={() => navigate("/my-payslips")}
+                                    />
+                                </aside>
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {isMobile && <BottomNav />}
-
-            {!showErrorOnly && (
+            {!showErrorOnly && isMobile && (
                 <DashboardFab
-                    onApplyLeave={() => navigate("/my-leaves")}
-                    onRegularization={() => {}}
+                    onApplyLeave={openApplyLeave}
+                    onViewPayslips={() => navigate("/my-payslips")}
                 />
             )}
 
             <LeaveModal
                 open={leaveOpen}
                 onClose={() => setLeaveOpen(false)}
-                leave={summary?.leave}
+                leave={leave}
                 loading={loading}
-                onApply={() => {
-                    setLeaveOpen(false);
-                    navigate("/my-leaves");
-                }}
+                onApply={openApplyLeave}
             />
+
+            <ApplyLeaveForm
+                open={applyOpen}
+                balance={balance}
+                existingLeaves={myLeaves}
+                submitting={submitting}
+                onClose={() => setApplyOpen(false)}
+                onSubmit={handleApplyLeave}
+            />
+
+            <Snackbar
+                open={toast.open}
+                autoHideDuration={4000}
+                onClose={() => setToast((previous) => ({ ...previous, open: false }))}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+                <Alert
+                    severity={toast.severity}
+                    variant="filled"
+                    onClose={() => setToast((previous) => ({ ...previous, open: false }))}
+                    sx={{ borderRadius: 2 }}
+                >
+                    {toast.message}
+                </Alert>
+            </Snackbar>
         </div>
     );
 }

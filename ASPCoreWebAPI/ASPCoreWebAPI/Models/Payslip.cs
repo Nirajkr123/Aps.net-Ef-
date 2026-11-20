@@ -18,5 +18,11 @@ namespace ASPCoreWebAPI.Models
         public string Status { get; set; } = PayslipStatuses.Draft;
         public string? PdfPath { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        public string? EmployeeName { get; set; }
+        public string? EmployeeCode { get; set; }
+        public string? DesignationTitle { get; set; }
+        public int Month { get; set; }
+        public int Year { get; set; }
     }
 }

@@ -40,14 +40,7 @@ function ActivityTimeline() {
                 const { data } = await activityServ.getRecent();
                 setActivities(data.slice(0, 5));
             } catch {
-                // TODO: Backend API — GET /api/Activity/recent
-                setActivities([
-                    { id: 1, type: "attendance", title: "Attendance marked", description: "Checked in at 9:05 AM", timestamp: "2026-09-10T09:05:00Z" },
-                    { id: 2, type: "leave", title: "Leave applied", description: "Casual leave for Sep 15", timestamp: "2026-09-09T14:30:00Z" },
-                    { id: 3, type: "profile", title: "Profile updated", description: "Phone number updated", timestamp: "2026-09-08T11:20:00Z" },
-                    { id: 4, type: "attendance", title: "Attendance marked", description: "Checked in at 9:12 AM", timestamp: "2026-09-08T09:12:00Z" },
-                    { id: 5, type: "login", title: "Logged in", description: "Signed in from Chrome", timestamp: "2026-09-07T08:55:00Z" },
-                ]);
+                setActivities([]);
             } finally {
                 setLoading(false);
             }

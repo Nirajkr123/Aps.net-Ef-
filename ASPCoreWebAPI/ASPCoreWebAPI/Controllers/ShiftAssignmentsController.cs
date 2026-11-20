@@ -77,6 +77,35 @@ namespace ASPCoreWebAPI.Controllers
             }
         }
 
+        /* Naye frontend contract ke aliases. Purane /api/shift-assignments
+           routes backward compatibility ke liye unchanged hain. */
+        [HttpPost("/api/shifts/assign")]
+        public Task<IActionResult> AssignAlias([FromBody] BulkAssignRequest? request) =>
+            BulkAssign(request);
+
+        [HttpGet("/api/shifts/assignments")]
+        public async Task<IActionResult> GetAssignmentLog()
+        {
+            return Ok(await _repository.GetAssignmentLogAsync());
+        }
+
+        [HttpDelete("/api/shifts/assignments/{batchId:int}/employees/{empId:int}")]
+        public async Task<IActionResult> RemoveAssignment(int batchId, int empId)
+        {
+            var batch = await _repository.GetBatchAsync(batchId);
+            if (batch == null)
+                return NotFound(new { message = "Assignment batch not found." });
+
+            if (!string.Equals(batch.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                return Conflict(new { message = "This assignment batch is already cancelled." });
+
+            var removed = await _repository.RemoveEmployeeFromBatchAsync(batchId, empId);
+            if (!removed)
+                return NotFound(new { message = "Assignment entry not found for this employee." });
+
+            return Ok(new { message = "Assignment removed.", batchId, employeeId = empId });
+        }
+
         [HttpGet("batches")]
         public async Task<IActionResult> GetBatches()
         {
@@ -102,9 +131,16 @@ namespace ASPCoreWebAPI.Controllers
         [HttpPatch("batches/{batchId:int}/cancel")]
         public async Task<IActionResult> CancelBatch(int batchId)
         {
-            var batch = await _repository.CancelBatchAsync(batchId);
-            if (batch == null) return NotFound(new { message = "Assignment batch not found." });
-            return Ok(batch);
+            try
+            {
+                var batch = await _repository.CancelBatchAsync(batchId);
+                if (batch == null) return NotFound(new { message = "Assignment batch not found." });
+                return Ok(batch);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
         }
 
         private static string? Validate(BulkAssignRequest? request)

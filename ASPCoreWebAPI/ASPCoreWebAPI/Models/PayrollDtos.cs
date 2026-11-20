@@ -116,10 +116,18 @@ namespace ASPCoreWebAPI.Models
         public int WarningsCount { get; set; }
     }
 
+    public class PayslipDownloadDto
+    {
+        public string FullPath { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+    }
+
     public class SalaryStructureDto
     {
         public long Id { get; set; }
         public int EmployeeId { get; set; }
+        public string? EmployeeName { get; set; }
+        public string? EmployeeCode { get; set; }
         public decimal Basic { get; set; }
         public decimal Hra { get; set; }
         public decimal Allowances { get; set; }
@@ -217,5 +225,22 @@ namespace ASPCoreWebAPI.Models
         public string? Status { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
+    }
+
+    public class PayslipListResponse
+    {
+        public List<PayslipSummaryDto> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+
+    public class AddAdjustmentResult
+    {
+        public long AdjustmentId { get; set; }
+        public long PayslipId { get; set; }
+        public long RunId { get; set; }
+        public long? JobId { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

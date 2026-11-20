@@ -15,7 +15,7 @@ namespace ASPCoreWebAPI.Repositories
 
         private const string SelectSql = @"
             SELECT id                            AS ""Id"",
-                   effective_from                AS ""EffectiveFrom"",
+                   effective_from::timestamp     AS ""EffectiveFrom"",
                    standard_hours                AS ""StandardHours"",
                    max_hours_per_day             AS ""MaxHoursPerDay"",
                    min_gap_same_day_minutes      AS ""MinGapSameDayMinutes"",
@@ -27,6 +27,12 @@ namespace ASPCoreWebAPI.Repositories
                    late_grace_minutes            AS ""LateGraceMinutes"",
                    unpaid_break_minutes          AS ""UnpaidBreakMinutes"",
                    overtime_multiplier           AS ""OvertimeMultiplier"",
+                   checkout_buffer_minutes       AS ""CheckoutBufferMinutes"",
+                   half_day_min_hours            AS ""HalfDayMinHours"",
+                   full_day_min_hours            AS ""FullDayMinHours"",
+                   timezone_id                   AS ""TimezoneId"",
+                   enforcement_mode              AS ""EnforcementMode"",
+                   missed_checkout_counts_as_present AS ""MissedCheckoutCountsAsPresent"",
                    updated_at                    AS ""UpdatedAt"",
                    updated_by                    AS ""UpdatedBy""
               FROM attendance_config";
@@ -84,6 +90,12 @@ namespace ASPCoreWebAPI.Repositories
                     late_grace_minutes,
                     unpaid_break_minutes,
                     overtime_multiplier,
+                    checkout_buffer_minutes,
+                    half_day_min_hours,
+                    full_day_min_hours,
+                    timezone_id,
+                    enforcement_mode,
+                    missed_checkout_counts_as_present,
                     updated_by
                 )
                 SELECT @EffectiveFrom::date,
@@ -98,6 +110,12 @@ namespace ASPCoreWebAPI.Repositories
                        COALESCE(@LateGraceMinutes::int, b.late_grace_minutes),
                        COALESCE(@UnpaidBreakMinutes::int, b.unpaid_break_minutes),
                        COALESCE(@OvertimeMultiplier::numeric, b.overtime_multiplier),
+                       COALESCE(@CheckoutBufferMinutes::int, b.checkout_buffer_minutes),
+                       COALESCE(@HalfDayMinHours::numeric, b.half_day_min_hours),
+                       COALESCE(@FullDayMinHours::numeric, b.full_day_min_hours),
+                       COALESCE(NULLIF(BTRIM(@TimezoneId), ''), b.timezone_id),
+                       COALESCE(@EnforcementMode, b.enforcement_mode),
+                       COALESCE(@MissedCheckoutCountsAsPresent::boolean, b.missed_checkout_counts_as_present),
                        @UpdatedBy
                   FROM base b
                 ON CONFLICT (effective_from) DO UPDATE SET
@@ -112,10 +130,16 @@ namespace ASPCoreWebAPI.Repositories
                     late_grace_minutes = EXCLUDED.late_grace_minutes,
                     unpaid_break_minutes = EXCLUDED.unpaid_break_minutes,
                     overtime_multiplier = EXCLUDED.overtime_multiplier,
+                    checkout_buffer_minutes = EXCLUDED.checkout_buffer_minutes,
+                    half_day_min_hours = EXCLUDED.half_day_min_hours,
+                    full_day_min_hours = EXCLUDED.full_day_min_hours,
+                    timezone_id = EXCLUDED.timezone_id,
+                    enforcement_mode = EXCLUDED.enforcement_mode,
+                    missed_checkout_counts_as_present = EXCLUDED.missed_checkout_counts_as_present,
                     updated_at = NOW(),
                     updated_by = EXCLUDED.updated_by
                 RETURNING id                            AS ""Id"",
-                          effective_from                AS ""EffectiveFrom"",
+                          effective_from::timestamp     AS ""EffectiveFrom"",
                           standard_hours                AS ""StandardHours"",
                           max_hours_per_day             AS ""MaxHoursPerDay"",
                           min_gap_same_day_minutes      AS ""MinGapSameDayMinutes"",
@@ -127,6 +151,12 @@ namespace ASPCoreWebAPI.Repositories
                           late_grace_minutes            AS ""LateGraceMinutes"",
                           unpaid_break_minutes          AS ""UnpaidBreakMinutes"",
                           overtime_multiplier           AS ""OvertimeMultiplier"",
+                          checkout_buffer_minutes       AS ""CheckoutBufferMinutes"",
+                          half_day_min_hours            AS ""HalfDayMinHours"",
+                          full_day_min_hours            AS ""FullDayMinHours"",
+                          timezone_id                   AS ""TimezoneId"",
+                          enforcement_mode              AS ""EnforcementMode"",
+                          missed_checkout_counts_as_present AS ""MissedCheckoutCountsAsPresent"",
                           updated_at                    AS ""UpdatedAt"",
                           updated_by                    AS ""UpdatedBy""";
 
@@ -144,6 +174,12 @@ namespace ASPCoreWebAPI.Repositories
                 request.LateGraceMinutes,
                 request.UnpaidBreakMinutes,
                 request.OvertimeMultiplier,
+                request.CheckoutBufferMinutes,
+                request.HalfDayMinHours,
+                request.FullDayMinHours,
+                request.TimezoneId,
+                request.EnforcementMode,
+                request.MissedCheckoutCountsAsPresent,
                 UpdatedBy = updatedBy
             });
         }

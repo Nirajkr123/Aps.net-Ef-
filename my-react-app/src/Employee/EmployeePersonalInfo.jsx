@@ -239,6 +239,15 @@ function EmployeePersonalInfo() {
                             <InfoSection title="WORK">
                                 <InfoRow loading={loading} label="Department" value={employee?.departmentName} />
                                 <InfoRow loading={loading} label="Designation" value={employee?.designationTitle} />
+                                <InfoRow
+                                    loading={loading}
+                                    label="Shift"
+                                    value={
+                                        employee?.shiftName
+                                            ? `${employee.shiftName}${employee.shiftTiming ? ` (${employee.shiftTiming})` : ""}`
+                                            : "Not assigned"
+                                    }
+                                />
                                 <InfoRow loading={loading} label="Date of joining" value={formatDate(employee?.joiningDate)} />
                                 <InfoRow loading={loading} label="Reporting manager" value={employee?.managerName} />
                             </InfoSection>

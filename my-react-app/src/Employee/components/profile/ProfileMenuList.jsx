@@ -3,6 +3,7 @@ import {
     ChevronRight,
     FolderCopyOutlined,
     LogoutOutlined,
+    PaymentsOutlined,
     PeopleOutlined,
     PersonOutlined,
 } from "@mui/icons-material";
@@ -12,6 +13,7 @@ function ProfileMenuList({
     teamCount,
     onPersonal,
     onDocuments,
+    onPayslips,
     onLogout,
 }) {
     const showTeam = role === "MANAGER" && Number(teamCount) > 0;
@@ -36,6 +38,17 @@ function ProfileMenuList({
                 <span className="emp-profile-menu-text">
                     <strong>Documents</strong>
                     <small>Marksheets and government ID</small>
+                </span>
+                <ChevronRight className="emp-profile-menu-chevron" />
+            </button>
+
+            <button type="button" className="emp-profile-menu-row" onClick={onPayslips}>
+                <span className="emp-profile-menu-icon is-purple">
+                    <PaymentsOutlined />
+                </span>
+                <span className="emp-profile-menu-text">
+                    <strong>Payslips</strong>
+                    <small>Monthly salary slips</small>
                 </span>
                 <ChevronRight className="emp-profile-menu-chevron" />
             </button>

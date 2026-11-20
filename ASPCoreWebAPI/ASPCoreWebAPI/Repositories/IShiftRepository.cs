@@ -15,6 +15,8 @@ namespace ASPCoreWebAPI.Repositories
         Task<List<AssignmentBatch>> GetBatchesAsync();
         Task<AssignmentBatch?> GetBatchAsync(int batchId);
         Task<List<ShiftAssignment>> GetBatchAssignmentsAsync(int batchId);
+        Task<List<ShiftAssignmentLogRow>> GetAssignmentLogAsync();
+        Task<bool> RemoveEmployeeFromBatchAsync(int batchId, int empId);
         Task<AssignmentBatch?> CancelBatchAsync(int batchId);
     }
 }

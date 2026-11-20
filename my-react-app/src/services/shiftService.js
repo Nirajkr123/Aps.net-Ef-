@@ -8,6 +8,10 @@ const update = (id, data) => http.put(`/api/shifts/${id}`, data);
 const setStatus = (id, isActive) => http.patch(`/api/shifts/${id}/status`, { isActive });
 
 const bulkAssign = (data) => http.post("/api/shift-assignments/bulk", data);
+const assign = (data) => http.post("/api/shifts/assign", data);
+const getAssignments = () => http.get("/api/shifts/assignments");
+const removeAssignment = (batchId, empId) =>
+  http.delete(`/api/shifts/assignments/${batchId}/employees/${empId}`);
 const getBatches = () => http.get("/api/shift-assignments/batches");
 const getBatch = (id) => http.get(`/api/shift-assignments/batches/${id}`);
 const getBatchAssignments = (id) =>
@@ -23,6 +27,9 @@ const shiftService = {
   update,
   setStatus,
   bulkAssign,
+  assign,
+  getAssignments,
+  removeAssignment,
   getBatches,
   getBatch,
   getBatchAssignments,

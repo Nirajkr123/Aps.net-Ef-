@@ -21,6 +21,12 @@ namespace ASPCoreWebAPI.Repositories
                    end_time         AS ""EndTime"",
                    crosses_midnight AS ""CrossesMidnight"",
                    is_active        AS ""IsActive"",
+                   early_checkin_minutes AS ""EarlyCheckinMinutes"",
+                   grace_minutes    AS ""GraceMinutes"",
+                   late_limit_minutes AS ""LateLimitMinutes"",
+                   checkout_buffer_minutes AS ""CheckoutBufferMinutes"",
+                   pending_rules::text AS ""PendingRules"",
+                   pending_rules_from::timestamp AS ""PendingRulesFrom"",
                    created_at       AS ""CreatedAt"",
                    updated_at       AS ""UpdatedAt""
               FROM ""shift""";
@@ -46,7 +52,7 @@ namespace ASPCoreWebAPI.Repositories
 
         private const string ConfigSelect = @"
             SELECT id                            AS ""Id"",
-                   effective_from                AS ""EffectiveFrom"",
+                   effective_from::timestamp     AS ""EffectiveFrom"",
                    standard_hours                AS ""StandardHours"",
                    max_hours_per_day             AS ""MaxHoursPerDay"",
                    min_gap_same_day_minutes      AS ""MinGapSameDayMinutes"",
@@ -58,6 +64,12 @@ namespace ASPCoreWebAPI.Repositories
                    late_grace_minutes            AS ""LateGraceMinutes"",
                    unpaid_break_minutes          AS ""UnpaidBreakMinutes"",
                    overtime_multiplier           AS ""OvertimeMultiplier"",
+                   checkout_buffer_minutes       AS ""CheckoutBufferMinutes"",
+                   half_day_min_hours            AS ""HalfDayMinHours"",
+                   full_day_min_hours            AS ""FullDayMinHours"",
+                   timezone_id                   AS ""TimezoneId"",
+                   enforcement_mode              AS ""EnforcementMode"",
+                   missed_checkout_counts_as_present AS ""MissedCheckoutCountsAsPresent"",
                    updated_at                    AS ""UpdatedAt"",
                    updated_by                    AS ""UpdatedBy""
               FROM attendance_config
@@ -165,6 +177,14 @@ namespace ASPCoreWebAPI.Repositories
 
             var (end, crossesMidnight) = ShiftTime.CalculateEnd(start, duration);
             var isActive = request.IsActive ?? existing.IsActive;
+
+            if (string.Equals(name, existing.ShiftName, StringComparison.Ordinal) &&
+                start == existing.StartTime &&
+                duration == existing.DurationHours &&
+                isActive == existing.IsActive)
+            {
+                return existing;
+            }
 
             using var connection = await _dataSource.OpenConnectionAsync();
             var updated = await connection.ExecuteAsync(
@@ -665,6 +685,94 @@ namespace ASPCoreWebAPI.Repositories
             return rows.ToList();
         }
 
+        public async Task<List<ShiftAssignmentLogRow>> GetAssignmentLogAsync()
+        {
+            using var connection = await _dataSource.OpenConnectionAsync();
+            var rows = await connection.QueryAsync<ShiftAssignmentLogRow>(
+                @"SELECT b.batch_id         AS ""BatchId"",
+                         sa.emp_id          AS ""EmpId"",
+                         COALESCE(NULLIF(BTRIM(u.""FirstName"" || ' ' || u.""LastName""), ''),
+                                  u.""Email"", 'Unknown') AS ""EmployeeName"",
+                         e.""EmployeeCode"" AS ""EmployeeCode"",
+                         dep.""Name""        AS ""DepartmentName"",
+                         s.shift_id         AS ""ShiftId"",
+                         s.shift_name       AS ""ShiftName"",
+                         s.start_time       AS ""StartTime"",
+                         s.end_time         AS ""EndTime"",
+                         s.duration_hours   AS ""DurationHours"",
+                         b.from_date::timestamp AS ""FromDate"",
+                         b.to_date::timestamp   AS ""ToDate"",
+                         b.work_description AS ""WorkDescription"",
+                         b.status           AS ""Status"",
+                         b.created_by       AS ""CreatedBy"",
+                         COALESCE(NULLIF(BTRIM(cu.""FirstName"" || ' ' || cu.""LastName""), ''),
+                                  cu.""Email"", 'Unknown') AS ""CreatedByName"",
+                         cu.""Role""         AS ""CreatedByRole"",
+                         b.created_at       AS ""CreatedAt""
+                    FROM ""assignment_batch"" b
+                    JOIN ""shift"" s ON s.shift_id = b.shift_id
+                    JOIN (
+                        SELECT batch_id, emp_id
+                          FROM ""shift_assignment""
+                         WHERE status = 'Assigned'
+                         GROUP BY batch_id, emp_id
+                    ) sa ON sa.batch_id = b.batch_id
+                    JOIN ""Employees"" e ON e.""Id"" = sa.emp_id
+                    LEFT JOIN ""Users"" u ON u.""Id"" = e.""UserId""
+                    LEFT JOIN ""Departments"" dep ON dep.""Id"" = e.""DepartmentId""
+                    LEFT JOIN ""Users"" cu ON cu.""Id"" = b.created_by
+                   ORDER BY b.created_at DESC, b.batch_id DESC, ""EmployeeName""");
+            return rows.ToList();
+        }
+
+        public async Task<bool> RemoveEmployeeFromBatchAsync(int batchId, int empId)
+        {
+            using var connection = await _dataSource.OpenConnectionAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+            try
+            {
+                var affected = await connection.ExecuteAsync(
+                    @"UPDATE ""shift_assignment""
+                         SET status = 'Cancelled'
+                       WHERE batch_id = @BatchId
+                         AND emp_id = @EmpId
+                         AND status = 'Assigned'",
+                    new { BatchId = batchId, EmpId = empId },
+                    transaction);
+
+                if (affected == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return false;
+                }
+
+                /* Batch ka headcount active assignments se hi count hota hai.
+                   Aakhri employee nikalne par batch khud bhi cancelled. */
+                var remaining = await connection.ExecuteScalarAsync<int>(
+                    @"SELECT COUNT(DISTINCT emp_id)::int
+                        FROM ""shift_assignment""
+                       WHERE batch_id = @BatchId AND status = 'Assigned'",
+                    new { BatchId = batchId },
+                    transaction);
+
+                await connection.ExecuteAsync(
+                    @"UPDATE ""assignment_batch""
+                         SET total_employees = @Remaining,
+                             status = CASE WHEN @Remaining = 0 THEN 'Cancelled' ELSE status END
+                       WHERE batch_id = @BatchId",
+                    new { BatchId = batchId, Remaining = remaining },
+                    transaction);
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<AssignmentBatch?> CancelBatchAsync(int batchId)
         {
             using var connection = await _dataSource.OpenConnectionAsync();
@@ -680,8 +788,9 @@ namespace ASPCoreWebAPI.Repositories
 
                 if (updated == 0)
                 {
-                    await transaction.RollbackAsync();
-                    return await GetBatchAsync(batchId);
+                    var existing = await GetBatchAsync(batchId);
+                    if (existing == null) return null;
+                    throw new InvalidOperationException("Assignment batch is already cancelled.");
                 }
 
                 await connection.ExecuteAsync(

@@ -18,12 +18,16 @@ import EmployeeLeaves from "./Employee/EmployeeLeaves";
 import EmployeePayslips from "./Employee/EmployeePayslips";
 import AnnouncementsPage from "./Employee/AnnouncementsPage";
 import AdminLeaveRequests from "./Admin/AdminLeaveRequests";
+import AdminAttendance from "./Admin/AdminAttendance";
+import AttendanceRegister from "./Admin/AttendanceRegister";
+import Payroll from "./Admin/Payroll";
 import { LeaveProvider } from "./context/LeaveContext";
 import DepartmentManagement from "./modules/department/DepartmentManagement";
 import DesignationManagement from "./modules/designation/DesignationManagement";
 import EmployeeDirectory from "./modules/employee/EmployeeDirectory";
 import ShiftManagement from "./modules/shift/ShiftManagement";
-import BulkShiftAssignment from "./modules/shift/BulkShiftAssignment";
+import ShiftAssign from "./modules/shift/ShiftAssign";
+import MobileAppNav from "./components/MobileAppNav";
 
 function RequireAuth({ children, allowedRoles }) {
   const [loading, setLoading] = useState(true);
@@ -89,8 +93,11 @@ function App() {
         <Route path="/directory" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><EmployeeDirectory /></RequireAuth>} />
         <Route path="/employees" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><EmployeeDirectory /></RequireAuth>} />
         <Route path="/admin/leaves" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><AdminLeaveRequests /></RequireAuth>} />
+        <Route path="/admin/attendance" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><AdminAttendance /></RequireAuth>} />
+        <Route path="/admin/attendance/register" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><AttendanceRegister /></RequireAuth>} />
+        <Route path="/payroll" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><Payroll /></RequireAuth>} />
         <Route path="/shifts" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><ShiftManagement /></RequireAuth>} />
-        <Route path="/shift-assignments" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><BulkShiftAssignment /></RequireAuth>} />
+        <Route path="/shift-assignments" element={<RequireAuth allowedRoles={["OWNER", "HR"]}><ShiftAssign /></RequireAuth>} />
 
         {/* EMPLOYEE routes */}
         <Route path="/my-dashboard" element={<RequireAuth allowedRoles={["EMPLOYEE"]}><EmployeeDashboard /></RequireAuth>} />
@@ -105,6 +112,7 @@ function App() {
         <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
       </Routes>
       </LeaveProvider>
+      <MobileAppNav />
       </BrowserRouter>
     </ThemeProvider>
   );

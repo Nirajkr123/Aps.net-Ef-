@@ -1,3 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tailwind preflight is disabled to protect the existing MUI screens.
+   This scoped rule makes border/divide utilities work inside the new page. */
+@layer base {
+  .departments-page,
+  .departments-page *,
+  .departments-page *::before,
+  .departments-page *::after {
+    border-style: solid;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

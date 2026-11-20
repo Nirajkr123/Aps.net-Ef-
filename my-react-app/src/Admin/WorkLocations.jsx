@@ -1,31 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-    Alert,
-    Box,
-    Button,
-    Chip,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    IconButton,
-    Paper,
-    Snackbar,
-    Switch,
-    TextField,
-    Typography,
-} from "@mui/material";
+import { Alert, CircularProgress, Snackbar, TextField } from "@mui/material";
 import {
     AddLocationAlt,
-    Close,
     EditOutlined,
     MyLocation,
-    PlaceOutlined,
-    Refresh,
+    Refresh as RefreshIcon,
+    ToggleOff,
+    ToggleOn,
 } from "@mui/icons-material";
-import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import {
+    Circle,
+    MapContainer,
+    Marker,
+    Popup,
+    TileLayer,
+    useMap,
+    useMapEvents,
+} from "react-leaflet";
 import L from "leaflet";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -35,8 +27,22 @@ import "leaflet/dist/leaflet.css";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import adminServ from "../services/adminService";
-
 import "./AdminDashboard.css";
+import "./WorkLocations.css";
+import {
+    CountBadge,
+    DataTable,
+    EmptyState,
+    FilterPills,
+    FormDrawer,
+    MobileCard,
+    MobileCardList,
+    PageHeader,
+    Pagination,
+    RowActions,
+    SearchInput,
+    StatusBadge,
+} from "../components/admin";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -47,6 +53,22 @@ L.Icon.Default.mergeOptions({
 
 const DEFAULT_CENTER = [22.8046, 86.2029];
 const DEFAULT_ZOOM = 13;
+const PAGE_SIZE = 10;
+const MOBILE_BATCH = 5;
+const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+];
 
 const blankForm = {
     name: "",
@@ -55,19 +77,41 @@ const blankForm = {
     radiusMeters: 100,
 };
 
+const num = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toCoord = (value, fallback) =>
+    value === "" || value == null || !Number.isFinite(Number(value))
+        ? fallback
+        : Number(value);
+
+const formatAdded = (value) => {
+    if (!value) return "Attendance geofence";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Attendance geofence";
+    const day = String(date.getDate()).padStart(2, "0");
+    return `Added ${day} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+};
+
 function FitLocations({ locations }) {
     const map = useMap();
 
     useEffect(() => {
-        if (!locations.length) return;
-        if (locations.length === 1) {
-            map.setView([locations[0].latitude, locations[0].longitude], 15);
+        const points = locations
+            .map((location) => [Number(location.latitude), Number(location.longitude)])
+            .filter(([latitude, longitude]) =>
+                Number.isFinite(latitude) && Number.isFinite(longitude)
+            );
+
+        if (points.length === 0) return;
+        if (points.length === 1) {
+            map.setView(points[0], 15);
             return;
         }
-        const bounds = L.latLngBounds(
-            locations.map((location) => [location.latitude, location.longitude])
-        );
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+
+        map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 15 });
     }, [locations, map]);
 
     return null;
@@ -93,7 +137,7 @@ function LocationPicker({ latitude, longitude, radiusMeters, onChange }) {
             <Circle
                 center={[latitude, longitude]}
                 radius={Number(radiusMeters) || 100}
-                pathOptions={{ color: "#4f46e5", fillColor: "#6366f1", fillOpacity: 0.18 }}
+                pathOptions={{ color: "#4b3fd1", fillColor: "#7b5cf0", fillOpacity: 0.18 }}
             />
             <Marker
                 position={[latitude, longitude]}
@@ -118,14 +162,21 @@ function WorkLocations() {
     const [locations, setLocations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [drawerOpen, setDrawerOpen] = useState(false);
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState(blankForm);
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState("");
     const [locating, setLocating] = useState(false);
+    const [page, setPage] = useState(0);
+    const [mobileVisible, setMobileVisible] = useState(MOBILE_BATCH);
     const [toast, setToast] = useState({ open: false, message: "", severity: "success" });
     const mapRef = useRef(null);
+
+    const showToast = (message, severity = "success") =>
+        setToast({ open: true, message, severity });
 
     useEffect(() => {
         try {
@@ -135,32 +186,41 @@ function WorkLocations() {
         }
     }, []);
 
-    const handleLogout = () => {
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-        navigate("/login");
-    };
+    useEffect(() => {
+        setPage(0);
+        setMobileVisible(MOBILE_BATCH);
+    }, [search, statusFilter]);
 
-    const loadLocations = useCallback(async () => {
-        setLoading(true);
+    useEffect(() => {
+        if (!drawerOpen) return undefined;
+        const timer = setTimeout(() => mapRef.current?.invalidateSize(), 260);
+        return () => clearTimeout(timer);
+    }, [drawerOpen]);
+
+    const loadLocations = useCallback(async ({ showLoader = true } = {}) => {
+        if (showLoader) setLoading(true);
         setError("");
         try {
             const { data } = await adminServ.getWorkLocations();
             setLocations(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error("Load work locations error:", err);
-            setError("Could not load work locations. Please try again.");
+            const message = "Work locations load nahi ho payi. Phir try karein.";
+            setError(message);
+            setToast({ open: true, message, severity: "error" });
         } finally {
-            setLoading(false);
+            if (showLoader) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        loadLocations();
+        loadLocations({ showLoader: true });
     }, [loadLocations]);
 
-    const showToast = (message, severity = "success") =>
-        setToast({ open: true, message, severity });
+    const handleLogout = () => {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        navigate("/login");
+    };
 
     const updatePoint = (latitude, longitude) =>
         setForm((current) => ({ ...current, latitude, longitude }));
@@ -174,8 +234,7 @@ function WorkLocations() {
             longitude: first?.longitude ?? DEFAULT_CENTER[1],
         });
         setFormError("");
-        setDialogOpen(true);
-        setTimeout(() => mapRef.current?.invalidateSize(), 150);
+        setDrawerOpen(true);
     };
 
     const openEdit = (location) => {
@@ -187,8 +246,7 @@ function WorkLocations() {
             radiusMeters: Number(location.radiusMeters) || 100,
         });
         setFormError("");
-        setDialogOpen(true);
-        setTimeout(() => mapRef.current?.invalidateSize(), 150);
+        setDrawerOpen(true);
     };
 
     const useCurrentLocation = () => {
@@ -209,15 +267,16 @@ function WorkLocations() {
                 setLocating(false);
             },
             () => {
-                setFormError("Could not get your current location. Please allow location access.");
+                setFormError(
+                    "Could not get your current location. Please allow location access."
+                );
                 setLocating(false);
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
-    const saveLocation = async (event) => {
-        event.preventDefault();
+    const saveLocation = async () => {
         const name = form.name.trim();
         const latitude = Number(form.latitude);
         const longitude = Number(form.longitude);
@@ -252,11 +311,12 @@ function WorkLocations() {
                 await adminServ.createWorkLocation(payload);
                 showToast("Work location added.");
             }
-            setDialogOpen(false);
-            await loadLocations();
+            setDrawerOpen(false);
+            await loadLocations({ showLoader: false });
         } catch (err) {
-            console.error("Save work location error:", err);
-            setFormError(err.response?.data?.message || "Could not save this work location.");
+            setFormError(
+                err.response?.data?.message || "Could not save this work location."
+            );
         } finally {
             setSaving(false);
         }
@@ -266,19 +326,152 @@ function WorkLocations() {
         try {
             await adminServ.setWorkLocationActive(location.id, isActive);
             setLocations((current) =>
-                current.map((item) => (item.id === location.id ? { ...item, isActive } : item))
+                current.map((item) =>
+                    item.id === location.id ? { ...item, isActive } : item
+                )
             );
             showToast(isActive ? "Work location activated." : "Work location deactivated.");
         } catch (err) {
-            console.error("Toggle work location error:", err);
-            showToast(err.response?.data?.message || "Could not update this work location.", "error");
+            showToast(
+                err.response?.data?.message || "Could not update this work location.",
+                "error"
+            );
         }
     };
 
+    const searchedLocations = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) return locations;
+        return locations.filter((location) =>
+            String(location.name || "").toLowerCase().includes(query)
+        );
+    }, [locations, search]);
+
+    const counts = useMemo(
+        () => ({
+            all: searchedLocations.length,
+            active: searchedLocations.filter((location) => location.isActive).length,
+            inactive: searchedLocations.filter((location) => !location.isActive).length,
+        }),
+        [searchedLocations]
+    );
+
+    const filteredLocations = useMemo(() => {
+        if (statusFilter === "all") return searchedLocations;
+        if (statusFilter === "active") {
+            return searchedLocations.filter((location) => location.isActive);
+        }
+        return searchedLocations.filter((location) => !location.isActive);
+    }, [searchedLocations, statusFilter]);
+
+    const pageCount = Math.max(1, Math.ceil(filteredLocations.length / PAGE_SIZE));
+    const safePage = Math.min(page, pageCount - 1);
+    const pagedLocations = filteredLocations.slice(
+        safePage * PAGE_SIZE,
+        safePage * PAGE_SIZE + PAGE_SIZE
+    );
+    const mobileLocations = filteredLocations.slice(0, mobileVisible);
+
     const activeCount = locations.filter((location) => location.isActive).length;
 
+    const formLat = toCoord(form.latitude, DEFAULT_CENTER[0]);
+    const formLng = toCoord(form.longitude, DEFAULT_CENTER[1]);
+
+    const locationActions = (location) => [
+        {
+            key: "toggle",
+            label: location.isActive ? "Deactivate" : "Activate",
+            ariaLabel: `${
+                location.isActive ? "Deactivate" : "Activate"
+            } ${location.name}`,
+            icon: location.isActive ? ToggleOn : ToggleOff,
+            onClick: () => toggleActive(location, !location.isActive),
+        },
+        {
+            key: "edit",
+            label: "Edit",
+            ariaLabel: `Edit ${location.name}`,
+            icon: EditOutlined,
+            onClick: () => openEdit(location),
+        },
+    ];
+
+    const columns = [
+        {
+            key: "name",
+            header: "Location",
+            render: (location) => (
+                <>
+                    <span className="admin-cell-primary">{location.name}</span>
+                    <span className="admin-cell-sub">
+                        {formatAdded(location.createdAt)}
+                    </span>
+                </>
+            ),
+        },
+        {
+            key: "radius",
+            header: "Radius",
+            render: (location) => (
+                <span className="wl-radius">
+                    {num(location.radiusMeters)} m
+                </span>
+            ),
+        },
+        {
+            key: "status",
+            header: "Status",
+            render: (location) => (
+                <StatusBadge status={location.isActive ? "Active" : "Inactive"} />
+            ),
+        },
+        {
+            key: "actions",
+            header: "Actions",
+            align: "right",
+            render: (location) => <RowActions actions={locationActions(location)} />,
+        },
+    ];
+
+    const hasFilters = Boolean(search.trim()) || statusFilter !== "all";
+    const emptyState = error ? (
+        <EmptyState
+            title="Work locations load nahi ho payi."
+            subtitle={error}
+            action={
+                <button
+                    type="button"
+                    className="admin-btn is-primary-solid"
+                    onClick={() => loadLocations({ showLoader: true })}
+                >
+                    Try again
+                </button>
+            }
+        />
+    ) : (
+        <EmptyState
+            title={hasFilters ? "Koi work location nahi mili." : "Abhi koi work location nahi hai."}
+            subtitle={
+                hasFilters
+                    ? "Search ya filter badal kar try karein."
+                    : "Pehli geofence location add karein taaki attendance allow ho sake."
+            }
+            action={
+                !hasFilters ? (
+                    <button
+                        type="button"
+                        className="admin-btn is-primary-solid"
+                        onClick={openCreate}
+                    >
+                        Add Location
+                    </button>
+                ) : null
+            }
+        />
+    );
+
     return (
-        <div className="dash-page">
+        <div className="dash-page admin-page-shell">
             <Sidebar
                 activeKey="work-locations"
                 onLogout={handleLogout}
@@ -289,7 +482,9 @@ function WorkLocations() {
             />
             <div className={`dash-main ${collapsed ? "collapsed" : ""}`}>
                 <Navbar
-                    userName={[user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Admin"}
+                    userName={
+                        [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Admin"
+                    }
                     userRole={user?.role || "OWNER"}
                     user={user}
                     onLogout={handleLogout}
@@ -297,317 +492,324 @@ function WorkLocations() {
                     onToggleSidebar={() => setCollapsed(!collapsed)}
                 />
                 <div className="dash-content">
-                    <Box
-                        sx={{
-                            display: "flex",
-                            alignItems: { xs: "flex-start", sm: "center" },
-                            justifyContent: "space-between",
-                            flexDirection: { xs: "column", sm: "row" },
-                            gap: 2,
-                            mb: 3,
-                        }}
-                    >
-                        <Box>
-                            <Typography variant="h5" sx={{ fontWeight: 800, color: "#171b2e" }}>
-                                Work Locations
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: "#6b7280", mt: 0.5 }}>
-                                Attendance is allowed only inside these geofence ranges.
-                            </Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                            <Button
-                                variant="outlined"
-                                startIcon={<Refresh />}
-                                onClick={loadLocations}
-                                disabled={loading}
-                                sx={{ textTransform: "none" }}
-                            >
-                                Refresh
-                            </Button>
-                            <Button
-                                variant="contained"
-                                startIcon={<AddLocationAlt />}
-                                onClick={openCreate}
-                                sx={{ textTransform: "none", bgcolor: "#4f46e5" }}
-                            >
-                                Add Location
-                            </Button>
-                        </Box>
-                    </Box>
+                    <div className="admin-page">
+                        <PageHeader
+                            title="Work Locations"
+                            subtitle="Attendance is allowed only inside these geofence ranges."
+                            actions={[
+                                {
+                                    key: "refresh",
+                                    label: "Refresh",
+                                    icon: RefreshIcon,
+                                    onClick: () => loadLocations({ showLoader: true }),
+                                    disabled: loading,
+                                },
+                                {
+                                    key: "add",
+                                    label: "Add Location",
+                                    icon: AddLocationAlt,
+                                    variant: "primary",
+                                    onClick: openCreate,
+                                },
+                            ]}
+                        />
 
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-                            {error}
-                        </Alert>
-                    )}
+                        <div className="admin-toolbar">
+                            <div className="admin-toolbar-left">
+                                <SearchInput
+                                    value={search}
+                                    onChange={setSearch}
+                                    placeholder="Search work locations..."
+                                    ariaLabel="Search work locations"
+                                />
+                            </div>
+                            <div className="admin-toolbar-right">
+                                <FilterPills
+                                    ariaLabel="Filter work locations by status"
+                                    value={statusFilter}
+                                    onChange={setStatusFilter}
+                                    options={[
+                                        { key: "all", label: "All", count: counts.all },
+                                        {
+                                            key: "active",
+                                            label: "Active",
+                                            count: counts.active,
+                                        },
+                                        {
+                                            key: "inactive",
+                                            label: "Inactive",
+                                            count: counts.inactive,
+                                        },
+                                    ]}
+                                />
+                            </div>
+                        </div>
 
-                    <Box
-                        sx={{
-                            display: "grid",
-                            gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.35fr) minmax(320px, 0.65fr)" },
-                            gap: 2.5,
-                            alignItems: "start",
-                        }}
-                    >
-                        <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 3, overflow: "hidden" }}>
-                            <Box sx={{ height: { xs: 330, md: 470 }, borderRadius: 2, overflow: "hidden" }}>
-                                <MapContainer
-                                    center={DEFAULT_CENTER}
-                                    zoom={DEFAULT_ZOOM}
-                                    scrollWheelZoom
-                                    style={{ height: "100%", width: "100%" }}
-                                >
-                                    <TileLayer
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                    />
-                                    {locations.map((location) => (
-                                        <React.Fragment key={location.id}>
-                                            <Circle
-                                                center={[location.latitude, location.longitude]}
-                                                radius={location.radiusMeters}
-                                                pathOptions={{
-                                                    color: location.isActive ? "#4f46e5" : "#9ca3af",
-                                                    fillColor: location.isActive ? "#6366f1" : "#9ca3af",
-                                                    fillOpacity: location.isActive ? 0.16 : 0.08,
-                                                }}
+                        <div className="wl-content">
+                            <div className="wl-map">
+                                <div className="wl-map-card">
+                                    <div className="wl-map-head">
+                                        <div>
+                                            <h2>Geofence Map</h2>
+                                            <p>Attendance is allowed inside these circles.</p>
+                                        </div>
+                                        <div className="wl-map-counts">
+                                            <CountBadge
+                                                value={locations.length}
+                                                label={
+                                                    locations.length === 1
+                                                        ? "location"
+                                                        : "locations"
+                                                }
+                                                ariaLabel={`${locations.length} work locations`}
                                             />
-                                            <Marker position={[location.latitude, location.longitude]}>
-                                                <Popup>
-                                                    <strong>{location.name}</strong>
-                                                    <br />
-                                                    {location.isActive ? "Active" : "Inactive"} ·{" "}
-                                                    {location.radiusMeters} m radius
-                                                </Popup>
-                                            </Marker>
-                                        </React.Fragment>
-                                    ))}
-                                    {locations.length > 0 && <FitLocations locations={locations} />}
-                                </MapContainer>
-                            </Box>
-                        </Paper>
+                                            <StatusBadge
+                                                status="Active"
+                                                label={`${activeCount} active`}
+                                            />
+                                        </div>
+                                    </div>
 
-                        <Box>
-                            <Box sx={{ display: "flex", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
-                                <Chip label={`${locations.length} locations`} variant="outlined" size="small" />
-                                <Chip label={`${activeCount} active`} color="success" variant="outlined" size="small" />
-                            </Box>
-
-                            {loading ? (
-                                <Paper variant="outlined" sx={{ p: 5, textAlign: "center", borderRadius: 3 }}>
-                                    <CircularProgress size={30} />
-                                </Paper>
-                            ) : locations.length === 0 ? (
-                                <Paper variant="outlined" sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
-                                    <PlaceOutlined sx={{ fontSize: 42, color: "#c7d2fe", mb: 1 }} />
-                                    <Typography sx={{ fontWeight: 700 }}>No work locations yet</Typography>
-                                    <Typography variant="body2" sx={{ color: "#6b7280", mb: 2 }}>
-                                        Add a location before employees can check in.
-                                    </Typography>
-                                    <Button variant="contained" onClick={openCreate} sx={{ textTransform: "none" }}>
-                                        Add First Location
-                                    </Button>
-                                </Paper>
-                            ) : (
-                                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
-                                    {locations.map((location) => (
-                                        <Paper
-                                            key={location.id}
-                                            variant="outlined"
-                                            sx={{
-                                                p: 2,
-                                                borderRadius: 2.5,
-                                                borderColor: location.isActive ? "#c7d2fe" : "#e5e7eb",
-                                                bgcolor: location.isActive ? "#f8faff" : "#fafafa",
-                                            }}
+                                    <div className="wl-map-body">
+                                        <MapContainer
+                                            center={DEFAULT_CENTER}
+                                            zoom={DEFAULT_ZOOM}
+                                            scrollWheelZoom
+                                            style={{ height: "100%", width: "100%" }}
                                         >
-                                            <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start" }}>
-                                                <Box
-                                                    sx={{
-                                                        width: 38,
-                                                        height: 38,
-                                                        borderRadius: 2,
-                                                        bgcolor: location.isActive ? "#eef2ff" : "#f3f4f6",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        flexShrink: 0,
-                                                    }}
-                                                >
-                                                    <PlaceOutlined sx={{ color: location.isActive ? "#4f46e5" : "#9ca3af" }} />
-                                                </Box>
-                                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography sx={{ fontWeight: 700, wordBreak: "break-word" }}>
-                                                        {location.name}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ color: "#6b7280" }}>
-                                                        {Number(location.latitude).toFixed(6)},{" "}
-                                                        {Number(location.longitude).toFixed(6)}
-                                                    </Typography>
-                                                    <Box sx={{ display: "flex", gap: 0.75, mt: 0.75, flexWrap: "wrap" }}>
-                                                        <Chip label={`${location.radiusMeters} m`} size="small" variant="outlined" />
-                                                        <Chip
-                                                            label={location.isActive ? "Active" : "Inactive"}
-                                                            size="small"
-                                                            color={location.isActive ? "success" : "default"}
-                                                            variant="outlined"
-                                                        />
-                                                    </Box>
-                                                </Box>
-                                            </Box>
-                                            <Box
-                                                sx={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
-                                                    mt: 1.5,
-                                                    pt: 1,
-                                                    borderTop: "1px solid #eef0f4",
-                                                }}
-                                            >
-                                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                                    <Switch
-                                                        size="small"
-                                                        checked={Boolean(location.isActive)}
-                                                        onChange={(e) => toggleActive(location, e.target.checked)}
-                                                        inputProps={{ "aria-label": `Toggle ${location.name}` }}
+                                            <TileLayer
+                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                            />
+                                            {locations.map((location) => (
+                                                <React.Fragment key={location.id}>
+                                                    <Circle
+                                                        center={[
+                                                            Number(location.latitude),
+                                                            Number(location.longitude),
+                                                        ]}
+                                                        radius={num(location.radiusMeters, 100)}
+                                                        pathOptions={{
+                                                            color: location.isActive
+                                                                ? "#4b3fd1"
+                                                                : "#9ca3af",
+                                                            fillColor: location.isActive
+                                                                ? "#7b5cf0"
+                                                                : "#9ca3af",
+                                                            fillOpacity: location.isActive
+                                                                ? 0.16
+                                                                : 0.08,
+                                                        }}
                                                     />
-                                                    <Typography variant="caption" sx={{ color: "#6b7280" }}>
-                                                        {location.isActive ? "Enabled" : "Disabled"}
-                                                    </Typography>
-                                                </Box>
-                                                <IconButton size="small" onClick={() => openEdit(location)} aria-label={`Edit ${location.name}`}>
-                                                    <EditOutlined fontSize="small" />
-                                                </IconButton>
-                                            </Box>
-                                        </Paper>
-                                    ))}
-                                </Box>
-                            )}
-                        </Box>
-                    </Box>
+                                                    <Marker
+                                                        position={[
+                                                            Number(location.latitude),
+                                                            Number(location.longitude),
+                                                        ]}
+                                                    >
+                                                        <Popup>
+                                                            <strong>{location.name}</strong>
+                                                            <br />
+                                                            {location.isActive
+                                                                ? "Active"
+                                                                : "Inactive"}{" "}
+                                                            ·{" "}
+                                                            {num(location.radiusMeters)} m
+                                                            radius
+                                                        </Popup>
+                                                    </Marker>
+                                                </React.Fragment>
+                                            ))}
+                                            {locations.length > 0 && (
+                                                <FitLocations locations={locations} />
+                                            )}
+                                        </MapContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="wl-list">
+                                <DataTable
+                                    ariaLabel="Work locations"
+                                    columns={columns}
+                                    rows={pagedLocations}
+                                    rowKey="id"
+                                    loading={loading}
+                                    skeletonRows={PAGE_SIZE}
+                                    empty={emptyState}
+                                />
+
+                                <Pagination
+                                    page={safePage}
+                                    pageSize={PAGE_SIZE}
+                                    total={filteredLocations.length}
+                                    onPageChange={setPage}
+                                />
+
+                                <MobileCardList
+                                    items={mobileLocations}
+                                    loading={loading}
+                                    getKey={(location) => location.id}
+                                    hasMore={
+                                        filteredLocations.length > mobileVisible
+                                    }
+                                    onLoadMore={() =>
+                                        setMobileVisible((prev) => prev + MOBILE_BATCH)
+                                    }
+                                    empty={emptyState}
+                                    renderItem={(location) => (
+                                        <MobileCard
+                                            title={location.name}
+                                            subtitle={formatAdded(location.createdAt)}
+                                            badge={
+                                                <StatusBadge
+                                                    status={
+                                                        location.isActive
+                                                            ? "Active"
+                                                            : "Inactive"
+                                                    }
+                                                />
+                                            }
+                                            fields={[
+                                                {
+                                                    label: "Radius",
+                                                    value: `${num(
+                                                        location.radiusMeters
+                                                    )} m`,
+                                                },
+                                            ]}
+                                            actions={locationActions(location)}
+                                            ariaLabel={`${location.name} work location`}
+                                        />
+                                    )}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <Dialog
-                open={dialogOpen}
-                onClose={() => !saving && setDialogOpen(false)}
-                fullWidth
-                maxWidth="md"
-                PaperProps={{ sx: { borderRadius: 3 } }}
+            <FormDrawer
+                open={drawerOpen}
+                title={editing ? "Edit Work Location" : "Add Work Location"}
+                submitLabel={editing ? "Update Location" : "Add Location"}
+                saving={saving}
+                error={formError}
+                onClose={() => {
+                    if (!saving) setDrawerOpen(false);
+                }}
+                onSubmit={saveLocation}
             >
-                <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <PlaceOutlined sx={{ color: "#4f46e5" }} />
-                        {editing ? "Edit Work Location" : "Add Work Location"}
-                    </Box>
-                    <IconButton onClick={() => setDialogOpen(false)} disabled={saving} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Box
-                        component="form"
-                        onSubmit={saveLocation}
-                        sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+                <div className="admin-form">
+                    <TextField
+                        label="Location name"
+                        value={form.name}
+                        onChange={(event) =>
+                            setForm((current) => ({
+                                ...current,
+                                name: event.target.value,
+                            }))
+                        }
+                        placeholder="e.g. Head Office"
+                        fullWidth
+                        size="small"
+                        autoFocus
+                    />
+
+                    <div className="admin-form-row">
+                        <TextField
+                            label="Latitude"
+                            type="number"
+                            value={form.latitude}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    latitude: event.target.value,
+                                }))
+                            }
+                            inputProps={{ step: "any", min: -90, max: 90 }}
+                            fullWidth
+                            size="small"
+                        />
+                        <TextField
+                            label="Longitude"
+                            type="number"
+                            value={form.longitude}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    longitude: event.target.value,
+                                }))
+                            }
+                            inputProps={{ step: "any", min: -180, max: 180 }}
+                            fullWidth
+                            size="small"
+                        />
+                    </div>
+
+                    <TextField
+                        label="Radius (meters)"
+                        type="number"
+                        value={form.radiusMeters}
+                        onChange={(event) =>
+                            setForm((current) => ({
+                                ...current,
+                                radiusMeters: event.target.value,
+                            }))
+                        }
+                        inputProps={{ min: 1, max: 10000, step: 1 }}
+                        fullWidth
+                        size="small"
+                    />
+
+                    <button
+                        type="button"
+                        className="admin-btn is-ghost-dark wl-locate-btn"
+                        onClick={useCurrentLocation}
+                        disabled={locating}
                     >
-                        {formError && <Alert severity="error">{formError}</Alert>}
+                        {locating ? (
+                            <CircularProgress size={16} color="inherit" />
+                        ) : (
+                            <MyLocation fontSize="small" />
+                        )}
+                        <span>
+                            {locating
+                                ? "Getting location..."
+                                : "Use my current location"}
+                        </span>
+                    </button>
 
-                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 180px" }, gap: 2 }}>
-                            <TextField
-                                label="Location name"
-                                value={form.name}
-                                onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
-                                placeholder="e.g. Head Office"
-                                required
-                                fullWidth
-                            />
-                            <TextField
-                                label="Radius (meters)"
-                                type="number"
-                                value={form.radiusMeters}
-                                onChange={(e) =>
-                                    setForm((current) => ({ ...current, radiusMeters: e.target.value }))
-                                }
-                                inputProps={{ min: 1, max: 10000, step: 1 }}
-                                required
-                                fullWidth
-                            />
-                        </Box>
-
-                        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-                            <TextField
-                                label="Latitude"
-                                type="number"
-                                value={form.latitude}
-                                onChange={(e) =>
-                                    setForm((current) => ({ ...current, latitude: e.target.value }))
-                                }
-                                inputProps={{ step: "any", min: -90, max: 90 }}
-                                required
-                                fullWidth
-                            />
-                            <TextField
-                                label="Longitude"
-                                type="number"
-                                value={form.longitude}
-                                onChange={(e) =>
-                                    setForm((current) => ({ ...current, longitude: e.target.value }))
-                                }
-                                inputProps={{ step: "any", min: -180, max: 180 }}
-                                required
-                                fullWidth
-                            />
-                        </Box>
-
-                        <Button
-                            variant="outlined"
-                            startIcon={locating ? <CircularProgress size={16} /> : <MyLocation />}
-                            onClick={useCurrentLocation}
-                            disabled={locating}
-                            sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    <div className="wl-picker">
+                        <MapContainer
+                            whenReady={(map) => {
+                                mapRef.current = map;
+                                setTimeout(() => {
+                                    if (mapRef.current === map) {
+                                        map.invalidateSize();
+                                    }
+                                }, 300);
+                            }}
+                            center={[formLat, formLng]}
+                            zoom={15}
+                            scrollWheelZoom
+                            style={{ height: "100%", width: "100%" }}
                         >
-                            {locating ? "Getting location..." : "Use my current location"}
-                        </Button>
+                            <LocationPicker
+                                latitude={formLat}
+                                longitude={formLng}
+                                radiusMeters={form.radiusMeters}
+                                onChange={updatePoint}
+                            />
+                        </MapContainer>
+                    </div>
 
-                        <Box sx={{ height: 330, borderRadius: 2, overflow: "hidden", border: "1px solid #e5e7eb" }}>
-                            <MapContainer
-                                whenReady={(map) => {
-                                    mapRef.current = map;
-                                }}
-                                center={[Number(form.latitude), Number(form.longitude)]}
-                                zoom={15}
-                                scrollWheelZoom
-                                style={{ height: "100%", width: "100%" }}
-                            >
-                                <LocationPicker
-                                    latitude={Number(form.latitude)}
-                                    longitude={Number(form.longitude)}
-                                    radiusMeters={form.radiusMeters}
-                                    onChange={updatePoint}
-                                />
-                            </MapContainer>
-                        </Box>
-                        <Typography variant="caption" sx={{ color: "#6b7280" }}>
-                            Click the map or drag the marker to place the center. The circle shows the allowed radius.
-                        </Typography>
-                    </Box>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, py: 2 }}>
-                    <Button onClick={() => setDialogOpen(false)} disabled={saving} sx={{ textTransform: "none" }}>
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={saveLocation}
-                        disabled={saving}
-                        sx={{ textTransform: "none", bgcolor: "#4f46e5" }}
-                    >
-                        {saving ? "Saving..." : editing ? "Update Location" : "Add Location"}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                    <p className="wl-map-hint">
+                        Click the map or drag the marker to place the center. The circle
+                        shows the allowed radius.
+                    </p>
+                </div>
+            </FormDrawer>
 
             <Snackbar
                 open={toast.open}
@@ -619,6 +821,7 @@ function WorkLocations() {
                     severity={toast.severity}
                     variant="filled"
                     onClose={() => setToast((current) => ({ ...current, open: false }))}
+                    sx={{ borderRadius: "12px" }}
                 >
                     {toast.message}
                 </Alert>

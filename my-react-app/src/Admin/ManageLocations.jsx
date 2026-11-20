@@ -1,23 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Alert, Skeleton, Snackbar, TextField } from "@mui/material";
 import {
-    CircularProgress,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Button,
-    IconButton,
-    DialogContentText,
-} from "@mui/material";
-import {
-    Add,
-    Close,
-    DeleteOutlined,
+    Add as AddIcon,
+    ArrowBackRounded,
+    DeleteOutlineOutlined,
     EditOutlined,
-    LocationCity,
-    Place,
 } from "@mui/icons-material";
 
 import Sidebar from "./Sidebar";
@@ -27,31 +15,41 @@ import adminServ from "../services/adminService";
 import "./AdminDashboard.css";
 import "./ManageLocations.css";
 
+import {
+    ConfirmModal,
+    CountBadge,
+    FormDrawer,
+    PageHeader,
+    RowActions,
+} from "../components/admin";
+
 function ManageLocations() {
     const navigate = useNavigate();
+
     const [user, setUser] = useState(null);
     const [collapsed, setCollapsed] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [districtsLoading, setDistrictsLoading] = useState(false);
     const [error, setError] = useState("");
 
     const [states, setStates] = useState([]);
     const [districts, setDistricts] = useState([]);
+    const [allDistricts, setAllDistricts] = useState([]);
     const [selectedStateId, setSelectedStateId] = useState(null);
 
-    // State dialog
-    const [stateDialog, setStateDialog] = useState({ open: false, editing: null, name: "", error: "" });
-    // District dialog
-    const [districtDialog, setDistrictDialog] = useState({ open: false, editing: null, name: "", error: "" });
-    // Delete confirm
-    const [deleteTarget, setDeleteTarget] = useState({ open: false, type: "", id: null, name: "" });
-
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [drawerType, setDrawerType] = useState("state");
+    const [editing, setEditing] = useState(null);
+    const [name, setName] = useState("");
+    const [formError, setFormError] = useState("");
     const [saving, setSaving] = useState(false);
+
+    const [deleteTarget, setDeleteTarget] = useState(null);
     const [toast, setToast] = useState({ text: "", open: false });
 
     useEffect(() => {
         try {
-            const stored = JSON.parse(localStorage.getItem("user") || "null");
-            setUser(stored);
+            setUser(JSON.parse(localStorage.getItem("user") || "null"));
         } catch {
             setUser(null);
         }
@@ -66,16 +64,22 @@ function ManageLocations() {
     };
 
     const loadStates = useCallback(async () => {
-        setLoading(true);
         setError("");
         try {
             const { data } = await adminServ.getStates();
             setStates(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Load states error:", err);
-            setError("Could not load states.");
-        } finally {
-            setLoading(false);
+            setError("Could not load locations. Please check the server and try again.");
+        }
+    }, []);
+
+    const loadAllDistricts = useCallback(async () => {
+        try {
+            const { data } = await adminServ.getDistricts();
+            setAllDistricts(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Load districts error:", err);
         }
     }, []);
 
@@ -84,140 +88,194 @@ function ManageLocations() {
             setDistricts([]);
             return;
         }
+        setDistrictsLoading(true);
         try {
             const { data } = await adminServ.getDistricts(stateId);
             setDistricts(Array.isArray(data) ? data : []);
         } catch (err) {
-            console.error("Load districts error:", err);
+            console.error("Load state districts error:", err);
+            setDistricts([]);
+        } finally {
+            setDistrictsLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        loadStates();
-    }, [loadStates]);
+        let cancelled = false;
+        setLoading(true);
+        Promise.all([loadStates(), loadAllDistricts()]).finally(() => {
+            if (!cancelled) setLoading(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [loadStates, loadAllDistricts]);
 
     useEffect(() => {
         loadDistricts(selectedStateId);
     }, [selectedStateId, loadDistricts]);
+
+    const handleRefresh = async () => {
+        setLoading(true);
+        await Promise.all([loadStates(), loadAllDistricts(), loadDistricts(selectedStateId)]);
+        setLoading(false);
+    };
 
     const displayName =
         [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
         user?.email ||
         "Admin";
 
-    const selectedState = states.find((s) => s.id === selectedStateId) || null;
+    const selectedState = useMemo(
+        () => states.find((state) => state.id === selectedStateId) || null,
+        [states, selectedStateId]
+    );
 
-    // ---- States ----
+    const districtCountFor = (stateId) =>
+        allDistricts.filter((district) => district.stateId === stateId).length;
 
-    const openAddState = () =>
-        setStateDialog({ open: true, editing: null, name: "", error: "" });
+    const guard = (fn) => (event) => {
+        event?.stopPropagation?.();
+        fn();
+    };
 
-    const openEditState = (s) =>
-        setStateDialog({ open: true, editing: s, name: s.name, error: "" });
+    const openCreate = (type) => {
+        if (type === "district" && !selectedStateId) return;
+        setDrawerType(type);
+        setEditing(null);
+        setName("");
+        setFormError("");
+        setDrawerOpen(true);
+    };
 
-    const saveState = async (e) => {
-        e.preventDefault();
-        const { editing, name } = stateDialog;
-        if (!name.trim()) {
-            setStateDialog((d) => ({ ...d, error: "State name is required" }));
+    const openEdit = (type, item) => {
+        setDrawerType(type);
+        setEditing(item);
+        setName(item.name || "");
+        setFormError("");
+        setDrawerOpen(true);
+    };
+
+    const handleSave = async () => {
+        const trimmed = name.trim();
+        if (!trimmed) {
+            setFormError("Name is required.");
             return;
         }
+
         setSaving(true);
+        setFormError("");
         try {
-            if (editing) {
-                await adminServ.updateState(editing.id, { name: name.trim() });
+            if (drawerType === "state") {
+                if (editing) {
+                    await adminServ.updateState(editing.id, { name: trimmed });
+                    showToast("State updated successfully.");
+                } else {
+                    await adminServ.createState({ name: trimmed });
+                    showToast("State created successfully.");
+                }
+            } else if (editing) {
+                await adminServ.updateDistrict(editing.id, {
+                    name: trimmed,
+                    stateId: selectedStateId,
+                });
+                showToast("District updated successfully.");
             } else {
-                await adminServ.createState({ name: name.trim() });
+                await adminServ.createDistrict({
+                    name: trimmed,
+                    stateId: selectedStateId,
+                });
+                showToast("District created successfully.");
             }
-            setStateDialog((d) => ({ ...d, open: false }));
-            showToast(editing ? "State updated successfully!" : "State created successfully!");
-            await loadStates();
+
+            setDrawerOpen(false);
+            await Promise.all([loadStates(), loadAllDistricts()]);
+            if (drawerType === "district") await loadDistricts(selectedStateId);
         } catch (err) {
-            console.error("Save state error:", err);
-            setStateDialog((d) => ({ ...d, error: "Could not reach the server." }));
+            console.error("Save location error:", err);
+            setFormError("Could not reach the server.");
         } finally {
             setSaving(false);
         }
     };
 
-    const confirmDeleteState = (s) =>
-        setDeleteTarget({ open: true, type: "state", id: s.id, name: s.name });
-
-    const deleteState = async () => {
-        const { id } = deleteTarget;
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
         setSaving(true);
         try {
-            await adminServ.deleteState(id);
-            setDeleteTarget((d) => ({ ...d, open: false }));
-            if (selectedStateId === id) {
-                setSelectedStateId(null);
-            }
-            showToast("State deleted successfully!");
-            await loadStates();
-        } catch (err) {
-            console.error("Delete state error:", err);
-            setDeleteTarget((d) => ({ ...d, open: false }));
-            showToast("Failed to delete state.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // ---- Districts ----
-
-    const openAddDistrict = () =>
-        setDistrictDialog({ open: true, editing: null, name: "", error: "" });
-
-    const openEditDistrict = (d) =>
-        setDistrictDialog({ open: true, editing: d, name: d.name, error: "" });
-
-    const saveDistrict = async (e) => {
-        e.preventDefault();
-        const { editing, name } = districtDialog;
-        if (!name.trim()) {
-            setDistrictDialog((d) => ({ ...d, error: "District name is required" }));
-            return;
-        }
-        setSaving(true);
-        try {
-            if (editing) {
-                await adminServ.updateDistrict(editing.id, { name: name.trim(), stateId: selectedStateId });
+            if (deleteTarget.type === "state") {
+                await adminServ.deleteState(deleteTarget.id);
+                if (selectedStateId === deleteTarget.id) setSelectedStateId(null);
+                showToast("State deleted successfully.");
             } else {
-                await adminServ.createDistrict({ name: name.trim(), stateId: selectedStateId });
+                await adminServ.deleteDistrict(deleteTarget.id);
+                showToast("District deleted successfully.");
             }
-            setDistrictDialog((d) => ({ ...d, open: false }));
-            showToast(editing ? "District updated successfully!" : "District created successfully!");
-            await loadDistricts(selectedStateId);
+            setDeleteTarget(null);
+            await Promise.all([loadStates(), loadAllDistricts()]);
+            if (deleteTarget.type === "district") await loadDistricts(selectedStateId);
         } catch (err) {
-            console.error("Save district error:", err);
-            setDistrictDialog((d) => ({ ...d, error: "Could not reach the server." }));
+            console.error("Delete location error:", err);
+            setDeleteTarget(null);
+            showToast("Failed to delete. Please try again.");
         } finally {
             setSaving(false);
         }
     };
 
-    const confirmDeleteDistrict = (d) =>
-        setDeleteTarget({ open: true, type: "district", id: d.id, name: d.name });
+    const stateActions = (state) => [
+        {
+            key: "edit",
+            label: "Edit state",
+            ariaLabel: `Edit ${state.name}`,
+            icon: EditOutlined,
+            onClick: guard(() => openEdit("state", state)),
+        },
+        {
+            key: "delete",
+            label: "Delete state",
+            ariaLabel: `Delete ${state.name}`,
+            icon: DeleteOutlineOutlined,
+            tone: "danger",
+            onClick: guard(() =>
+                setDeleteTarget({ type: "state", id: state.id, name: state.name })
+            ),
+        },
+    ];
 
-    const deleteDistrict = async () => {
-        const { id } = deleteTarget;
-        setSaving(true);
-        try {
-            await adminServ.deleteDistrict(id);
-            setDeleteTarget((d) => ({ ...d, open: false }));
-            showToast("District deleted successfully!");
-            await loadDistricts(selectedStateId);
-        } catch (err) {
-            console.error("Delete district error:", err);
-            setDeleteTarget((d) => ({ ...d, open: false }));
-            showToast("Failed to delete district.");
-        } finally {
-            setSaving(false);
-        }
-    };
+    const districtActions = (district) => [
+        {
+            key: "edit",
+            label: "Edit district",
+            ariaLabel: `Edit ${district.name}`,
+            icon: EditOutlined,
+            onClick: guard(() => openEdit("district", district)),
+        },
+        {
+            key: "delete",
+            label: "Delete district",
+            ariaLabel: `Delete ${district.name}`,
+            icon: DeleteOutlineOutlined,
+            tone: "danger",
+            onClick: guard(() =>
+                setDeleteTarget({ type: "district", id: district.id, name: district.name })
+            ),
+        },
+    ];
+
+    const skeletonRows = (count) =>
+        Array.from({ length: count }).map((_, index) => (
+            <div className="loc-row" key={`loc-skeleton-${index}`} aria-hidden="true">
+                <Skeleton variant="circular" width={34} height={34} />
+                <div className="loc-row-copy">
+                    <Skeleton variant="text" width="45%" height={18} />
+                    <Skeleton variant="text" width="30%" height={13} />
+                </div>
+            </div>
+        ));
 
     return (
-        <div className="dash-page">
+        <div className="dash-page admin-page-shell">
             <Sidebar
                 activeKey="locations"
                 onLogout={handleLogout}
@@ -233,253 +291,237 @@ function ManageLocations() {
                     user={user}
                     collapsed={collapsed}
                     onToggleSidebar={() => setCollapsed((c) => !c)}
-                    searchPlaceholder="Manage locations..."
                     onLogout={handleLogout}
-                    onNavigate={(key) => {
-                        if (key === "settings") navigate("/settings");
-                    }}
                 />
 
                 <div className="dash-content">
-                    <div className="dash-header">
-                        <div>
-                            <h1 className="dash-title">Manage Locations</h1>
-                            <p className="dash-subtitle">
-                                Manage states and their districts
-                            </p>
-                        </div>
-                        <div className="dash-header-actions">
-                            <button type="button" className="dash-btn dash-btn-ghost" onClick={() => navigate("/users")}>
-                                Back to Users
-                            </button>
-                        </div>
-                    </div>
+                    <div className="admin-page">
+                        <PageHeader
+                            title="Locations"
+                            subtitle="Manage states and their districts"
+                            actions={[
+                                {
+                                    key: "back",
+                                    label: "Back to Users",
+                                    icon: ArrowBackRounded,
+                                    variant: "ghost",
+                                    onClick: () => navigate("/users"),
+                                },
+                                {
+                                    key: "add-state",
+                                    label: "New State",
+                                    icon: AddIcon,
+                                    variant: "primary",
+                                    onClick: () => openCreate("state"),
+                                },
+                            ]}
+                        />
 
-                    {loading && (
-                        <div className="dash-loading">
-                            <CircularProgress size={32} />
-                            <p className="dash-loading-text">Loading locations...</p>
-                        </div>
-                    )}
-
-                    {error && !loading && <div className="dash-error">{error}</div>}
-
-                    {!loading && !error && (
-                        <>
-                            {/* CREATE LOCATION SECTION */}
-                            <div className="loc-create-section">
-                                <div className="loc-create-card" onClick={openAddState}>
-                                    <div className="loc-create-icon loc-create-icon-violet">
-                                        <Place fontSize="inherit" />
-                                    </div>
-                                    <div className="loc-create-info">
-                                        <p className="loc-create-title">Create State</p>
-                                        <p className="loc-create-sub">Add a new state to the system</p>
-                                    </div>
-                                    <span className="loc-create-arrow">
-                                        <Add fontSize="small" />
-                                    </span>
-                                </div>
-                                <div
-                                    className={`loc-create-card ${!selectedStateId ? "loc-create-disabled" : ""}`}
-                                    onClick={() => { if (selectedStateId) openAddDistrict(); }}
-                                >
-                                    <div className="loc-create-icon loc-create-icon-blue">
-                                        <LocationCity fontSize="inherit" />
-                                    </div>
-                                    <div className="loc-create-info">
-                                        <p className="loc-create-title">Create District</p>
-                                        <p className="loc-create-sub">
-                                            {selectedStateId
-                                                ? `Add district to ${selectedState?.name || "selected state"}`
-                                                : "Select a state first"}
-                                        </p>
-                                    </div>
-                                    <span className="loc-create-arrow">
-                                        <Add fontSize="small" />
-                                    </span>
-                                </div>
-                            </div>
+                        {error && (
+                            <Alert
+                                severity="error"
+                                action={
+                                    <button
+                                        type="button"
+                                        className="admin-btn is-ghost-dark"
+                                        onClick={handleRefresh}
+                                    >
+                                        Retry
+                                    </button>
+                                }
+                            >
+                                {error}
+                            </Alert>
+                        )}
 
                         <div className="loc-grid">
-                            {/* STATES PANEL */}
-                            <div className="loc-panel">
-                                <div className="loc-panel-head">
-                                    <div className="loc-panel-title">
-                                        <span className="loc-panel-icon">
-                                            <Place fontSize="inherit" />
-                                        </span>
-                                        <div>
-                                            <p className="loc-panel-heading">States</p>
-                                            <p className="loc-panel-sub">{states.length} total</p>
+                            <section className="loc-panel" aria-label="States">
+                                <header className="loc-panel-head">
+                                    <div>
+                                        <div className="loc-panel-title">
+                                            <span>States</span>
+                                            <CountBadge value={states.length} />
                                         </div>
+                                        <p className="loc-panel-sub">
+                                            Select a state to manage its districts
+                                        </p>
                                     </div>
-                                    <IconButton className="loc-add-btn" onClick={openAddState} aria-label="Add state">
-                                        <Add fontSize="small" />
-                                    </IconButton>
-                                </div>
-                                <div className="loc-list">
-                                    {states.length === 0 && (
-                                        <p className="loc-empty">No states yet.</p>
-                                    )}
-                                    {states.map((s) => (
-                                        <div
-                                            key={s.id}
-                                            className={`loc-item ${s.id === selectedStateId ? "active" : ""}`}
-                                            onClick={() => setSelectedStateId(s.id)}
-                                        >
-                                            <span className="loc-item-badge">{s.name.charAt(0)}</span>
-                                            <span className="loc-item-name">{s.name}</span>
-                                            <div className="loc-item-actions">
-                                                <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEditState(s); }} aria-label="Edit">
-                                                    <EditOutlined fontSize="small" />
-                                                </IconButton>
-                                                <IconButton size="small" onClick={(e) => { e.stopPropagation(); confirmDeleteState(s); }} aria-label="Delete" className="danger">
-                                                    <DeleteOutlined fontSize="small" />
-                                                </IconButton>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* DISTRICTS PANEL */}
-                            <div className="loc-panel">
-                                <div className="loc-panel-head">
-                                    <div className="loc-panel-title">
-                                        <span className="loc-panel-icon">
-                                            <LocationCity fontSize="inherit" />
-                                        </span>
-                                        <div>
-                                            <p className="loc-panel-heading">
-                                                {selectedState ? `${selectedState.name} districts` : "Districts"}
-                                            </p>
-                                            <p className="loc-panel-sub">
-                                                {selectedState ? `${districts.length} total` : "Select a state"}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <IconButton
-                                        className="loc-add-btn"
-                                        onClick={openAddDistrict}
-                                        disabled={!selectedStateId}
-                                        aria-label="Add district"
+                                    <button
+                                        type="button"
+                                        className="admin-icon-btn"
+                                        aria-label="Add state"
+                                        onClick={() => openCreate("state")}
                                     >
-                                        <Add fontSize="small" />
-                                    </IconButton>
-                                </div>
+                                        <AddIcon fontSize="small" />
+                                    </button>
+                                </header>
+
                                 <div className="loc-list">
-                                    {!selectedState ? (
-                                        <p className="loc-empty">Click a state to view its districts.</p>
-                                    ) : districts.length === 0 ? (
-                                        <p className="loc-empty">No districts in this state yet.</p>
+                                    {loading ? (
+                                        skeletonRows(5)
+                                    ) : states.length === 0 ? (
+                                        <div className="loc-empty">No states yet.</div>
                                     ) : (
-                                        districts.map((d) => (
-                                            <div key={d.id} className="loc-item">
-                                                <span className="loc-item-badge">{d.name.charAt(0)}</span>
-                                                <span className="loc-item-name">{d.name}</span>
-                                                <div className="loc-item-actions">
-                                                    <IconButton size="small" onClick={() => openEditDistrict(d)} aria-label="Edit">
-                                                        <EditOutlined fontSize="small" />
-                                                    </IconButton>
-                                                    <IconButton size="small" onClick={() => confirmDeleteDistrict(d)} aria-label="Delete" className="danger">
-                                                    <DeleteOutlined fontSize="small" />
-                                                    </IconButton>
-                                                </div>
+                                        states.map((state) => (
+                                            <div
+                                                key={state.id}
+                                                className={`loc-row${
+                                                    state.id === selectedStateId ? " is-active" : ""
+                                                }`}
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-pressed={state.id === selectedStateId}
+                                                onClick={() => setSelectedStateId(state.id)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === "Enter" || event.key === " ") {
+                                                        event.preventDefault();
+                                                        setSelectedStateId(state.id);
+                                                    }
+                                                }}
+                                            >
+                                                <span className="loc-badge" aria-hidden="true">
+                                                    {String(state.name || "?").charAt(0).toUpperCase()}
+                                                </span>
+                                                <span className="loc-row-copy">
+                                                    <span className="admin-cell-primary">
+                                                        {state.name}
+                                                    </span>
+                                                    <span className="admin-cell-sub">
+                                                        {districtCountFor(state.id)}{" "}
+                                                        {districtCountFor(state.id) === 1
+                                                            ? "district"
+                                                            : "districts"}
+                                                    </span>
+                                                </span>
+                                                <RowActions actions={stateActions(state)} />
                                             </div>
                                         ))
                                     )}
                                 </div>
-                            </div>
+                            </section>
+
+                            <section className="loc-panel" aria-label="Districts">
+                                <header className="loc-panel-head">
+                                    <div>
+                                        <div className="loc-panel-title">
+                                            <span>
+                                                {selectedState
+                                                    ? `${selectedState.name} districts`
+                                                    : "Districts"}
+                                            </span>
+                                            <CountBadge value={districts.length} />
+                                        </div>
+                                        <p className="loc-panel-sub">
+                                            {selectedState
+                                                ? "Manage districts in this state"
+                                                : "Select a state first"}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="admin-icon-btn"
+                                        aria-label="Add district"
+                                        onClick={() => openCreate("district")}
+                                        disabled={!selectedStateId}
+                                    >
+                                        <AddIcon fontSize="small" />
+                                    </button>
+                                </header>
+
+                                <div className="loc-list">
+                                    {!selectedStateId ? (
+                                        <div className="loc-empty">
+                                            Click a state to view its districts.
+                                        </div>
+                                    ) : districtsLoading ? (
+                                        skeletonRows(4)
+                                    ) : districts.length === 0 ? (
+                                        <div className="loc-empty">
+                                            No districts in this state yet.
+                                        </div>
+                                    ) : (
+                                        districts.map((district) => (
+                                            <div className="loc-row" key={district.id}>
+                                                <span className="loc-badge" aria-hidden="true">
+                                                    {String(district.name || "?")
+                                                        .charAt(0)
+                                                        .toUpperCase()}
+                                                </span>
+                                                <span className="loc-row-copy">
+                                                    <span className="admin-cell-primary">
+                                                        {district.name}
+                                                    </span>
+                                                    <span className="admin-cell-sub">
+                                                        {selectedState?.name || "—"}
+                                                    </span>
+                                                </span>
+                                                <RowActions actions={districtActions(district)} />
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </section>
                         </div>
-                        </>
-                    )}
+                    </div>
                 </div>
             </div>
 
-            {/* STATE DIALOG */}
-            <Dialog open={stateDialog.open} onClose={() => setStateDialog((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
-                <DialogTitle className="modal-title">
-                    {stateDialog.editing ? "Edit State" : "Add State"}
-                    <IconButton className="modal-close" onClick={() => setStateDialog((d) => ({ ...d, open: false }))} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <form onSubmit={saveState}>
-                    <DialogContent className="modal-body">
-                        {stateDialog.error && <div className="modal-error">{stateDialog.error}</div>}
-                        <TextField
-                            label="State Name"
-                            fullWidth
-                            value={stateDialog.name}
-                            onChange={(e) => setStateDialog((d) => ({ ...d, name: e.target.value, error: "" }))}
-                            autoFocus
-                        />
-                    </DialogContent>
-                    <DialogActions className="modal-actions">
-                        <Button onClick={() => setStateDialog((d) => ({ ...d, open: false }))} className="modal-btn-cancel">Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={saving} className="modal-btn-submit">
-                            {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : (stateDialog.editing ? "Save" : "Add")}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
+            <FormDrawer
+                open={drawerOpen}
+                title={
+                    editing
+                        ? `Edit ${drawerType === "state" ? "State" : "District"}`
+                        : `New ${drawerType === "state" ? "State" : "District"}`
+                }
+                submitLabel={editing ? "Save Changes" : "Create"}
+                saving={saving}
+                error={formError}
+                onClose={() => {
+                    if (!saving) setDrawerOpen(false);
+                }}
+                onSubmit={handleSave}
+            >
+                <div className="admin-form">
+                    {drawerType === "district" && (
+                        <Alert severity="info" sx={{ borderRadius: "12px" }}>
+                            State: <strong>{selectedState?.name || "—"}</strong>
+                        </Alert>
+                    )}
+                    <TextField
+                        label={drawerType === "state" ? "State name" : "District name"}
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        fullWidth
+                        size="small"
+                        autoFocus
+                    />
+                </div>
+            </FormDrawer>
 
-            {/* DISTRICT DIALOG */}
-            <Dialog open={districtDialog.open} onClose={() => setDistrictDialog((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
-                <DialogTitle className="modal-title">
-                    {districtDialog.editing ? "Edit District" : "Add District"}
-                    <IconButton className="modal-close" onClick={() => setDistrictDialog((d) => ({ ...d, open: false }))} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <form onSubmit={saveDistrict}>
-                    <DialogContent className="modal-body">
-                        {districtDialog.error && <div className="modal-error">{districtDialog.error}</div>}
-                        <p className="confirm-text" style={{ color: "#6b7280" }}>
-                            State: <strong>{selectedState ? selectedState.name : ""}</strong>
-                        </p>
-                        <TextField
-                            label="District Name"
-                            fullWidth
-                            value={districtDialog.name}
-                            onChange={(e) => setDistrictDialog((d) => ({ ...d, name: e.target.value, error: "" }))}
-                            autoFocus
-                        />
-                    </DialogContent>
-                    <DialogActions className="modal-actions">
-                        <Button onClick={() => setDistrictDialog((d) => ({ ...d, open: false }))} className="modal-btn-cancel">Cancel</Button>
-                        <Button type="submit" variant="contained" disabled={saving} className="modal-btn-submit">
-                            {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : (districtDialog.editing ? "Save" : "Add")}
-                        </Button>
-                    </DialogActions>
-                </form>
-            </Dialog>
+            <ConfirmModal
+                open={Boolean(deleteTarget)}
+                title={`Delete ${deleteTarget?.type === "state" ? "state" : "district"}`}
+                message="Ye wapas nahi hoga."
+                confirmLabel="Delete"
+                loading={saving}
+                onConfirm={handleDelete}
+                onClose={() => setDeleteTarget(null)}
+            />
 
-            {/* DELETE CONFIRM */}
-            <Dialog open={deleteTarget.open} onClose={() => setDeleteTarget((d) => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
-                <DialogTitle className="modal-title confirm-title">
-                    Delete {deleteTarget.type === "state" ? "State" : "District"}
-                    <IconButton className="modal-close" onClick={() => setDeleteTarget((d) => ({ ...d, open: false }))} size="small">
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent className="modal-body">
-                    <DialogContentText>
-                        Delete <strong>{deleteTarget.name}</strong>? This cannot be undone.
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions className="modal-actions">
-                    <Button onClick={() => setDeleteTarget((d) => ({ ...d, open: false }))} className="modal-btn-cancel">Cancel</Button>
-                    <Button onClick={deleteTarget.type === "state" ? deleteState : deleteDistrict} className="modal-btn-danger">
-                        {saving ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "Delete"}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <div className="loc-toast" style={{ display: toast.open ? "flex" : "none" }}>
-                {toast.text}
-            </div>
+            <Snackbar
+                open={toast.open}
+                autoHideDuration={4000}
+                onClose={() => setToast((t) => ({ ...t, open: false }))}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+                <Alert
+                    onClose={() => setToast((t) => ({ ...t, open: false }))}
+                    severity="success"
+                    sx={{ width: "100%", borderRadius: 2.5 }}
+                >
+                    {toast.text}
+                </Alert>
+            </Snackbar>
         </div>
     );
 }

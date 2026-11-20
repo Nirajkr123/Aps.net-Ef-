@@ -1,8 +1,8 @@
 import React from "react";
 import { SpeedDial, SpeedDialAction, SpeedDialIcon } from "@mui/material";
-import { AccessTimeOutlined, EventOutlined } from "@mui/icons-material";
+import { EventOutlined, PaymentsOutlined } from "@mui/icons-material";
 
-function DashboardFab({ onApplyLeave, onRegularization }) {
+function DashboardFab({ onApplyLeave, onViewPayslips }) {
     return (
         <SpeedDial
             ariaLabel="Quick actions"
@@ -17,10 +17,9 @@ function DashboardFab({ onApplyLeave, onRegularization }) {
                 onClick={onApplyLeave}
             />
             <SpeedDialAction
-                icon={<AccessTimeOutlined />}
-                tooltipTitle="Regularization (coming soon)"
-                onClick={onRegularization}
-                FabProps={{ disabled: true }}
+                icon={<PaymentsOutlined />}
+                tooltipTitle="View Payslips"
+                onClick={onViewPayslips}
             />
         </SpeedDial>
     );

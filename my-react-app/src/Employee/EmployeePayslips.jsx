@@ -1,20 +1,29 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    Card, CardContent, Typography, Box, Skeleton, Button,
-    Grid, Avatar, Divider, Chip,
+    Alert,
+    Button,
+    Card,
+    CardContent,
+    Skeleton,
+    Snackbar,
 } from "@mui/material";
 import {
-    PaymentsOutlined, Download, TrendingUpOutlined,
-    TrendingDownOutlined, AccountBalanceWalletOutlined,
-    ReceiptLongOutlined,
+    PaymentsOutlined,
+    RefreshOutlined,
 } from "@mui/icons-material";
 
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
-import "../Admin/AdminDashboard.css";
-
+import LatestPayslipCard from "./components/payslips/LatestPayslipCard";
+import PayslipHeader from "./components/payslips/PayslipHeader";
+import PayslipTable from "./components/payslips/PayslipTable";
+import { AMOUNT_HIDDEN_KEY, getPayslipStatus } from "./components/payslips/payslipUi";
 import payslipServ from "../services/payslipService";
+
+import "../Admin/AdminDashboard.css";
+import "./EmployeeDashboard.css";
+import "./EmployeePayslips.css";
 
 const EMPLOYEE_NAV_ITEMS = [
     { key: "my-dashboard", label: "My Dashboard", icon: PaymentsOutlined },
@@ -24,31 +33,167 @@ const EMPLOYEE_NAV_ITEMS = [
     { key: "my-payslips", label: "My Payslips", icon: PaymentsOutlined },
 ];
 
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 10 }, (_, index) => CURRENT_YEAR - index);
+
+function PayslipSkeleton() {
+    return (
+        <div className="payslip-layout" aria-hidden="true">
+            <Card className="payslip-latest-card payslip-skeleton-card" elevation={0}>
+                <CardContent>
+                    <Skeleton variant="text" width="42%" height={20} />
+                    <Skeleton variant="text" width="34%" height={48} sx={{ mt: 2 }} />
+                    <Skeleton variant="rounded" height={68} sx={{ mt: 2, borderRadius: 2 }} />
+                    <Skeleton variant="text" height={24} sx={{ mt: 2 }} />
+                    <Skeleton variant="text" height={24} width="80%" />
+                    <Skeleton variant="rounded" height={50} sx={{ mt: 2, borderRadius: 2 }} />
+                </CardContent>
+            </Card>
+            <Card className="payslip-history payslip-skeleton-card" elevation={0}>
+                <CardContent>
+                    <Skeleton variant="text" width="32%" height={28} />
+                    {[0, 1, 2, 3, 4].map((row) => (
+                        <div className="payslip-skeleton-row" key={row}>
+                            <Skeleton variant="text" width="24%" height={24} />
+                            <Skeleton variant="text" width="16%" height={24} />
+                            <Skeleton variant="text" width="16%" height={24} />
+                            <Skeleton variant="text" width="18%" height={24} />
+                            <Skeleton variant="circular" width={40} height={40} />
+                        </div>
+                    ))}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+function PayslipEmptyState() {
+    return (
+        <Card className="payslip-state-card" elevation={0}>
+            <span className="payslip-state-icon">
+                <PaymentsOutlined />
+            </span>
+            <h2>Is saal ki koi payslip nahi.</h2>
+            <p>Jab payroll publish hoga, aapki payslip yahan dikhegi.</p>
+        </Card>
+    );
+}
+
+function PayslipErrorState({ onRetry }) {
+    return (
+        <Card className="payslip-state-card" elevation={0} role="alert">
+            <span className="payslip-state-icon is-error">
+                <RefreshOutlined />
+            </span>
+            <h2>Payslip load nahi hui</h2>
+            <p>Connection check karein aur dobara koshish karein.</p>
+            <Button
+                type="button"
+                variant="contained"
+                className="payslip-retry-btn"
+                startIcon={<RefreshOutlined />}
+                onClick={onRetry}
+            >
+                Retry
+            </Button>
+        </Card>
+    );
+}
+
 function EmployeePayslips() {
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
-    const [payslips, setPayslips] = useState([]);
     const [collapsed, setCollapsed] = useState(false);
+    const [year, setYear] = useState(CURRENT_YEAR);
+    const [payslips, setPayslips] = useState([]);
+    const [selectedId, setSelectedId] = useState(null);
+    const [detail, setDetail] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [pageError, setPageError] = useState("");
+    const [detailError, setDetailError] = useState("");
+    const [detailRetryToken, setDetailRetryToken] = useState(0);
+    const [downloadingId, setDownloadingId] = useState(null);
+    const [amountsHidden, setAmountsHidden] = useState(() => {
+        try {
+            return localStorage.getItem(AMOUNT_HIDDEN_KEY) === "true";
+        } catch {
+            return false;
+        }
+    });
+    const [toast, setToast] = useState({
+        open: false,
+        severity: "success",
+        message: "",
+        retry: null,
+    });
+
+    const years = useMemo(() => YEAR_OPTIONS, []);
 
     useEffect(() => {
         try {
             const stored = JSON.parse(localStorage.getItem("user") || "null");
             setUser(stored);
-        } catch { setUser(null); }
-
-        const fetchData = async () => {
-            try {
-                const { data } = await payslipServ.getMy();
-                setPayslips(data || []);
-            } catch {
-                setPayslips([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+        } catch {
+            setUser(null);
+        }
     }, []);
+
+    const loadPayslips = useCallback(async (targetYear, preferredId = null) => {
+        setLoading(true);
+        setPageError("");
+
+        try {
+            const { data } = await payslipServ.getMy({ year: targetYear });
+            const items = Array.isArray(data) ? data : [];
+            setPayslips(items);
+
+            const preferred = preferredId && items.some((item) => item.id === preferredId)
+                ? preferredId
+                : items[0]?.id ?? null;
+            setSelectedId(preferred);
+        } catch {
+            setPayslips([]);
+            setSelectedId(null);
+            setDetail(null);
+            setPageError("Payslip load nahi hui");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadPayslips(year);
+    }, [loadPayslips, year]);
+
+    useEffect(() => {
+        if (!selectedId) {
+            setDetail(null);
+            setDetailError("");
+            setDetailLoading(false);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setDetail(null);
+        setDetailLoading(true);
+        setDetailError("");
+
+        payslipServ.getById(selectedId)
+            .then(({ data }) => {
+                if (!cancelled) setDetail(data);
+            })
+            .catch(() => {
+                if (!cancelled) setDetailError("Payslip detail load nahi hui.");
+            })
+            .finally(() => {
+                if (!cancelled) setDetailLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedId, detailRetryToken]);
 
     const handleLogout = () => {
         localStorage.removeItem("user");
@@ -60,158 +205,167 @@ function EmployeePayslips() {
         ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Employee"
         : "Employee";
 
-    const formatCurrency = (val) => {
-        if (val == null) return "—";
-        return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val);
+    const selectedPayslip = payslips.find((item) => item.id === selectedId) || payslips[0] || null;
+    const selectedDetail = detail?.id === selectedPayslip?.id ? detail : null;
+
+    const handleYearChange = (nextYear) => {
+        if (nextYear === year) return;
+        setSelectedId(null);
+        setDetail(null);
+        setDetailError("");
+        setPageError("");
+        setYear(nextYear);
     };
 
-    const formatMonth = (dateStr) => {
-        if (!dateStr) return "";
-        return new Date(dateStr).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    const handleSelect = (payslip) => {
+        if (payslip?.id) setSelectedId(payslip.id);
     };
 
-    const totalEarnings = payslips.reduce((sum, p) => sum + (p.basicSalary || 0) + (p.allowances || 0), 0);
-    const totalDeductions = payslips.reduce((sum, p) => sum + (p.deductions || 0), 0);
-    const totalNet = payslips.reduce((sum, p) => sum + (p.netSalary || 0), 0);
-    const totalPayslips = payslips.length;
+    const handleToggleAmounts = () => {
+        setAmountsHidden((previous) => {
+            const next = !previous;
+            try {
+                localStorage.setItem(AMOUNT_HIDDEN_KEY, String(next));
+            } catch {
+                return next;
+            }
+            return next;
+        });
+    };
+
+    const handleDownload = async (payslip) => {
+        if (!payslip?.id) return;
+        const meta = getPayslipStatus(payslip);
+        if (!meta.canDownload) return;
+
+        setDownloadingId(payslip.id);
+        try {
+            await payslipServ.downloadPayslip(
+                payslip.id,
+                `Payslip-${payslip.employeeCode || payslip.id}-${payslip.month}-${payslip.year}.pdf`
+            );
+            setToast({
+                open: true,
+                severity: "success",
+                message: "Payslip download ho gayi",
+                retry: null,
+            });
+        } catch {
+            setToast({
+                open: true,
+                severity: "error",
+                message: "Payslip download nahi hui. Retry karein.",
+                retry: () => handleDownload(payslip),
+            });
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    const closeToast = (_event, reason) => {
+        if (reason === "clickaway") return;
+        setToast((previous) => ({ ...previous, open: false, retry: null }));
+    };
+
+    const handleToastRetry = () => {
+        const retry = toast.retry;
+        setToast((previous) => ({ ...previous, open: false, retry: null }));
+        if (retry) retry();
+    };
 
     return (
-        <div className="dash-page emp-page">
-            <Sidebar activeKey="my-payslips" onLogout={handleLogout} title="HRMS" user={user} navItems={EMPLOYEE_NAV_ITEMS} collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
+        <div className="dash-page emp-page payslip-page">
+            <Sidebar
+                activeKey="my-payslips"
+                onLogout={handleLogout}
+                title="HRMS"
+                user={user}
+                navItems={EMPLOYEE_NAV_ITEMS}
+                collapsed={collapsed}
+                onToggleCollapse={() => setCollapsed(!collapsed)}
+            />
+
             <div className={`dash-main ${collapsed ? "collapsed" : ""}`}>
-                <Navbar userName={displayName} userRole={user?.role || "EMPLOYEE"} user={user} onLogout={handleLogout} collapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
-                <div className="dash-content">
-                    <div className="emp-hero">
-                        <div>
-                            <h1>My Payslips</h1>
-                            <p>Download and view your salary slips</p>
-                        </div>
-                        <span className="emp-hero-chip">
-                            {totalPayslips} {totalPayslips === 1 ? "payslip" : "payslips"}
-                        </span>
+                <Navbar
+                    userName={displayName}
+                    userRole={user?.role || "EMPLOYEE"}
+                    user={user}
+                    onLogout={handleLogout}
+                    collapsed={collapsed}
+                    onToggleSidebar={() => setCollapsed(!collapsed)}
+                />
+
+                <div className="dash-content payslip-content">
+                    <div className="payslip-shell">
+                        <PayslipHeader
+                            year={year}
+                            years={years}
+                            onYearChange={handleYearChange}
+                        />
+
+                        {loading ? (
+                            <PayslipSkeleton />
+                        ) : pageError ? (
+                            <PayslipErrorState
+                                onRetry={() => loadPayslips(year, selectedId)}
+                            />
+                        ) : payslips.length === 0 ? (
+                            <PayslipEmptyState />
+                        ) : (
+                            <div className="payslip-layout">
+                                <LatestPayslipCard
+                                    payslip={selectedPayslip}
+                                    detail={selectedDetail}
+                                    detailLoading={detailLoading}
+                                    detailError={detailError}
+                                    onRetryDetail={() => setDetailRetryToken((value) => value + 1)}
+                                    amountsHidden={amountsHidden}
+                                    onToggleAmounts={handleToggleAmounts}
+                                    onDownload={() => handleDownload(selectedPayslip)}
+                                    downloading={downloadingId === selectedPayslip?.id}
+                                />
+                                <PayslipTable
+                                    payslips={payslips}
+                                    selectedId={selectedPayslip?.id}
+                                    onSelect={handleSelect}
+                                    onDownload={handleDownload}
+                                    downloadingId={downloadingId}
+                                    amountsHidden={amountsHidden}
+                                    year={year}
+                                />
+                            </div>
+                        )}
                     </div>
-
-                    {/* Summary Stats */}
-                    <Grid container spacing={2} sx={{ mb: 3 }}>
-                        {[
-                            { label: "Total Earnings", value: formatCurrency(totalEarnings), color: "#059669", icon: <TrendingUpOutlined /> },
-                            { label: "Total Deductions", value: formatCurrency(totalDeductions), color: "#dc2626", icon: <TrendingDownOutlined /> },
-                            { label: "Net Pay", value: formatCurrency(totalNet), color: "#4f46e5", icon: <AccountBalanceWalletOutlined /> },
-                            { label: "Total Payslips", value: payslips.length, color: "#d97706", icon: <ReceiptLongOutlined /> },
-                        ].map((stat) => (
-                            <Grid size={{ xs: 6, sm: 3 }} key={stat.label}>
-                                <Card sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", height: "100%" }}>
-                                    <CardContent sx={{ p: 2.5, textAlign: "center" }}>
-                                        <Avatar sx={{ width: 44, height: 44, bgcolor: `${stat.color}15`, color: stat.color, mx: "auto", mb: 1.5 }}>
-                                            {stat.icon}
-                                        </Avatar>
-                                        <Typography variant="h6" sx={{ fontWeight: 800, color: stat.color, fontSize: { xs: 16, sm: 20 } }}>{stat.value}</Typography>
-                                        <Typography variant="caption" sx={{ color: "#9ca3af", fontWeight: 500 }}>{stat.label}</Typography>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        ))}
-                    </Grid>
-
-                    {/* Payslips List */}
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: "#171b2e" }}>Payslip History</Typography>
-
-                    {loading ? (
-                        <Grid container spacing={2}>
-                            {[1, 2, 3].map((i) => (
-                                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
-                                    <Card sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-                                        <CardContent sx={{ p: 3 }}>
-                                            <Skeleton variant="text" width="60%" height={28} />
-                                            <Skeleton variant="text" width="40%" height={20} sx={{ mt: 1 }} />
-                                            <Skeleton variant="rectangular" height={80} sx={{ mt: 2, borderRadius: 1 }} />
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            ))}
-                        </Grid>
-                    ) : payslips.length > 0 ? (
-                        <Grid container spacing={2}>
-                            {payslips.map((payslip) => (
-                                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={payslip.id}>
-                                    <Card
-                                        sx={{
-                                            borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)", height: "100%",
-                                            transition: "all 0.2s",
-                                            "&:hover": { boxShadow: "0 4px 16px rgba(0,0,0,0.12)", transform: "translateY(-2px)" },
-                                        }}
-                                    >
-                                        <Box sx={{
-                                            background: "linear-gradient(135deg, #4f46e5 0%, #667eea 100%)",
-                                            p: 2.5, color: "white",
-                                        }}>
-                                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                <Box>
-                                                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                                                        {formatMonth(payslip.payPeriod || payslip.month)}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                                                        {payslip.employeeCode || " Payslip"}
-                                                    </Typography>
-                                                </Box>
-                                                <Chip
-                                                    label={payslip.status || "Generated"}
-                                                    size="small"
-                                                    sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "white", fontWeight: 600 }}
-                                                />
-                                            </Box>
-                                        </Box>
-                                        <CardContent sx={{ p: 2.5 }}>
-                                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                    <Typography variant="body2" sx={{ color: "#6b7280" }}>Basic Salary</Typography>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(payslip.basicSalary)}</Typography>
-                                                </Box>
-                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                    <Typography variant="body2" sx={{ color: "#6b7280" }}>Allowances</Typography>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: "#059669" }}>+{formatCurrency(payslip.allowances)}</Typography>
-                                                </Box>
-                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                    <Typography variant="body2" sx={{ color: "#6b7280" }}>Deductions</Typography>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: "#dc2626" }}>-{formatCurrency(payslip.deductions)}</Typography>
-                                                </Box>
-                                                <Divider />
-                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                    <Typography variant="body2" sx={{ fontWeight: 700, color: "#171b2e" }}>Net Pay</Typography>
-                                                    <Typography variant="body2" sx={{ fontWeight: 800, color: "#4f46e5", fontSize: 16 }}>{formatCurrency(payslip.netSalary)}</Typography>
-                                                </Box>
-                                            </Box>
-                                            <Button
-                                                variant="outlined"
-                                                fullWidth
-                                                startIcon={<Download />}
-                                                href={payslipServ.getDownloadUrl(payslip.id)}
-                                                target="_blank"
-                                                sx={{
-                                                    mt: 2, textTransform: "none", fontWeight: 600, borderRadius: 2,
-                                                    borderColor: "#4f46e5", color: "#4f46e5",
-                                                    "&:hover": { borderColor: "#4338ca", bgcolor: "#f5f3ff" },
-                                                }}
-                                            >
-                                                Download
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            ))}
-                        </Grid>
-                    ) : (
-                        <Card sx={{ borderRadius: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-                            <CardContent sx={{ textAlign: "center", py: 6 }}>
-                                <PaymentsOutlined sx={{ fontSize: 48, color: "#d1d5db", mb: 2 }} />
-                                <Typography variant="body1" sx={{ color: "#9ca3af", fontWeight: 500 }}>
-                                    No payslips available yet. Your payslips will appear here once generated.
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    )}
                 </div>
             </div>
+
+            <Snackbar
+                open={toast.open}
+                autoHideDuration={toast.severity === "error" ? 7000 : 4500}
+                onClose={closeToast}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+                sx={{ bottom: { xs: 84, md: 24 } }}
+            >
+                <Alert
+                    severity={toast.severity}
+                    onClose={closeToast}
+                    action={
+                        toast.retry ? (
+                            <Button
+                                type="button"
+                                color="inherit"
+                                size="small"
+                                onClick={handleToastRetry}
+                            >
+                                Retry
+                            </Button>
+                        ) : null
+                    }
+                    sx={{ width: "100%", borderRadius: 2 }}
+                >
+                    {toast.message}
+                </Alert>
+            </Snackbar>
         </div>
     );
 }

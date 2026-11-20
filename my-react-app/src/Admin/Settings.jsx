@@ -11,9 +11,14 @@ import { auth } from "../firebase";
 import http from "../services/http";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import { ConfirmModal, PageHeader } from "../components/admin";
+import Alert from "@mui/material/Alert";
+import TextField from "@mui/material/TextField";
+import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import "./AdminDashboard.css";
+import "./Settings.css";
 
-/* ---------- Static strength rules (used by both the meter & the rules list) ---------- */
 const RULES = [
     { id: "len", label: "At least 8 characters", test: (v) => v.length >= 8 },
     { id: "case", label: "One uppercase & one lowercase letter", test: (v) => /[a-z]/.test(v) && /[A-Z]/.test(v) },
@@ -39,11 +44,9 @@ function Settings() {
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const [collapsed, setCollapsed] = useState(false);
 
-    // Firebase user (page reload ke baad thodi der me milta hai, isliye state)
     const [fbUser, setFbUser] = useState(null);
     const [authReady, setAuthReady] = useState(false);
 
-    // Password form
     const [oldPassword, setOldPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -51,13 +54,8 @@ function Settings() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: "", text: "" });
 
-    // Inline field errors (clear on change → live feedback while typing)
     const [errors, setErrors] = useState({});
-
-    // Caps Lock warning
     const [capsOn, setCapsOn] = useState(false);
-
-    // Logout confirm dialog
     const [confirmLogout, setConfirmLogout] = useState(false);
 
     useEffect(() => {
@@ -95,7 +93,6 @@ function Settings() {
         return (user?.email || "G").slice(0, 2).toUpperCase();
     })();
 
-    // Login type pehchano
     const providers = fbUser ? fbUser.providerData.map((p) => p.providerId) : [];
     const hasPasswordProvider = providers.includes("password");
     const isGoogleOnly = !!fbUser && !hasPasswordProvider;
@@ -142,12 +139,10 @@ function Settings() {
         setLoading(true);
         try {
             if (hasPasswordProvider) {
-                // ---- Rasta 1: Firebase email/password user ----
                 const credential = EmailAuthProvider.credential(fbUser.email, oldPassword);
                 await reauthenticateWithCredential(fbUser, credential);
                 await updatePassword(fbUser, newPassword);
             } else {
-                // ---- Rasta 2: Direct login user (backend) ----
                 await http.post("/api/user/change-password", { oldPassword, newPassword });
             }
 
@@ -163,7 +158,6 @@ function Settings() {
         }
     };
 
-    /* live: clear a field's error as soon as the user edits it */
     const trackCaps = (e) => setCapsOn(e.getModifierState("CapsLock"));
 
     const bind = (field, setter) => ({
@@ -185,11 +179,7 @@ function Settings() {
     const score = useMemo(() => strengthOf(newPassword), [newPassword]);
     const strengthMeta = STRENGTH_META[score];
     const showStrength = newPassword.length > 0;
-
-    const PW_FIELD_PROPS = {
-        type: showPasswords ? "text" : "password",
-        autoComplete: "off",
-    };
+    const inputType = showPasswords ? "text" : "password";
 
     return (
         <div className="dash-page">
@@ -213,216 +203,202 @@ function Settings() {
                 />
 
                 <div className="dash-content">
-                    <div className="dash-header">
-                        <div>
-                            <h1 className="dash-title">Settings</h1>
-                            <p className="dash-subtitle">Manage your account settings</p>
-                        </div>
-                    </div>
+                    <PageHeader
+                        title="Settings"
+                        subtitle="Manage your account details and security."
+                    />
 
-                    <div className="set-wrap">
-                        {/* ===== Profile ===== */}
-                        <section className="dash-card set-card">
-                            <div className="set-card-head">
-                                <span className="set-avatar" aria-hidden="true">
+                    <div className="settings-grid">
+                        <section className="settings-card">
+                            <div className="settings-card-head">
+                                <span className="settings-avatar" aria-hidden="true">
                                     {initials}
                                 </span>
-                                <div className="set-head-text">
-                                    <h2 className="set-card-title">Profile Information</h2>
-                                    <p className="set-card-sub">Your account details as stored in the system.</p>
+                                <div>
+                                    <h2 className="settings-title">Profile information</h2>
+                                    <p className="settings-sub">Account details stored in the system.</p>
                                 </div>
                             </div>
-                            <div className="set-info-grid">
-                                <div className="set-info">
-                                    <span className="set-info-label">Full Name</span>
-                                    <span className="set-info-value">{displayName}</span>
+
+                            <div className="settings-info-grid">
+                                <div className="settings-info">
+                                    <span className="settings-label">Full name</span>
+                                    <span className="settings-value">{displayName}</span>
                                 </div>
-                                <div className="set-info">
-                                    <span className="set-info-label">Email</span>
-                                    <span className="set-info-value">{user?.email || "—"}</span>
+                                <div className="settings-info">
+                                    <span className="settings-label">Email</span>
+                                    <span className="settings-value">{user?.email || "—"}</span>
                                 </div>
-                                <div className="set-info">
-                                    <span className="set-info-label">Role</span>
-                                    <span className="set-info-value">
-                                        <span className="dash-chip">{user?.role || "User"}</span>
+                                <div className="settings-info">
+                                    <span className="settings-label">Role</span>
+                                    <span className="settings-value">
+                                        <span className="settings-role">{user?.role || "User"}</span>
                                     </span>
                                 </div>
                             </div>
                         </section>
 
-                        {/* ===== Change Password ===== */}
-                        <section className="dash-card set-card">
-                            <div className="set-card-head">
-                                <span className="set-avatar set-avatar--lock" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                                        <path d="M12 2a5 5 0 0 0-5 5v2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 7V7a3 3 0 1 1 6 0v2H9Z" />
-                                    </svg>
+                        <section className="settings-card">
+                            <div className="settings-card-head">
+                                <span className="settings-avatar is-lock" aria-hidden="true">
+                                    <LockResetRoundedIcon fontSize="small" />
                                 </span>
-                                <div className="set-head-text">
-                                    <h2 className="set-card-title">Change Password</h2>
-                                    <p className="set-card-sub">Pick something you don’t use anywhere else.</p>
+                                <div>
+                                    <h2 className="settings-title">Change password</h2>
+                                    <p className="settings-sub">Pick something you don’t use anywhere else.</p>
                                 </div>
                             </div>
 
                             {!authReady ? (
-                                <p className="set-muted">Loading…</p>
+                                <p className="settings-muted">Loading…</p>
                             ) : isGoogleOnly ? (
-                                <div className="set-notice set-notice--info">
+                                <Alert severity="info" sx={{ borderRadius: "12px" }}>
                                     You sign in with Google. Please change your password from your Google account.
-                                </div>
+                                </Alert>
                             ) : (
-                                <form onSubmit={handleChangePassword} noValidate>
-                                    <div className="set-form-grid">
-                                        {/* Old password */}
-                                        <div className="set-field">
-                                            <label className="set-label" htmlFor="old-pw">Old Password</label>
-                                            <input
-                                                id="old-pw"
-                                                className={`set-input ${errors.oldPassword ? "has-error" : ""}`}
-                                                {...PW_FIELD_PROPS}
-                                                autoComplete="current-password"
-                                                {...oldField}
-                                                aria-invalid={!!errors.oldPassword}
-                                            />
-                                            {errors.oldPassword && <span className="set-error">{errors.oldPassword}</span>}
-                                        </div>
+                                <form className="settings-form" onSubmit={handleChangePassword} noValidate>
+                                    <TextField
+                                        label="Old password"
+                                        type={inputType}
+                                        size="small"
+                                        fullWidth
+                                        autoComplete="current-password"
+                                        error={!!errors.oldPassword}
+                                        {...oldField}
+                                    />
+                                    {errors.oldPassword && (
+                                        <span className="settings-error">{errors.oldPassword}</span>
+                                    )}
 
-                                        {/* New password */}
-                                        <div className="set-field">
-                                            <label className="set-label" htmlFor="new-pw">New Password</label>
-                                            <input
-                                                id="new-pw"
-                                                className={`set-input ${errors.newPassword ? "has-error" : ""}`}
-                                                {...PW_FIELD_PROPS}
-                                                autoComplete="new-password"
-                                                {...newField}
-                                                aria-invalid={!!errors.newPassword}
-                                            />
-                                            {errors.newPassword && <span className="set-error">{errors.newPassword}</span>}
-                                        </div>
+                                    <TextField
+                                        label="New password"
+                                        type={inputType}
+                                        size="small"
+                                        fullWidth
+                                        autoComplete="new-password"
+                                        error={!!errors.newPassword}
+                                        {...newField}
+                                    />
+                                    {errors.newPassword && (
+                                        <span className="settings-error">{errors.newPassword}</span>
+                                    )}
 
-                                        {/* Strength meter */}
-                                        {showStrength && (
-                                            <div className="set-strength">
-                                                <div className="set-strength-top">
-                                                    <span>Password strength</span>
-                                                    <span style={{ color: strengthMeta.color, fontWeight: 700 }}>
-                                                        {strengthMeta.label}
+                                    {showStrength && (
+                                        <div className="settings-strength">
+                                            <div className="settings-strength-head">
+                                                <span>Password strength</span>
+                                                <span style={{ color: strengthMeta.color, fontWeight: 700 }}>
+                                                    {strengthMeta.label}
+                                                </span>
+                                            </div>
+                                            <div className="settings-strength-track">
+                                                {[1, 2, 3, 4].map((i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="settings-strength-seg"
+                                                        style={{
+                                                            background:
+                                                                i <= score ? strengthMeta.color : "#e8eaf3",
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <ul className="settings-rules">
+                                        {RULES.map((r) => {
+                                            const ok = r.test(newPassword);
+                                            return (
+                                                <li key={r.id} className={ok ? "is-ok" : ""}>
+                                                    <span className="settings-rule-dot" aria-hidden="true">
+                                                        {ok ? "✓" : "•"}
                                                     </span>
-                                                </div>
-                                                <div className="set-strength-track">
-                                                    {[1, 2, 3, 4].map((i) => (
-                                                        <span
-                                                            key={i}
-                                                            className="set-strength-seg"
-                                                            style={{ background: i <= score ? strengthMeta.color : "#e8eaf3" }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                                    {r.label}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
 
-                                        {/* Rules checklist */}
-                                        <ul className="set-rules">
-                                            {RULES.map((r) => {
-                                                const ok = r.test(newPassword);
-                                                return (
-                                                    <li key={r.id} className={ok ? "is-ok" : ""}>
-                                                        <span className="set-rule-dot" aria-hidden="true">
-                                                            {ok ? "✓" : "•"}
-                                                        </span>
-                                                        {r.label}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
+                                    <TextField
+                                        label="Confirm new password"
+                                        type={inputType}
+                                        size="small"
+                                        fullWidth
+                                        autoComplete="new-password"
+                                        error={!!errors.confirmPassword}
+                                        {...confirmField}
+                                    />
+                                    {errors.confirmPassword && (
+                                        <span className="settings-error">{errors.confirmPassword}</span>
+                                    )}
 
-                                        {/* Confirm password */}
-                                        <div className="set-field">
-                                            <label className="set-label" htmlFor="confirm-pw">Confirm New Password</label>
-                                            <input
-                                                id="confirm-pw"
-                                                className={`set-input ${errors.confirmPassword ? "has-error" : ""}`}
-                                                {...PW_FIELD_PROPS}
-                                                autoComplete="new-password"
-                                                {...confirmField}
-                                                aria-invalid={!!errors.confirmPassword}
-                                            />
-                                            {errors.confirmPassword && (
-                                                <span className="set-error">{errors.confirmPassword}</span>
-                                            )}
-                                        </div>
+                                    {capsOn && (
+                                        <Alert severity="warning" sx={{ borderRadius: "12px" }}>
+                                            Caps Lock is on.
+                                        </Alert>
+                                    )}
 
-                                        {capsOn && <div className="set-notice set-notice--warn">Caps Lock is on.</div>}
+                                    <label className="settings-check">
+                                        <input
+                                            type="checkbox"
+                                            checked={showPasswords}
+                                            onChange={(e) => setShowPasswords(e.target.checked)}
+                                        />
+                                        <span>Show passwords</span>
+                                    </label>
 
-                                        <label className="set-check">
-                                            <input
-                                                type="checkbox"
-                                                checked={showPasswords}
-                                                onChange={(e) => setShowPasswords(e.target.checked)}
-                                            />
-                                            <span>Show passwords</span>
-                                        </label>
+                                    {message.text && (
+                                        <Alert severity={message.type} sx={{ borderRadius: "12px" }} role="status">
+                                            {message.text}
+                                        </Alert>
+                                    )}
 
-                                        {message.text && (
-                                            <div
-                                                className={`set-alert ${message.type === "success" ? "is-success" : "is-error"}`}
-                                                role="status"
-                                            >
-                                                {message.text}
-                                            </div>
-                                        )}
-
+                                    <div className="settings-actions">
                                         <button
                                             type="submit"
-                                            className="dash-btn dash-btn-primary set-submit"
+                                            className="admin-btn is-primary-solid"
                                             disabled={loading}
                                         >
-                                            {loading ? "Updating…" : "Update Password"}
+                                            {loading ? "Updating…" : "Update password"}
                                         </button>
                                     </div>
                                 </form>
                             )}
                         </section>
 
-                        {/* ===== Danger Zone ===== */}
-                        <section className="dash-card set-card set-card--danger">
-                            <div className="set-card-head">
-                                <span className="set-avatar set-avatar--danger" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                                        <path d="M12 2 1 21h22L12 2Zm1 13h-2v-2h2v2Zm0 4h-2v-2h2v2Z" />
-                                    </svg>
+                        <section className="settings-card is-danger">
+                            <div className="settings-card-head">
+                                <span className="settings-avatar is-danger" aria-hidden="true">
+                                    <WarningAmberRoundedIcon fontSize="small" />
                                 </span>
-                                <div className="set-head-text">
-                                    <h2 className="set-card-title">Danger Zone</h2>
-                                    <p className="set-card-sub">Signing out ends your session on this device.</p>
+                                <div>
+                                    <h2 className="settings-title">Danger zone</h2>
+                                    <p className="settings-sub">Signing out ends your session on this device.</p>
                                 </div>
                             </div>
-                            <button type="button" className="dash-btn set-btn-danger" onClick={() => setConfirmLogout(true)}>
-                                Logout
-                            </button>
+                            <div className="settings-actions">
+                                <button
+                                    type="button"
+                                    className="admin-btn is-danger"
+                                    onClick={() => setConfirmLogout(true)}
+                                >
+                                    Logout
+                                </button>
+                            </div>
                         </section>
                     </div>
                 </div>
             </div>
 
-            {/* Logout confirmation */}
-            {confirmLogout && (
-                <div className="set-modal-backdrop" onClick={() => setConfirmLogout(false)}>
-                    <div className="set-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="set-modal-title">Log out?</h3>
-                        <p className="set-modal-body">You’ll need to sign in again to continue.</p>
-                        <div className="set-modal-actions">
-                            <button className="dash-btn dash-btn-ghost" onClick={() => setConfirmLogout(false)}>
-                                Stay
-                            </button>
-                            <button className="dash-btn set-btn-danger" onClick={handleLogout}>
-                                Log out
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmModal
+                open={confirmLogout}
+                title="Log out?"
+                message="You’ll need to sign in again to continue."
+                confirmLabel="Log out"
+                onConfirm={handleLogout}
+                onClose={() => setConfirmLogout(false)}
+            />
         </div>
     );
 }

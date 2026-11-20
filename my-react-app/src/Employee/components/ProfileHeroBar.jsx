@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 import {
   ArrowBack, CheckCircle, RadioButtonUnchecked, CameraAltOutlined,
-  WorkOutlineOutlined, BusinessOutlined,
+  WorkOutlineOutlined, BusinessOutlined, ScheduleOutlined,
 } from "@mui/icons-material";
 
 /* Banner ke andar ke translucent chips — gradient ke upar readable
@@ -168,6 +168,7 @@ function ProfileHeroBar({
             <Box className="emp-prof-hero-meta" sx={{ display: "flex", gap: 1.5, mt: 1, flexWrap: "wrap" }}>
               <MetaItem icon={<WorkOutlineOutlined sx={{ fontSize: 15, opacity: 0.9 }} />} label="Designation" value={employee?.designationTitle} />
               <MetaItem icon={<BusinessOutlined sx={{ fontSize: 15, opacity: 0.9 }} />} label="Dept" value={employee?.departmentName} />
+              <MetaItem icon={<ScheduleOutlined sx={{ fontSize: 15, opacity: 0.9 }} />} label="Shift" value={employee?.shiftName ? `${employee.shiftName}${employee.shiftTiming ? ` (${employee.shiftTiming})` : ""}` : null} />
             </Box>
 
             <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>

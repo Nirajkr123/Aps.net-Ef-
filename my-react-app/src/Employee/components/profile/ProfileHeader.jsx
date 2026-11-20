@@ -1,10 +1,6 @@
-import React, { useRef } from "react";
-import { Avatar, CircularProgress, Skeleton, Tooltip } from "@mui/material";
-import {
-    ArrowBack,
-    CameraAltOutlined,
-    EditOutlined,
-} from "@mui/icons-material";
+import React from "react";
+import { Avatar, Skeleton } from "@mui/material";
+import { ArrowBack, EditOutlined } from "@mui/icons-material";
 
 const ROLE_LABELS = {
     EMPLOYEE: "Employee",
@@ -25,22 +21,14 @@ function ProfileHeader({
     displayName,
     initials,
     profilePhotoUrl,
-    photoUploading = false,
-    onPhotoSelect,
     role,
+    shiftLabel,
     status,
     onBack,
     onEdit,
 }) {
-    const fileRef = useRef(null);
     const statusMeta = STATUS_META[status] || STATUS_META.NotCheckedIn;
     const roleLabel = ROLE_LABELS[role] || role || "Employee";
-
-    const handleFile = (event) => {
-        const file = event.target.files?.[0];
-        if (file && onPhotoSelect) onPhotoSelect(file);
-        if (fileRef.current) fileRef.current.value = "";
-    };
 
     return (
         <header className="emp-profile-head">
@@ -54,7 +42,7 @@ function ProfileHeader({
                     <ArrowBack />
                 </button>
 
-                <h1>My Profile</h1>
+                <h1>Profile</h1>
 
                 <button
                     type="button"
@@ -75,39 +63,18 @@ function ProfileHeader({
                 </div>
             ) : (
                 <div className="emp-profile-identity">
-                    <div className="emp-profile-avatar-wrap">
-                        <Avatar className="emp-profile-avatar" src={profilePhotoUrl || undefined}>
-                            {initials}
-                        </Avatar>
+                    <Avatar className="emp-profile-avatar" src={profilePhotoUrl || undefined}>
+                        {initials}
+                    </Avatar>
 
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif"
-                            onChange={handleFile}
-                            hidden
-                        />
-
-                        <Tooltip title="Upload photo">
-                            <button
-                                type="button"
-                                className="emp-profile-avatar-edit"
-                                onClick={() => fileRef.current?.click()}
-                                disabled={photoUploading}
-                                aria-label="Upload profile photo"
-                            >
-                                {photoUploading
-                                    ? <CircularProgress size={14} color="inherit" />
-                                    : <CameraAltOutlined />}
-                            </button>
-                        </Tooltip>
-                    </div>
-
-                    <h2>{displayName}</h2>
+                    <h2>{displayName || "-"}</h2>
 
                     <div className="emp-profile-badges">
                         <span className="emp-profile-badge is-role">{roleLabel}</span>
                         <span className={`emp-profile-badge ${statusMeta.tone}`}>{statusMeta.label}</span>
+                        {shiftLabel && (
+                            <span className="emp-profile-badge is-shift">Shift · {shiftLabel}</span>
+                        )}
                     </div>
                 </div>
             )}

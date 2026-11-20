@@ -1,426 +1,500 @@
-/* ============================================================
-   My Profile — fluid / dynamic layout
-   Grid auto-fit use hota hai taaki cards browser resize par
-   apne aap shrink/grow karein (hard breakpoint jumps nahi).
-   `min(100%, Npx)` overflow rokta hai — 375px par track
-   container se bada nahi banega.
-   ============================================================ */
-
-/* ============================================================
-   GREEN PROFILE BAR (ProfileHeroBar)
-   Teeno tabs ke upar — `EmployeeProfile` ise step conditionals
-   ke bahar render karta hai, isliye tab switch par na remount
-   hota hai na flicker.
-   ============================================================ */
-
-/* Wrapper par sticky — Card par nahi, taaki background/bleed
-   control ho sake. Base (mobile/tablet): normal flow, sirf gap. */
-.emp-prof-hero-sticky {
-  margin-bottom: 24px;
-}
-
-@media (min-width: 901px) {
-  /* `.emp-page .dash-content` hi scroll container hai
-     (`overflow-y: auto`, padding 24px 28px). Negative margins us
-     padding ko wapas kheench kar wrapper ko scrollport ke top edge
-     par le jaate hain, aur solid background + full-bleed padding
-     kisi bhi content ko peeche se dikhne nahi deta. Isi liye
-     `top: 0` — koi cut nahi hota. */
-  .emp-prof-hero-sticky {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    margin: -24px -28px 24px;
-    padding: 24px 28px 0;
-    background: #f6f7fb;
-  }
-}
-
-.emp-prof-banner {
-  min-height: 128px;
-}
-
-/* Designation / department wali row — gradient ke upar */
-.emp-prof-hero-meta > * {
-  min-width: 0;
-}
-
-.emp-prof-hero-meta svg {
-  flex-shrink: 0;
-}
-
-/* Right side ka "Step X of 3 + N of 3 complete" block */
-.emp-prof-hero-progress {
-  margin-left: auto;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-}
-
-/* ---------------- 3-step progress indicator ----------------
-   Stepper green bar ke andar hai — isliye har tab par visible
-   rehta hai. Har step clickable hai (tab switch) aur ✓ / ○
-   se complete-vs-pending dikhata hai. */
-.emp-prof-stepper {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.25);
-}
-
-.emp-prof-step {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 9px 12px;
-  border-radius: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  font-family: "Inter", sans-serif;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-.emp-prof-step:hover {
-  background: rgba(255, 255, 255, 0.22);
-  transform: translateY(-1px);
-}
-
-.emp-prof-step.is-active {
-  background: #ffffff;
-  border-color: #ffffff;
-  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.45);
-}
-
-.emp-prof-step-dot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.emp-prof-step-dot svg {
-  font-size: 24px;
-}
-
-.emp-prof-step-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.emp-prof-step-text strong {
-  font-size: 13.5px;
-  font-weight: 700;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.emp-prof-step-text small {
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.3;
-  opacity: 0.85;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Active step ka text gradient ke upad dark hona chahiye, warna
-   white-on-white padhne layak nahi rehta */
-.emp-prof-step.is-active .emp-prof-step-text strong {
-  color: #065f46;
-}
-
-.emp-prof-step.is-active .emp-prof-step-text small {
-  color: #047857;
-  opacity: 1;
-}
-
-.emp-prof-step.is-active .emp-prof-step-dot {
-  background: #d1fae5;
-}
-
-/* Connector line — beech ke do steps ke darmiyan */
-.emp-prof-step-line {
-  align-self: center;
-  flex: 0 0 18px;
-  height: 2px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.emp-prof-step-line.is-done {
-  background: rgba(255, 255, 255, 0.85);
-}
-
-/* ============================================================
-   Form / card grids
-   ============================================================ */
-
-/* Step 0 — Account Info (1fr) + Personal Details (2fr) */
-.emp-prof-split {
-    display: grid;
-    gap: 24px;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-}
-
-@media (min-width: 900px) {
-    .emp-prof-split {
-        grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
-    }
-}
-
-/* Step 1 — 3 academic cards, fluid 3 → 2 → 1 */
-.emp-prof-grid-3 {
-    display: grid;
-    gap: 24px;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-    align-items: stretch;
-}
-
-/* Step 2 — document cards, fluid 2 → 1 */
-.emp-prof-grid-2 {
-    display: grid;
-    gap: 24px;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-    align-items: stretch;
-}
-
-/* Form fields — fluid 2 → 1 columns.
-   260px min: laptop par 2 columns deta hai (labels jaise
-   "Emergency Contact *" kat-te nahi), full-width Address
-   niche .emp-prof-span-all se poori line le leta hai. */
-.emp-prof-form-grid {
-    display: grid;
-    gap: 16px;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-}
-
-/* Address / full-width field */
-.emp-prof-form-grid > .emp-prof-span-all {
-    grid-column: 1 / -1;
-}
-
-/* Percentage + CGPA inline row */
-.emp-prof-inline-grid {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
-}
-
-/* Grid children ko min-width:0 do, warna long email/filename
-   container se bahar nikal kar horizontal scroll la deta hai */
-.emp-prof-split>*,
-.emp-prof-grid-3>*,
-.emp-prof-grid-2>*,
-.emp-prof-form-grid>*,
-.emp-prof-inline-grid>* {
-    min-width: 0;
-}
-
-.emp-prof-split .MuiCard,
-.emp-prof-grid-3 .MuiCard,
-.emp-prof-grid-2 .MuiCard {
-    height: 100%;
-}
-
-/* Khali field — halka red tint taaki "Edit" button daba kar bharna ho */
-.emp-prof-dense-row.is-empty {
-    background-color: #fef2f2;
-}
-
-/* ---- Account Info: compact multi-column grid ----
-   9 fields vertical stack me the (gap 20px + 32px icons), jisse
-   card ~520px lambaa ho jata tha. Ab auto-fit grid me 2 column
-   me aa jate hain — mobile par bhi 2 column (132px min) taaki
-   card ki height aadha rahe. */
-.emp-prof-info-grid {
-    display: grid;
-    gap: 8px 14px;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
-}
-
-.emp-prof-info-grid .emp-prof-dense-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-
-/* Dialog ke andar form fields ka bottom spacing */
-@media (max-width: 600px) {
-    .emp-prof-dialog-actions>* {
-        flex: 1 1 100px;
-    }
-}
-
-/* ---------------- Mobile tightening ---------------- */
-@media (max-width: 700px) {
-
-    /* Cards ka vertical rhythm kam — zyada scroll nahi */
-    .emp-prof-split,
-    .emp-prof-grid-3,
-    .emp-prof-grid-2 {
-        gap: 16px;
-    }
-
-    /* Card ka inner padding bhi kam — 375px par jagah bachti hai */
-    .emp-prof-split .MuiCardContent-root,
-    .emp-prof-grid-3 .MuiCardContent-root,
-    .emp-prof-grid-2 .MuiCardContent-root {
-        padding: 16px 14px !important;
-    }
-
-    /* Banner ka padding */
-    .emp-prof-banner {
-        padding: 16px 14px !important;
-        min-height: 0;
-    }
-
-    /* Stepper: 3 steps ko vertical stack karo — ek row me
-       375px par labels kat-te hain. Connector line hata dete hain. */
-    .emp-prof-stepper {
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 14px;
-        padding-top: 12px;
-    }
-
-    .emp-prof-step-line {
-        display: none;
-    }
-
-    .emp-prof-step {
-        width: 100%;
-    }
-
-    /* Right ka progress block full width, left se align */
-    .emp-prof-hero-progress {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    /* Label + value rows: icon chhota, gap kam */
-    .emp-prof-dense-row {
-        gap: 10px !important;
-        padding: 8px 8px !important;
-    }
-
-    /* Icon box chhota hua to icon bhi, warna box se bahar nikal jayega */
-    .emp-prof-dense-icon svg {
-        font-size: 16px !important;
-    }
-
-    /* Academic / document card header: title + chip wrap */
-    .emp-prof-card-head {
-        flex-wrap: wrap;
-        row-gap: 6px;
-    }
-
-    /* Save/Cancel buttons poori width ke saath stack-friendly */
-    .emp-prof-actions {
-        flex-wrap: wrap;
-    }
-
-    .emp-prof-actions>* {
-        flex: 1 1 140px !important;
-    }
-}
-@media (max-width: 400px) {
-
-    /* 2-column form rows ko 1 par force karo, text cut na ho */
-    .emp-prof-form-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .emp-prof-inline-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-/* =========================================================================
-   MOBILE-FIRST PROFILE ADDITIONS
-   ========================================================================= */
-
-.emp-page .dash-content.emp-profile-content {
+.emp-profile-page {
     background: #f3f4f8;
 }
 
-.emp-profile-hours {
-    margin-top: 14px;
+.emp-profile-page .dash-content.emp-profile-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    padding: 22px 28px 40px;
+    background: #f3f4f8;
 }
 
-.emp-profile-rows {
-    margin-top: 14px;
-    border-radius: 18px !important;
+.emp-prof-view {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.emp-prof-view > * {
+    min-width: 0;
+}
+
+/* ============================================================
+   Desktop banner
+   ============================================================ */
+
+.emp-prof-banner {
+    position: relative;
     overflow: hidden;
-    border: 1px solid #eef0f7;
-    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06) !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 26px;
+    border-radius: 20px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #6d4ae8 56%, #7b5cf0 100%);
+    box-shadow: 0 18px 38px rgba(75, 63, 209, 0.24);
 }
 
-.emp-profile-row {
+.emp-prof-banner::after {
+    content: "";
+    position: absolute;
+    top: -110px;
+    right: -70px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.13);
+    pointer-events: none;
+}
+
+.emp-prof-banner-main,
+.emp-prof-banner-edit,
+.emp-prof-banner-loading {
+    position: relative;
+    z-index: 1;
+}
+
+.emp-prof-banner-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.emp-prof-banner-avatar {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.2);
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.emp-prof-banner-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.emp-prof-banner-identity {
+    min-width: 0;
+}
+
+.emp-prof-banner-identity h1 {
+    margin: 0 0 3px;
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-prof-banner-identity p {
+    margin: 0 0 9px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    opacity: 0.88;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-prof-banner-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.emp-prof-banner-edit {
+    flex-shrink: 0;
+    min-height: 50px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #4b3fd1;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(23, 27, 46, 0.14);
+}
+
+.emp-prof-banner-edit:hover {
+    background: #f5f3ff;
+}
+
+.emp-prof-banner-edit:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 3px;
+}
+
+.emp-prof-banner-loading {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border: none;
-    border-bottom: 1px solid #f1f2f7;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.emp-prof-banner-loading .MuiSkeleton-root {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+.emp-prof-banner-skeleton-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* ============================================================
+   Badges
+   ============================================================ */
+
+.emp-profile-badge {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.emp-profile-badge.is-role {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.emp-profile-badge.is-shift {
+    color: #ffffff;
+    background: rgba(15, 23, 42, 0.24);
+    border-color: rgba(255, 255, 255, 0.42);
+}
+
+.emp-profile-badge.is-on {
+    color: #d1fae5;
+    background: rgba(16, 185, 129, 0.24);
+    border-color: rgba(16, 185, 129, 0.55);
+}
+
+.emp-profile-badge.is-done {
+    color: #ffedd5;
+    background: rgba(249, 115, 22, 0.24);
+    border-color: rgba(249, 115, 22, 0.55);
+}
+
+.emp-profile-badge.is-leave {
+    color: #fee2e2;
+    background: rgba(239, 68, 68, 0.24);
+    border-color: rgba(239, 68, 68, 0.55);
+}
+
+.emp-profile-badge.is-off {
+    color: #fef3c7;
+    background: rgba(245, 158, 11, 0.24);
+    border-color: rgba(245, 158, 11, 0.55);
+}
+
+.emp-profile-badge.is-complete {
+    color: #d1fae5;
+    background: rgba(11, 122, 85, 0.32);
+    border-color: rgba(16, 185, 129, 0.58);
+}
+
+.emp-profile-badge.is-incomplete {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.34);
+}
+
+/* ============================================================
+   Stat cards
+   ============================================================ */
+
+.emp-prof-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.emp-prof-stat.MuiCard-root {
+    height: 100%;
+    border-radius: 18px;
+    border: 1px solid #eceef5;
     background: #ffffff;
-    text-align: left;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.emp-prof-stat .MuiCardContent-root {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 118px;
+    padding: 16px 18px;
+}
+
+.emp-prof-stat .MuiCardContent-root:last-child {
+    padding-bottom: 16px;
+}
+
+.emp-prof-stat-hint {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #5b6078;
+}
+
+.emp-prof-stat-hint.is-green {
+    color: #0b7a55;
+    font-weight: 800;
+}
+
+/* ============================================================
+   Two-column content
+   ============================================================ */
+
+.emp-prof-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.emp-prof-col-main,
+.emp-prof-col-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.emp-prof-edit-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.emp-prof-card {
+    min-width: 0;
+    padding: 18px 20px;
+    border: 1px solid #eceef5;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-prof-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.emp-prof-card-head h2 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #171b2e;
+}
+
+.emp-prof-card-link {
+    flex-shrink: 0;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: #4f46e5;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 800;
+    line-height: 1.2;
     cursor: pointer;
 }
 
-.emp-profile-row:last-child {
-    border-bottom: none;
-}
-
-.emp-profile-row:hover {
-    background: #fafbff;
-}
-
-.emp-profile-row-icon {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #4f46e5;
+.emp-prof-card-link:hover {
+    color: #4338ca;
     background: #eef2ff;
 }
 
-.emp-profile-row-icon svg {
-    font-size: 19px;
+.emp-prof-card-link:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: 2px;
 }
 
-.emp-profile-row-icon.is-blue {
-    color: #2563eb;
-    background: #eff6ff;
+.emp-prof-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px;
 }
 
-.emp-profile-row-icon.is-red {
-    color: #dc2626;
-    background: #fef2f2;
+.emp-prof-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid #eef0f6;
 }
 
-.emp-profile-row-text {
+.emp-prof-field.span-all {
+    grid-column: 1 / -1;
+}
+
+.emp-prof-field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #5b6078;
+}
+
+.emp-prof-field-value {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: #171b2e;
+    overflow-wrap: anywhere;
+}
+
+.emp-prof-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 1px solid #dfe3ee;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #171b2e;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    box-sizing: border-box;
+}
+
+textarea.emp-prof-input {
+    min-height: 66px;
+    resize: vertical;
+}
+
+.emp-prof-input::placeholder {
+    color: #9aa0b8;
+    font-weight: 500;
+}
+
+.emp-prof-input:focus {
+    outline: none;
+    border-color: #6b55e8;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.emp-prof-field-error {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #b42318;
+}
+
+.emp-prof-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.emp-prof-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 108px;
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.emp-prof-btn:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: 2px;
+}
+
+.emp-prof-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.emp-prof-btn.is-primary {
+    border: none;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 10px 22px -12px rgba(75, 63, 209, 0.6);
+}
+
+.emp-prof-btn.is-secondary {
+    border: 1px solid #e3e6f1;
+    color: #171b2e;
+    background: #ffffff;
+}
+
+/* ============================================================
+   Manager card
+   ============================================================ */
+
+.emp-prof-manager {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+}
+
+.emp-prof-manager-avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: #eef2ff;
+    color: #4b3fd1;
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.emp-prof-manager-text {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -428,67 +502,153 @@
     gap: 1px;
 }
 
-.emp-profile-row-text strong {
-    font-size: 13.5px;
-    font-weight: 800;
-    color: #171b2e;
+.emp-prof-manager-text small {
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #5b6078;
 }
 
-.emp-profile-row-text small {
-    font-size: 11.5px;
-    color: #9ca3af;
+.emp-prof-manager-text strong {
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1.35;
+    color: #171b2e;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.emp-profile-row-chevron {
+.emp-prof-call {
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
-    font-size: 20px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #ffffff;
+    background: #0b7a55;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(11, 122, 85, 0.28);
+}
+
+.emp-prof-call:hover {
+    background: #0b6b4b;
+}
+
+.emp-prof-call:focus-visible {
+    outline: 3px solid rgba(11, 122, 85, 0.35);
+    outline-offset: 2px;
+}
+
+.emp-prof-call svg {
+    font-size: 20px;
+}
+
+.emp-prof-col-side .emp-prof-fields {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* ============================================================
+   More list
+   ============================================================ */
+
+.emp-prof-more {
+    overflow: hidden;
+    border: 1px solid #eceef5;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-prof-more-row {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    border: none;
+    border-bottom: 1px solid #f1f2f7;
+    background: #ffffff;
+    color: #171b2e;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.emp-prof-more-row:last-child {
+    border-bottom: none;
+}
+
+.emp-prof-more-row:hover {
+    background: #fafbff;
+}
+
+.emp-prof-more-row:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: -3px;
+}
+
+.emp-prof-more-icon {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    color: #4b3fd1;
+    background: #eef2ff;
+}
+
+.emp-prof-more-icon svg {
+    font-size: 17px;
+}
+
+.emp-prof-more-icon.is-blue {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.emp-prof-more-icon.is-green {
+    color: #0b7a55;
+    background: #ecfdf5;
+}
+
+.emp-prof-more-icon.is-red {
+    color: #b42318;
+    background: #fef2f2;
+}
+
+.emp-prof-more-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+}
+
+.emp-prof-more-chevron {
+    flex-shrink: 0;
+    font-size: 19px !important;
     color: #c4c8d4;
 }
 
-.emp-profile-row.is-danger .emp-profile-row-text strong {
-    color: #dc2626;
+.emp-prof-more-row.is-danger .emp-prof-more-label {
+    color: #b42318;
+    font-weight: 800;
 }
 
-@media (max-width: 700px) {
-    .emp-page .dash-content.emp-profile-content {
-        padding: 12px 12px 28px;
-    }
-
-    .emp-profile-hours,
-    .emp-profile-rows {
-        margin-top: 12px;
-    }
-
-    .emp-profile-row {
-        padding: 13px 13px;
-        gap: 10px;
-    }
-}
-
-/* =========================================================================
-   Profile overview — mobile first
-   ========================================================================= */
-
-.emp-page .dash-content.emp-profile-content {
-    background: #f3f4f8;
-    padding: 0 16px 108px;
-}
-
-.emp-profile-overview,
-.emp-profile-detail {
-    width: 100%;
-    max-width: 1080px;
-    margin: 0 auto;
-}
+/* ============================================================
+   Mobile header
+   ============================================================ */
 
 .emp-profile-head {
     position: relative;
     overflow: hidden;
-    margin: 0 -16px;
-    padding: 14px 16px 54px;
+    margin: 0 -12px;
+    padding: 12px 14px 54px;
     border-radius: 0 0 28px 28px;
     color: #ffffff;
     background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
@@ -544,6 +704,11 @@
     background: rgba(255, 255, 255, 0.26);
 }
 
+.emp-profile-icon-btn:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+}
+
 .emp-profile-icon-btn:disabled {
     opacity: 0.6;
     cursor: default;
@@ -564,12 +729,7 @@
     text-align: center;
 }
 
-.emp-profile-avatar-wrap {
-    position: relative;
-    flex-shrink: 0;
-}
-
-.emp-profile-avatar {
+.emp-profile-avatar.MuiAvatar-root {
     width: 84px !important;
     height: 84px !important;
     border: 3px solid rgba(255, 255, 255, 0.45) !important;
@@ -577,39 +737,6 @@
     color: #ffffff !important;
     font-size: 28px !important;
     font-weight: 800 !important;
-}
-
-.emp-profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-}
-
-.emp-profile-avatar-edit {
-    position: absolute;
-    right: -4px;
-    bottom: -4px;
-    width: 30px;
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 50%;
-    background: #ffffff;
-    color: #4b3fd1;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-}
-
-.emp-profile-avatar-edit svg {
-    font-size: 16px;
-}
-
-.emp-profile-avatar-edit:disabled {
-    cursor: default;
-    opacity: 0.7;
 }
 
 .emp-profile-identity h2 {
@@ -631,46 +758,6 @@
     flex-wrap: wrap;
 }
 
-.emp-profile-badge {
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0.2px;
-    white-space: nowrap;
-}
-
-.emp-profile-badge.is-role {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.35);
-}
-
-.emp-profile-badge.is-on {
-    color: #d1fae5;
-    background: rgba(16, 185, 129, 0.28);
-    border-color: rgba(16, 185, 129, 0.55);
-}
-
-.emp-profile-badge.is-done {
-    color: #ffedd5;
-    background: rgba(249, 115, 22, 0.28);
-    border-color: rgba(249, 115, 22, 0.55);
-}
-
-.emp-profile-badge.is-leave {
-    color: #fee2e2;
-    background: rgba(239, 68, 68, 0.28);
-    border-color: rgba(239, 68, 68, 0.55);
-}
-
-.emp-profile-badge.is-off {
-    color: #fef3c7;
-    background: rgba(245, 158, 11, 0.28);
-    border-color: rgba(245, 158, 11, 0.55);
-}
-
 .emp-profile-head-skeleton {
     position: relative;
     z-index: 1;
@@ -685,93 +772,79 @@
     background: rgba(255, 255, 255, 0.22);
 }
 
+.emp-profile-overview {
+    width: 100%;
+    max-width: 648px;
+    margin: 0 auto;
+}
+
 .emp-profile-stats {
     position: relative;
     z-index: 2;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: -40px 4px 0;
+    gap: 9px;
+    margin: -40px 8px 0;
 }
 
-.emp-profile-stats .emp-home-stat {
-    padding: 14px 10px;
+.emp-profile-stats .emp-prof-stat {
     border-radius: 18px;
 }
 
+.emp-profile-stats .emp-prof-stat .MuiCardContent-root {
+    min-height: 0;
+    padding: 13px 10px;
+    gap: 1px;
+}
+
+.emp-profile-stats .emp-prof-stat .MuiCardContent-root:last-child {
+    padding-bottom: 13px;
+}
+
+.emp-profile-stats .emp-dash-stat-icon {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 2px;
+    border-radius: 9px;
+}
+
+.emp-profile-stats .emp-dash-stat-icon svg {
+    font-size: 16px;
+}
+
+.emp-profile-stats .emp-dash-stat-value {
+    font-size: clamp(20px, 6vw, 25px);
+}
+
+.emp-profile-stats .emp-dash-stat-label {
+    font-size: 10px;
+}
+
+.emp-profile-stats .emp-prof-stat-hint {
+    display: none;
+}
+
+.emp-profile-overview > .emp-prof-manager,
+.emp-profile-overview > .emp-profile-card,
+.emp-profile-overview > .emp-prof-more,
+.emp-profile-overview > .emp-profile-work {
+    margin-top: 12px;
+}
+
+.emp-profile-work .emp-prof-fields {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* ============================================================
+   Working hours card
+   ============================================================ */
+
 .emp-profile-card {
-    margin-top: 14px;
     padding: 16px;
     border-radius: 18px;
     border: 1px solid #eef0f7;
     background: #ffffff;
     box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
-}
-
-.emp-profile-manager {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.emp-profile-manager-icon {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 14px;
-    color: #4b3fd1;
-    background: #eef2ff;
-}
-
-.emp-profile-manager-icon svg {
-    font-size: 21px;
-}
-
-.emp-profile-manager-text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.emp-profile-manager-text strong {
-    font-size: 13.5px;
-    font-weight: 800;
-    color: #171b2e;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.emp-profile-manager-text small {
-    font-size: 11.5px;
-    color: #5b6078;
-}
-
-.emp-profile-call {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    color: #ffffff;
-    background: #10b981;
-    text-decoration: none;
-    box-shadow: 0 8px 18px rgba(16, 185, 129, 0.28);
-}
-
-.emp-profile-call:hover {
-    background: #059669;
-}
-
-.emp-profile-call svg {
-    font-size: 20px;
 }
 
 .emp-profile-hours-head {
@@ -858,6 +931,8 @@
     justify-content: center;
     gap: 8px;
     padding: 26px 8px;
+    border-radius: 12px;
+    background: #f5f6fa;
     color: #5b6078;
     font-size: 12.5px;
 }
@@ -867,99 +942,14 @@
     color: #c7cbe0;
 }
 
-.emp-profile-menu {
-    margin-top: 14px;
-    overflow: hidden;
-    border-radius: 18px;
-    border: 1px solid #eef0f7;
-    background: #ffffff;
-    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
-}
+/* ============================================================
+   Documents detail
+   ============================================================ */
 
-.emp-profile-menu-row {
+.emp-profile-detail {
     width: 100%;
-    min-height: 52px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border: none;
-    border-bottom: 1px solid #f1f2f7;
-    background: #ffffff;
-    text-align: left;
-    cursor: pointer;
-    font-family: inherit;
-}
-
-.emp-profile-menu-row:last-child {
-    border-bottom: none;
-}
-
-.emp-profile-menu-row:hover {
-    background: #fafbff;
-}
-
-.emp-profile-menu-icon {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    color: #4b3fd1;
-    background: #eef2ff;
-}
-
-.emp-profile-menu-icon svg {
-    font-size: 19px;
-}
-
-.emp-profile-menu-icon.is-blue {
-    color: #2563eb;
-    background: #eff6ff;
-}
-
-.emp-profile-menu-icon.is-green {
-    color: #059669;
-    background: #ecfdf5;
-}
-
-.emp-profile-menu-icon.is-red {
-    color: #dc2626;
-    background: #fef2f2;
-}
-
-.emp-profile-menu-text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.emp-profile-menu-text strong {
-    font-size: 13.5px;
-    font-weight: 800;
-    color: #171b2e;
-}
-
-.emp-profile-menu-text small {
-    font-size: 11.5px;
-    color: #5b6078;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.emp-profile-menu-chevron {
-    flex-shrink: 0;
-    font-size: 20px !important;
-    color: #c4c8d4;
-}
-
-.emp-profile-menu-row.is-danger .emp-profile-menu-text strong {
-    color: #dc2626;
+    max-width: 1080px;
+    margin: 0 auto;
 }
 
 .emp-profile-detail-head {
@@ -988,6 +978,11 @@
     background: #f9fafb;
 }
 
+.emp-profile-detail-back:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: 2px;
+}
+
 .emp-profile-detail-back svg {
     font-size: 20px;
 }
@@ -1005,16 +1000,6 @@
     color: #5b6078;
 }
 
-.emp-profile-detail-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.emp-profile-detail-stack > * {
-    min-width: 0;
-}
-
 .emp-profile-detail-loading {
     display: flex;
     justify-content: center;
@@ -1022,71 +1007,119 @@
     min-height: 320px;
 }
 
-@media (max-width: 700px) {
-    .emp-page .dash-content.emp-profile-content {
+.emp-prof-grid-2 {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    align-items: stretch;
+}
+
+.emp-prof-grid-2 > * {
+    min-width: 0;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 1100px) {
+    .emp-prof-columns {
+        grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    }
+
+    .emp-prof-banner-identity h1 {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 980px) {
+    .emp-prof-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .emp-prof-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .emp-prof-col-side {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+
+    .emp-prof-col-side .emp-prof-more {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 767px) {
+    .emp-profile-page .dash-content.emp-profile-content {
         padding: 0 12px 104px;
-    }
-
-    .emp-profile-head {
-        margin: 0 -12px;
-        padding: 12px 14px 50px;
-    }
-
-    .emp-profile-stats {
-        gap: 8px;
-        margin: -40px 2px 0;
-    }
-
-    .emp-profile-stats .emp-home-stat {
-        padding: 12px 8px;
-        border-radius: 16px;
-    }
-
-    .emp-profile-stats .emp-home-stat strong {
-        font-size: clamp(20px, 6vw, 26px);
-    }
-
-    .emp-profile-stats .emp-home-stat span {
-        font-size: 10px;
-    }
-
-    .emp-profile-card,
-    .emp-profile-menu {
-        margin-top: 12px;
-    }
-
-    .emp-profile-hours-bars {
-        gap: 6px;
     }
 
     .emp-profile-detail-head h1 {
         font-size: 17px;
     }
+
+    .emp-prof-grid-2 {
+        gap: 14px;
+    }
+
+    .emp-prof-more-row {
+        min-height: 52px;
+        padding: 0 14px;
+    }
 }
 
-@media (min-width: 769px) {
-    .emp-page .dash-content.emp-profile-content {
-        padding: 22px 28px 40px;
+@media (max-width: 420px) {
+    .emp-profile-page .dash-content.emp-profile-content {
+        padding: 0 10px 100px;
     }
 
     .emp-profile-head {
-        margin: 0;
-        padding: 18px 22px 52px;
-        border-radius: 24px;
+        margin: 0 -10px;
+        padding: 12px 12px 52px;
     }
 
     .emp-profile-stats {
-        gap: 14px;
-        margin: -40px 10px 0;
+        gap: 7px;
+        margin: -40px 4px 0;
     }
 
-    .emp-profile-card {
-        padding: 18px;
+    .emp-profile-stats .emp-prof-stat .MuiCardContent-root {
+        padding: 12px 8px;
+    }
+
+    .emp-profile-stats .emp-prof-stat .MuiCardContent-root:last-child {
+        padding-bottom: 12px;
+    }
+
+    .emp-profile-stats .emp-dash-stat-value {
+        font-size: 21px;
+    }
+
+    .emp-profile-stats .emp-dash-stat-label {
+        font-size: 9.5px;
+    }
+
+    .emp-profile-avatar.MuiAvatar-root {
+        width: 76px !important;
+        height: 76px !important;
+        font-size: 24px !important;
+    }
+}
+
+@media (hover: hover) {
+    .emp-prof-stat.MuiCard-root:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px -16px rgba(16, 24, 40, 0.25);
+        border-color: rgba(99, 102, 241, 0.2);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .emp-prof-stat.MuiCard-root,
     .emp-profile-icon-btn {
-        transition: none;
+        transition: none !important;
     }
 }

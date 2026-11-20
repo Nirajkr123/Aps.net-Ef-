@@ -18,7 +18,11 @@ DROP TABLE IF EXISTS deduction_rules CASCADE;
 DROP TABLE IF EXISTS payroll_holidays CASCADE;
 DROP TABLE IF EXISTS payroll_week_off_days CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS "Leaves" CASCADE;
+DROP TABLE IF EXISTS leave_types CASCADE;
 DROP TABLE IF EXISTS "Employees" CASCADE;
+DROP TABLE IF EXISTS "Designations" CASCADE;
+DROP TABLE IF EXISTS "Departments" CASCADE;
 DROP TABLE IF EXISTS "Users" CASCADE;
 DROP TYPE IF EXISTS attendance_status CASCADE;
 
@@ -41,14 +45,57 @@ CREATE TABLE "Users" (
     "Status"    VARCHAR(20) NOT NULL DEFAULT 'Active'
 );
 
+CREATE TABLE "Designations" (
+    "Id"    SERIAL PRIMARY KEY,
+    "Title" VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE "Departments" (
+    "Id"    SERIAL PRIMARY KEY,
+    "Name"  VARCHAR(150) NOT NULL
+);
+
 CREATE TABLE "Employees" (
     "Id"             SERIAL PRIMARY KEY,
     "UserId"         INTEGER NULL REFERENCES "Users"("Id") ON DELETE SET NULL,
     "EmployeeCode"   VARCHAR(50) NOT NULL,
     "Status"         VARCHAR(20) NOT NULL DEFAULT 'Active',
     "DepartmentName" VARCHAR(100) NULL,
+    "DepartmentId"   INTEGER NULL REFERENCES "Departments"("Id") ON DELETE SET NULL,
+    "DesignationId"  INTEGER NULL REFERENCES "Designations"("Id") ON DELETE SET NULL,
     "DesignationTitle" VARCHAR(100) NULL
 );
+
+CREATE TABLE "Leaves" (
+    "Id"           SERIAL PRIMARY KEY,
+    "EmployeeId"   INTEGER NOT NULL REFERENCES "Employees"("Id") ON DELETE CASCADE,
+    "LeaveType"    VARCHAR(50) NOT NULL,
+    "StartDate"    DATE NOT NULL,
+    "EndDate"      DATE NOT NULL,
+    "Reason"       TEXT NULL,
+    "Status"       VARCHAR(20) NOT NULL DEFAULT 'Pending',
+    "CreatedDate"  TIMESTAMP NOT NULL DEFAULT NOW(),
+    "Days"         INTEGER NOT NULL DEFAULT 1,
+    "HalfDay"      BOOLEAN NOT NULL DEFAULT FALSE,
+    "ReviewedBy"   TEXT NULL,
+    "ReviewedOn"   TIMESTAMP NULL,
+    "AdminComment" TEXT NULL
+);
+
+CREATE TABLE leave_types (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(50) NOT NULL,
+    is_paid     BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO leave_types (name, is_paid) VALUES
+    ('Casual', TRUE),
+    ('Sick', TRUE),
+    ('Earned', TRUE),
+    ('Personal', TRUE),
+    ('Unpaid', FALSE);
 
 CREATE TABLE salary_structures (
     id              BIGSERIAL PRIMARY KEY,
@@ -148,6 +195,10 @@ CREATE TABLE audit_logs (
     entity      VARCHAR(50) NOT NULL,
     entity_id   BIGINT NULL,
     details     JSONB NOT NULL DEFAULT '{}'::jsonb,
+    reason      TEXT NULL,
+    source      VARCHAR(20) NULL,
+    "before"    JSONB NULL,
+    "after"     JSONB NULL,
     at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -194,7 +245,9 @@ CREATE TABLE "WorkLocations" (
     "Latitude"     DOUBLE PRECISION NOT NULL,
     "Longitude"    DOUBLE PRECISION NOT NULL,
     "RadiusMeters" INTEGER NOT NULL DEFAULT 100,
-    "IsActive"     BOOLEAN NOT NULL DEFAULT TRUE
+    "IsActive"     BOOLEAN NOT NULL DEFAULT TRUE,
+    "CreatedAt"    TIMESTAMP NOT NULL DEFAULT NOW(),
+    "UpdatedAt"    TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE attendance_config (
@@ -206,16 +259,32 @@ CREATE TABLE attendance_config (
     min_rest_normal_minutes        INTEGER NOT NULL DEFAULT 480,
     rest_after_extended_minutes    INTEGER NOT NULL DEFAULT 480,
     max_extended_per_week          INTEGER NOT NULL DEFAULT 3,
-    punch_early_minutes            INTEGER NOT NULL DEFAULT 60,
+    punch_early_minutes            INTEGER NOT NULL DEFAULT 30,
     punch_late_minutes             INTEGER NOT NULL DEFAULT 120,
-    late_grace_minutes             INTEGER NOT NULL DEFAULT 15,
+    late_grace_minutes             INTEGER NOT NULL DEFAULT 10,
     unpaid_break_minutes           INTEGER NOT NULL DEFAULT 0,
     overtime_multiplier            NUMERIC(5,2) NOT NULL DEFAULT 1.50,
+    checkout_buffer_minutes        INTEGER NOT NULL DEFAULT 240,
+    half_day_min_hours             NUMERIC(4,2) NOT NULL DEFAULT 4,
+    full_day_min_hours             NUMERIC(4,2) NOT NULL DEFAULT 8,
+    timezone_id                    TEXT NOT NULL DEFAULT 'Asia/Kolkata',
+    enforcement_mode               VARCHAR(10) NOT NULL DEFAULT 'WARN',
+    missed_checkout_counts_as_present BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at                     TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_by                     INTEGER NULL REFERENCES "Users"("Id") ON DELETE RESTRICT,
     CONSTRAINT ck_attendance_config_standard CHECK (standard_hours > 0 AND standard_hours <= 24),
     CONSTRAINT ck_attendance_config_max CHECK (max_hours_per_day >= standard_hours AND max_hours_per_day <= 24),
-    CONSTRAINT ck_attendance_config_normal_rest CHECK (min_rest_normal_minutes >= 0)
+    CONSTRAINT ck_attendance_config_normal_rest CHECK (min_rest_normal_minutes >= 0),
+    CONSTRAINT ck_attendance_config_checkout_buffer
+        CHECK (checkout_buffer_minutes >= 0 AND checkout_buffer_minutes < 1440),
+    CONSTRAINT ck_attendance_config_half_day
+        CHECK (half_day_min_hours > 0 AND half_day_min_hours <= 24),
+    CONSTRAINT ck_attendance_config_full_day
+        CHECK (full_day_min_hours >= half_day_min_hours AND full_day_min_hours <= 24),
+    CONSTRAINT ck_attendance_config_timezone
+        CHECK (LENGTH(BTRIM(timezone_id)) > 0),
+    CONSTRAINT ck_attendance_config_enforcement
+        CHECK (enforcement_mode IN ('OFF', 'WARN', 'ENFORCE'))
 );
 
 CREATE UNIQUE INDEX uq_attendance_config_effective_from
@@ -231,10 +300,33 @@ CREATE TABLE "shift" (
     end_time         TIME NOT NULL,
     crosses_midnight BOOLEAN NOT NULL DEFAULT FALSE,
     is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+    early_checkin_minutes    INTEGER NULL,
+    grace_minutes            INTEGER NULL,
+    late_limit_minutes       INTEGER NULL,
+    checkout_buffer_minutes  INTEGER NULL,
+    pending_rules            JSONB NULL,
+    pending_rules_from       DATE NULL,
     created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMP NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_shift_name UNIQUE (shift_name),
-    CONSTRAINT ck_shift_duration CHECK (duration_hours > 0 AND duration_hours < 24)
+    CONSTRAINT ck_shift_duration CHECK (duration_hours > 0 AND duration_hours < 24),
+    CONSTRAINT ck_shift_early_checkin
+        CHECK (early_checkin_minutes IS NULL
+               OR (early_checkin_minutes >= 0 AND early_checkin_minutes <= 1440)),
+    CONSTRAINT ck_shift_grace
+        CHECK (grace_minutes IS NULL
+               OR (grace_minutes >= 0 AND grace_minutes <= 1440)),
+    CONSTRAINT ck_shift_late_limit
+        CHECK (late_limit_minutes IS NULL
+               OR (late_limit_minutes >= 0 AND late_limit_minutes <= 1440)),
+    CONSTRAINT ck_shift_checkout_buffer
+        CHECK (checkout_buffer_minutes IS NULL
+               OR (checkout_buffer_minutes >= 0 AND checkout_buffer_minutes < 1440)),
+    CONSTRAINT ck_shift_pending_rules
+        CHECK ((pending_rules IS NULL AND pending_rules_from IS NULL)
+               OR (pending_rules IS NOT NULL AND pending_rules_from IS NOT NULL)),
+    CONSTRAINT ck_shift_pending_rules_object
+        CHECK (pending_rules IS NULL OR jsonb_typeof(pending_rules) = 'object')
 );
 
 CREATE TABLE "assignment_batch" (
@@ -361,9 +453,26 @@ CREATE TABLE attendance (
     working_hours             NUMERIC(5,2) NULL,
     status                    attendance_status NOT NULL DEFAULT 'Present',
     is_late                   BOOLEAN NOT NULL DEFAULT FALSE,
+    location                  VARCHAR(255) NULL,
+    ip_address                VARCHAR(64) NULL,
+    check_in_latitude         DOUBLE PRECISION NULL,
+    check_in_longitude        DOUBLE PRECISION NULL,
+    check_in_accuracy         DOUBLE PRECISION NULL,
+    check_out_latitude        DOUBLE PRECISION NULL,
+    check_out_longitude       DOUBLE PRECISION NULL,
+    check_out_accuracy        DOUBLE PRECISION NULL,
+    check_in_location_name    VARCHAR(255) NULL,
+    check_out_location_name   VARCHAR(255) NULL,
+    check_in_location_id      INTEGER NULL REFERENCES "WorkLocations"("Id") ON DELETE SET NULL,
+    check_out_location_id     INTEGER NULL REFERENCES "WorkLocations"("Id") ON DELETE SET NULL,
+    check_in_distance_meters  DOUBLE PRECISION NULL,
+    check_out_distance_meters DOUBLE PRECISION NULL,
     missing_punch_detected_at TIMESTAMP NULL,
+    source                    VARCHAR(20) NOT NULL DEFAULT 'SELF',
     created_at                TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at                TIMESTAMP NOT NULL DEFAULT NOW()
+    updated_at                TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_attendance_source
+        CHECK (source IN ('SELF', 'ADMIN_OVERRIDE', 'REGULARIZATION', 'SYSTEM'))
 );
 
 CREATE UNIQUE INDEX uq_attendance_assignment

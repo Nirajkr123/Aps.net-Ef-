@@ -1,0 +1,9 @@
+@media (max-width: 768px) {
+    body.has-mobile-nav .dash-content {
+        padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    }
+
+    body.has-mobile-nav .emp-pi-actions {
+        bottom: calc(68px + env(safe-area-inset-bottom));
+    }
+}

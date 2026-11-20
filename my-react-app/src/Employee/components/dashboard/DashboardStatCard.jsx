@@ -4,12 +4,14 @@ import { Card, CardContent, Skeleton } from "@mui/material";
 function DashboardStatCard({
     icon,
     label,
+    sublabel,
     value,
     tone = "#4f46e5",
     bg = "#eef2ff",
     loading = false,
     onClick,
     ariaLabel,
+    className = "",
 }) {
     const clickable = typeof onClick === "function";
 
@@ -29,7 +31,7 @@ function DashboardStatCard({
             role={clickable ? "button" : undefined}
             tabIndex={clickable ? 0 : undefined}
             aria-label={ariaLabel || label}
-            className={`emp-dash-stat${clickable ? " is-clickable" : ""}`}
+            className={`emp-dash-stat${clickable ? " is-clickable" : ""}${className ? ` ${className}` : ""}`}
         >
             <CardContent>
                 {loading ? (
@@ -40,11 +42,14 @@ function DashboardStatCard({
                     </>
                 ) : (
                     <>
-                        <span className="emp-dash-stat-icon" style={{ backgroundColor: bg, color: tone }}>
-                            {icon}
-                        </span>
+                        {icon && (
+                            <span className="emp-dash-stat-icon" style={{ backgroundColor: bg, color: tone }}>
+                                {icon}
+                            </span>
+                        )}
                         <strong className="emp-dash-stat-value">{value}</strong>
                         <span className="emp-dash-stat-label">{label}</span>
+                        {sublabel && <span className="emp-dash-stat-sublabel">{sublabel}</span>}
                     </>
                 )}
             </CardContent>

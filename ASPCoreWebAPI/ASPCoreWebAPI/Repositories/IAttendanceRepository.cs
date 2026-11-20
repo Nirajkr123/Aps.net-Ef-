@@ -11,7 +11,11 @@ namespace ASPCoreWebAPI.Repositories
             double accuracy,
             int locationId,
             double distanceMeters,
-            string? ip);
+            string? ip,
+            int? shiftAssignmentId,
+            DateTime attendanceDate,
+            DateTime checkInUtc,
+            bool isLate);
 
         Task<Attendance> CheckOutAsync(
             int employeeId,
@@ -19,11 +23,22 @@ namespace ASPCoreWebAPI.Repositories
             double longitude,
             double accuracy,
             int locationId,
-            double distanceMeters);
+            double distanceMeters,
+            DateTime checkOutUtc,
+            decimal workingHours,
+            string status);
         Task<Attendance?> GetTodayRecordAsync(int employeeId);
         Task<List<Attendance>> GetMyHistoryAsync(int employeeId, DateTime fromDate, DateTime toDate);
         Task<List<Attendance>> GetAllAsync(AttendanceFilterDto filter);
-        Task<Attendance?> UpdateAsync(int id, AttendanceUpdateDto dto);
+        Task<Attendance?> OverrideAsync(
+            int id,
+            int userId,
+            string reason,
+            DateTime? checkInUtc,
+            DateTime? checkOutUtc,
+            decimal? workingHours,
+            string status,
+            bool isLate);
         Task<Attendance?> GetByIdAsync(int id);
     }
 }

@@ -9,6 +9,7 @@ import payslipServ from "../../services/payslipService";
 function PayslipPreview() {
     const [payslip, setPayslip] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
         const fetchLatest = async () => {
@@ -16,14 +17,7 @@ function PayslipPreview() {
                 const { data } = await payslipServ.getLatest();
                 setPayslip(data);
             } catch {
-                // TODO: Backend API — GET /api/Payslip/latest
-                setPayslip({
-                    id: 1,
-                    month: "August",
-                    year: 2026,
-                    netPay: 45000,
-                    currency: "INR",
-                });
+                setPayslip(null);
             } finally {
                 setLoading(false);
             }
@@ -31,9 +25,28 @@ function PayslipPreview() {
         fetchLatest();
     }, []);
 
-    const handleDownload = () => {
+    const formatPeriod = (month, year) => {
+        if (!month || !year) return "";
+        return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+            month: "long",
+            year: "numeric",
+        });
+    };
+
+    const handleDownload = async () => {
         if (!payslip?.id) return;
-        window.open(payslipServ.getDownloadUrl(payslip.id), "_blank");
+
+        setDownloading(true);
+        try {
+            await payslipServ.downloadPayslip(
+                payslip.id,
+                `Payslip-${payslip.employeeCode || payslip.id}-${payslip.month}-${payslip.year}.pdf`
+            );
+        } catch (error) {
+            console.error("Payslip download failed.", error);
+        } finally {
+            setDownloading(false);
+        }
     };
 
     return (
@@ -55,10 +68,10 @@ function PayslipPreview() {
                 ) : payslip ? (
                     <Box>
                         <Typography variant="body2" sx={{ color: "#6b7280", mb: 0.5, fontWeight: 500 }}>
-                            {payslip.month} {payslip.year}
+                            {formatPeriod(payslip.month, payslip.year)}
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 800, color: "#171b2e", mb: 2 }}>
-                            ₹{Number(payslip.netPay).toLocaleString("en-IN")}
+                            ₹{Number(payslip.netPay).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Typography>
                         <Typography variant="body2" sx={{ color: "#9ca3af", mb: 2 }}>
                             Net Pay
@@ -67,6 +80,7 @@ function PayslipPreview() {
                             variant="outlined"
                             startIcon={<Download />}
                             onClick={handleDownload}
+                            disabled={downloading}
                             fullWidth
                             sx={{
                                 textTransform: "none",
@@ -77,7 +91,7 @@ function PayslipPreview() {
                                 "&:hover": { borderColor: "#4f46e5", color: "#4f46e5" },
                             }}
                         >
-                            Download Payslip
+                            {downloading ? "Downloading..." : "Download Payslip"}
                         </Button>
                     </Box>
                 ) : (

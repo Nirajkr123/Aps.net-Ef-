@@ -3,6 +3,7 @@ using ASPCoreWebAPI.Models;
 using ASPCoreWebAPI.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 
 namespace ASPCoreWebAPI.Controllers
 {
@@ -57,6 +58,10 @@ namespace ASPCoreWebAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                return Conflict(new { message = "A shift with this name already exists." });
+            }
         }
 
         [HttpPut("{id:int}")]
@@ -75,6 +80,10 @@ namespace ASPCoreWebAPI.Controllers
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { message = ex.Message });
+            }
+            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                return Conflict(new { message = "A shift with this name already exists." });
             }
         }
 

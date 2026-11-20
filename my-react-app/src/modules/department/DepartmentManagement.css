@@ -1,0 +1,137 @@
+/* ============================================================
+   DEPARTMENTS PAGE
+   Page-specific pieces on top of src/components/admin/adminUi.css
+   ============================================================ */
+
+.dept-ai-panel {
+    padding: 18px 20px;
+    border: 1px solid var(--adm-line);
+    border-radius: var(--adm-radius-card);
+    background: var(--adm-surface);
+    box-shadow: var(--adm-shadow);
+}
+
+.dept-ai-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin-bottom: 10px;
+}
+
+.dept-ai-head-icon {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: var(--adm-purple-soft);
+    color: var(--adm-purple);
+}
+
+.dept-ai-head h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--adm-text);
+}
+
+.dept-ai-head p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--adm-muted);
+}
+
+.dept-ai-summary {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--adm-muted);
+}
+
+.dept-ai-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dept-ai-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid;
+    border-radius: 14px;
+}
+
+.dept-ai-item-body {
+    min-width: 0;
+}
+
+.dept-ai-item-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--adm-text);
+}
+
+.dept-ai-item-desc {
+    margin: 3px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--adm-muted);
+}
+
+.dept-ai-priority {
+    display: inline-flex;
+    margin-top: 7px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #f1f3f9;
+    color: var(--adm-muted);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.dept-ai-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 13px;
+    color: var(--adm-muted);
+}
+
+.dept-tooltip {
+    display: block;
+    padding: 2px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.dept-tooltip strong {
+    display: block;
+    margin-bottom: 3px;
+    font-weight: 700;
+}
+
+.dept-tooltip span {
+    display: block;
+}
+
+.dept-tooltip.is-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@media (max-width: 767px) {
+    .dept-ai-panel {
+        padding: 16px;
+    }
+}

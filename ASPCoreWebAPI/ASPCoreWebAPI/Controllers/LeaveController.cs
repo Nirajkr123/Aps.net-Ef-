@@ -141,6 +141,18 @@ namespace ASPCoreWebAPI.Controllers
         }
 
         // =====================================================================
+        //  GET /api/leaves/types
+        //  Active types + paid/unpaid — apply form ka dropdown.
+        // =====================================================================
+        [HttpGet("types")]
+        [AuthorizeRoles("EMPLOYEE", "HR", "OWNER")]
+        public async Task<IActionResult> GetTypes()
+        {
+            var types = await _leaveService.GetTypesAsync();
+            return Ok(types);
+        }
+
+        // =====================================================================
         //  GET /api/leaves/{id}
         //  Details drawer ke liye.
         // =====================================================================

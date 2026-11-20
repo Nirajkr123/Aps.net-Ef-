@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useState } from "react";
 import {
     Alert,
     Button,
     CircularProgress,
-    Drawer,
+    Dialog,
     IconButton,
     MenuItem,
     TextField,
+    useMediaQuery,
 } from "@mui/material";
 import { CloseRounded, EventOutlined } from "@mui/icons-material";
 import {
@@ -20,6 +21,7 @@ import {
     balanceTypes,
     typeLabel,
 } from "./leaveShared";
+import "../../EmployeeLeaves.css";
 
 const EMPTY_FORM = { type: "", from: "", to: "", reason: "" };
 
@@ -31,6 +33,8 @@ function ApplyLeaveForm({
     onClose,
     onSubmit,
 }) {
+    const fullScreen = useMediaQuery("(max-width: 599.95px)");
+    const titleId = useId();
     const [form, setForm] = useState(EMPTY_FORM);
     const [errors, setErrors] = useState({});
 
@@ -103,24 +107,26 @@ function ApplyLeaveForm({
     const reasonLength = form.reason.trim().length;
 
     return (
-        <Drawer
-            anchor="bottom"
+        <Dialog
             open={open}
             onClose={submitting ? undefined : onClose}
-            PaperProps={{ className: "emp-leave-form-paper", elevation: 0 }}
+            fullWidth
+            maxWidth="sm"
+            fullScreen={fullScreen}
+            aria-labelledby={titleId}
+            slotProps={{
+                paper: {
+                    className: "emp-leave-form-paper",
+                    elevation: 0,
+                    sx: { overflow: "hidden" },
+                },
+            }}
         >
-            <form
-                className="emp-leave-form"
-                onSubmit={handleSubmit}
-                role="dialog"
-                aria-label="Apply for leave"
-            >
-                <div className="emp-leave-sheet-handle" aria-hidden="true" />
-
+            <form className="emp-leave-form" onSubmit={handleSubmit}>
                 <div className="emp-leave-sheet-head">
                     <div>
                         <span>New request</span>
-                        <h2>Apply Leave</h2>
+                        <h2 id={titleId}>Apply Leave</h2>
                     </div>
                     <IconButton
                         onClick={onClose}
@@ -257,7 +263,7 @@ function ApplyLeaveForm({
                     </Button>
                 </div>
             </form>
-        </Drawer>
+        </Dialog>
     );
 }
 

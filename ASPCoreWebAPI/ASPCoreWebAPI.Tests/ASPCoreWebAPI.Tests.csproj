@@ -22,6 +22,12 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Database\TestSchema.sql" />
+    <EmbeddedResource Include="..\ASPCoreWebAPI\scripts\AddAttendanceEnforcement.sql">
+      <LogicalName>ASPCoreWebAPI.Tests.Database.AddAttendanceEnforcement.sql</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\ASPCoreWebAPI\scripts\RollbackAttendanceEnforcement.sql">
+      <LogicalName>ASPCoreWebAPI.Tests.Database.RollbackAttendanceEnforcement.sql</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

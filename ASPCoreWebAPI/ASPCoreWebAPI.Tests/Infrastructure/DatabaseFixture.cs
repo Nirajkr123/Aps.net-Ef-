@@ -26,9 +26,12 @@ public sealed class DatabaseFixture : IAsyncLifetime
             (effective_from, standard_hours, max_hours_per_day, min_gap_same_day_minutes,
              min_rest_normal_minutes, rest_after_extended_minutes, max_extended_per_week,
              punch_early_minutes, punch_late_minutes, late_grace_minutes,
-             unpaid_break_minutes, overtime_multiplier)
+             unpaid_break_minutes, overtime_multiplier, checkout_buffer_minutes,
+             half_day_min_hours, full_day_min_hours, timezone_id, enforcement_mode,
+             missed_checkout_counts_as_present)
         VALUES
-            (DATE '2000-01-01', 10, 20, 240, 480, 480, 3, 60, 120, 15, 0, 1.50)
+            (DATE '2000-01-01', 10, 20, 240, 480, 480, 3, 30, 120, 10, 0, 1.50,
+             240, 4, 8, 'Asia/Kolkata', 'WARN', TRUE)
         ON CONFLICT (effective_from) DO UPDATE SET
             standard_hours = EXCLUDED.standard_hours,
             max_hours_per_day = EXCLUDED.max_hours_per_day,
@@ -41,6 +44,12 @@ public sealed class DatabaseFixture : IAsyncLifetime
             late_grace_minutes = EXCLUDED.late_grace_minutes,
             unpaid_break_minutes = EXCLUDED.unpaid_break_minutes,
             overtime_multiplier = EXCLUDED.overtime_multiplier,
+            checkout_buffer_minutes = EXCLUDED.checkout_buffer_minutes,
+            half_day_min_hours = EXCLUDED.half_day_min_hours,
+            full_day_min_hours = EXCLUDED.full_day_min_hours,
+            timezone_id = EXCLUDED.timezone_id,
+            enforcement_mode = EXCLUDED.enforcement_mode,
+            missed_checkout_counts_as_present = EXCLUDED.missed_checkout_counts_as_present,
             updated_by = NULL;
 
         INSERT INTO "Users" ("Id", "FirstName", "LastName", "Email", "Role", "Status")

@@ -27,7 +27,13 @@ namespace ASPCoreWebAPI.Models
         /* Apply ke waqt calculate hokar store hota hai. Approve karte waqt
            BALANCE isi number se kat-ta hai, isiliye ye column me rakhna
            zaroori hai — har baar dobara gin-ne ka risk kam karta hai. */
-        public int Days { get; set; } = 1;
+        public decimal Days { get; set; } = 1m;
+
+        /* Half-day sirf single-day request par valid hai. DB me Days = 0.5. */
+        public bool HalfDay { get; set; }
+
+        /* Leave type config se aata hai (paid/unpaid). Entity me optional. */
+        public bool IsPaid { get; set; } = true;
 
         /* Review metadata — apply ke time null, decide karne par fill. */
         public string? ReviewedBy { get; set; }
@@ -82,7 +88,9 @@ namespace ASPCoreWebAPI.Models
         [JsonPropertyName("to")]
         public string To { get; set; } = string.Empty;
 
-        public int Days { get; set; }
+        public decimal Days { get; set; }
+        public bool HalfDay { get; set; }
+        public bool IsPaid { get; set; } = true;
         public string? Reason { get; set; }
         public string Status { get; set; } = LeaveStatuses.Pending;
         public DateTime AppliedOn { get; set; }
@@ -108,7 +116,9 @@ namespace ASPCoreWebAPI.Models
         public string? Reason { get; set; }
         public string Status { get; set; } = LeaveStatuses.Pending;
         public DateTime CreatedDate { get; set; }
-        public int Days { get; set; }
+        public decimal Days { get; set; }
+        public bool HalfDay { get; set; }
+        public bool IsPaid { get; set; } = true;
         public string? ReviewedBy { get; set; }
         public DateTime? ReviewedOn { get; set; }
         public string? AdminComment { get; set; }
@@ -138,6 +148,8 @@ namespace ASPCoreWebAPI.Models
             From = StartDate.ToString("yyyy-MM-dd"),
             To = EndDate.ToString("yyyy-MM-dd"),
             Days = Days,
+            HalfDay = HalfDay,
+            IsPaid = IsPaid,
             Reason = Reason,
             Status = Status,
             AppliedOn = CreatedDate,
@@ -159,6 +171,7 @@ namespace ASPCoreWebAPI.Models
         public string Type { get; set; } = string.Empty;
         public string From { get; set; } = string.Empty;
         public string To { get; set; } = string.Empty;
+        public bool HalfDay { get; set; }
         public string? Reason { get; set; }
     }
 
@@ -215,6 +228,19 @@ namespace ASPCoreWebAPI.Models
     }
 
     /* =====================================================================
+       Leave type config
+       ---------------------------------------------------------------------
+       `leave_types` table se aata hai. Frontend apply form ko pata hona
+       chahiye kaunsa type paid hai aur kaunsa unpaid (quota-less), warna
+       wo "Unpaid (0 left)" jaisa galat UI dikhata hai.
+       ===================================================================== */
+    public class LeaveTypeOption
+    {
+        public string Name { get; set; } = string.Empty;
+        public bool IsPaid { get; set; }
+    }
+
+    /* =====================================================================
        Balance
        ---------------------------------------------------------------------
        Frontend `{ Casual:{total,used}, Sick:{...}, ... }` chahta hai — yani
@@ -223,8 +249,8 @@ namespace ASPCoreWebAPI.Models
        ===================================================================== */
     public class LeaveBalanceRow
     {
-        public int Total { get; set; }
-        public int Used { get; set; }
+        public decimal Total { get; set; }
+        public decimal Used { get; set; }
     }
 
     public class LeaveBalanceResponse
@@ -233,9 +259,9 @@ namespace ASPCoreWebAPI.Models
 
         /* Saare types ka total — dashboard ka ek bada number isse banta hai,
            to extra call nahi lagani padti. */
-        public int Total { get; set; }
-        public int Used { get; set; }
-        public int Remaining { get; set; }
+        public decimal Total { get; set; }
+        public decimal Used { get; set; }
+        public decimal Remaining { get; set; }
 
         /* Calendar year jiska balance ye hai — saal change par UI ko pata
            chal jaata hai ki numbers reset hone wale hain. */

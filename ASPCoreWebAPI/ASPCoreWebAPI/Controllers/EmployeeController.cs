@@ -130,6 +130,8 @@ namespace ASPCoreWebAPI.Controllers
             existing.ManagerId = employee.ManagerId ?? existing.ManagerId;
             existing.EmploymentType = employee.EmploymentType ?? existing.EmploymentType;
             existing.JoiningDate = employee.JoiningDate ?? existing.JoiningDate;
+            existing.WorkLocationId = employee.WorkLocationId ?? existing.WorkLocationId;
+            existing.ExitDate = employee.ExitDate ?? existing.ExitDate;
             existing.Status = employee.Status ?? existing.Status;
 
             await _repository.UpdateAsync(existing);
@@ -182,13 +184,45 @@ namespace ASPCoreWebAPI.Controllers
 
         [HttpPatch("{id:int}/deactivate")]
         [AuthorizeRoles("OWNER", "HR")]
-        public async Task<IActionResult> Deactivate(int id)
+        public async Task<IActionResult> Deactivate(
+            int id, [FromBody] EmployeeDeactivateRequest? request)
         {
             var existing = await _repository.GetByIdAsync(id);
             if (existing == null) return NotFound(new { message = "Employee not found" });
 
-            await _repository.DeactivateAsync(id);
-            return Ok(new { message = "Employee deactivated successfully" });
+            /* Last working day optional rakha hai — purana client bina body
+               ke call karta ho to aaj ki date par exit ho jaye. */
+            var exitDate = DateTime.UtcNow.Date;
+            if (!string.IsNullOrWhiteSpace(request?.LastWorkingDay))
+            {
+                if (!DateTime.TryParseExact(
+                        request.LastWorkingDay.Trim(),
+                        "yyyy-MM-dd",
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None,
+                        out exitDate))
+                {
+                    return BadRequest(new { message = "Last working day must be YYYY-MM-DD" });
+                }
+            }
+
+            exitDate = exitDate.Date;
+            if (exitDate > DateTime.UtcNow.Date)
+            {
+                return BadRequest(new { message = "Last working day cannot be in the future" });
+            }
+
+            if (existing.JoiningDate.HasValue && exitDate < existing.JoiningDate.Value.Date)
+            {
+                return BadRequest(new { message = "Last working day cannot be before the joining date" });
+            }
+
+            await _repository.DeactivateAsync(id, exitDate);
+            return Ok(new
+            {
+                message = "Employee deactivated successfully",
+                exitDate = exitDate.ToString("yyyy-MM-dd"),
+            });
         }
 
         [HttpPatch("{id:int}/activate")]
@@ -288,6 +322,11 @@ namespace ASPCoreWebAPI.Controllers
             var documents = await _documentRepository.GetByEmployeeIdAsync(id);
             return Ok(documents);
         }
+    }
+
+    public class EmployeeDeactivateRequest
+    {
+        public string? LastWorkingDay { get; set; }
     }
 
     public class EmployeeUpdateSelfRequest

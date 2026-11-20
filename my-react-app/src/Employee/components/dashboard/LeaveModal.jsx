@@ -16,6 +16,8 @@ import { LEAVE_TYPES, LEAVE_TYPE_COLORS } from "../leaves/leaveShared";
 
 function LeaveModal({ open, onClose, leave, loading, onApply }) {
     const balance = leave?.balance || null;
+    const total = Number(leave?.total) || 0;
+    const remaining = Number(leave?.remaining) || 0;
 
     return (
         <Dialog
@@ -44,7 +46,11 @@ function LeaveModal({ open, onClose, leave, loading, onApply }) {
                     <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
                         Leave Balance
                     </Typography>
-                    {!loading && <Typography variant="caption" sx={{ color: "#9ca3af" }}>{leave?.remaining ?? 0} days left</Typography>}
+                    {!loading && (
+                        <Typography variant="caption" sx={{ color: "#9ca3af" }}>
+                            {remaining} of {total} days left
+                        </Typography>
+                    )}
                 </Box>
                 <IconButton onClick={onClose} size="small" aria-label="Close leave balance">
                     <CloseRounded fontSize="small" />
@@ -55,14 +61,17 @@ function LeaveModal({ open, onClose, leave, loading, onApply }) {
                 {loading ? (
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
                         {[0, 1, 2, 3].map((item) => (
-                            <Skeleton key={item} variant="rounded" height={50} sx={{ borderRadius: 2 }} />
+                            <Skeleton key={item} variant="rounded" height={62} sx={{ borderRadius: 2 }} />
                         ))}
                     </Box>
                 ) : (
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
                         {LEAVE_TYPES.map((type) => {
                             const row = balance?.[type] || { total: 0, used: 0 };
-                            const remaining = Math.max(0, row.total - row.used);
+                            const rowTotal = Number(row.total) || 0;
+                            const rowUsed = Number(row.used) || 0;
+                            const rowRemaining = Math.max(0, rowTotal - rowUsed);
+                            const progress = rowTotal > 0 ? Math.min(100, (rowUsed / rowTotal) * 100) : 0;
                             const color = LEAVE_TYPE_COLORS[type] || "#6b7280";
 
                             return (
@@ -70,8 +79,8 @@ function LeaveModal({ open, onClose, leave, loading, onApply }) {
                                     key={type}
                                     sx={{
                                         display: "flex",
-                                        alignItems: "center",
-                                        gap: 1.25,
+                                        flexDirection: "column",
+                                        gap: 0.8,
                                         px: 1.5,
                                         py: 1.1,
                                         borderRadius: 2,
@@ -79,26 +88,38 @@ function LeaveModal({ open, onClose, leave, loading, onApply }) {
                                         bgcolor: "#fbfcff",
                                     }}
                                 >
-                                    <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, flexShrink: 0 }} />
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#171b2e" }}>
-                                            {type}
-                                        </Typography>
-                                        <Typography sx={{ fontSize: 11.5, color: "#6b7280" }}>
-                                            {remaining} left
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+                                        <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, flexShrink: 0 }} />
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#171b2e" }}>
+                                                {type}
+                                            </Typography>
+                                            <Typography sx={{ fontSize: 11.5, color: "#6b7280" }}>
+                                                {rowRemaining} left
+                                            </Typography>
+                                        </Box>
+                                        <Typography
+                                            sx={{
+                                                fontWeight: 800,
+                                                fontSize: 14,
+                                                color,
+                                                fontVariantNumeric: "tabular-nums",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {rowUsed}/{rowTotal}
                                         </Typography>
                                     </Box>
-                                    <Typography
-                                        sx={{
-                                            fontWeight: 800,
-                                            fontSize: 15,
-                                            color,
-                                            fontVariantNumeric: "tabular-nums",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {row.used}/{row.total}
-                                    </Typography>
+                                    <Box sx={{ height: 6, borderRadius: 999, bgcolor: "#eef0f7", overflow: "hidden" }}>
+                                        <Box
+                                            sx={{
+                                                width: `${progress}%`,
+                                                height: "100%",
+                                                borderRadius: 999,
+                                                bgcolor: color,
+                                            }}
+                                        />
+                                    </Box>
                                 </Box>
                             );
                         })}
