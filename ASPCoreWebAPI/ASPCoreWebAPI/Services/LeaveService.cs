@@ -16,6 +16,7 @@ namespace ASPCoreWebAPI.Services
         Task<LeaveListResponse> GetListAsync(LeaveQuery query, int? employeeId);
         Task<List<LeaveDto>> GetMyLeavesAsync(int employeeId);
         Task<LeaveDto?> GetByIdAsync(int id);
+        Task<List<LeaveTypeOption>> GetTypesAsync();
         Task<LeaveBalanceResponse> GetBalanceAsync(int employeeId);
         Task<LeaveResult> ApplyAsync(int employeeId, LeaveCreateRequest request);
         Task<LeaveResult> CancelAsync(int id, int employeeId);
@@ -108,6 +109,9 @@ namespace ASPCoreWebAPI.Services
             return row?.ToDto();
         }
 
+        public Task<List<LeaveTypeOption>> GetTypesAsync() =>
+            _leaveRepository.GetTypesAsync();
+
         public async Task<LeaveBalanceResponse> GetBalanceAsync(int employeeId)
         {
             var year = CurrentYear;
@@ -118,18 +122,18 @@ namespace ASPCoreWebAPI.Services
             foreach (var type in LeaveQuota.Types)
             {
                 var total = LeaveQuota.TotalOf(type);
-                var u = used.TryGetValue(type, out var value) ? value : 0;
+                var u = used.TryGetValue(type, out var value) ? value : 0m;
 
                 balance.Balance[type] = new LeaveBalanceRow
                 {
                     Total = total,
-                    Used = Math.Max(0, u),
+                    Used = Math.Max(0m, u),
                 };
             }
 
             balance.Total = balance.Balance.Values.Sum(r => r.Total);
             balance.Used = balance.Balance.Values.Sum(r => r.Used);
-            balance.Remaining = Math.Max(0, balance.Total - balance.Used);
+            balance.Remaining = Math.Max(0m, balance.Total - balance.Used);
 
             return balance;
         }
@@ -151,12 +155,22 @@ namespace ASPCoreWebAPI.Services
         public async Task<LeaveResult> ApplyAsync(
             int employeeId, LeaveCreateRequest request)
         {
-            /* ---- Type ---- */
+            /* ---- Type ----
+               Allowed types DB se aate hain (`leave_types.is_active`), hard
+               coded list se nahi — admin naya paid/unpaid type add kare to
+               code change ki zaroorat na pade. */
             var type = (request.Type ?? string.Empty).Trim();
-            if (!LeaveQuota.IsValidType(type))
+            var types = await _leaveRepository.GetTypesAsync();
+            var typeOption = types.FirstOrDefault(t =>
+                string.Equals(t.Name, type, StringComparison.OrdinalIgnoreCase));
+
+            if (typeOption is null)
             {
                 return LeaveResult.Invalid("Select a valid leave type");
             }
+
+            type = typeOption.Name;
+            var isPaid = typeOption.IsPaid;
 
             /* ---- Dates ----
                `DateOnly.TryParseExact` `yyyy-MM-dd` ke saath — do format hi
@@ -187,7 +201,16 @@ namespace ASPCoreWebAPI.Services
                 return LeaveResult.Invalid("To date cannot be in the past");
             }
 
-            var days = CountDays(from, to);
+            /* ---- Half day ----
+               Half-day sirf single-day request par valid hai (DB constraint
+               bhi yahi kehta hai). Days 0.5 store hota hai, 1 nahi. */
+            if (request.HalfDay && from.Date != to.Date)
+            {
+                return LeaveResult.Invalid(
+                    "Half-day leave must start and end on the same date");
+            }
+
+            var days = request.HalfDay ? 0.5m : (decimal)CountDays(from, to);
             if (days <= 0)
             {
                 return LeaveResult.Invalid("Selected date range has no days");
@@ -210,16 +233,27 @@ namespace ASPCoreWebAPI.Services
             /* ---- Balance ----
                Apply karte waqt kuch kat-ta nahi — sirf APPROVED days count
                hote hain. Phir bhi check lagta hai taaki user jis din
-               12/12 use kar chuka ho, wo oversell na kar sake. */
-            var balance = await GetBalanceAsync(employeeId);
-            var row = balance.Balance[type];
-            var remaining = Math.Max(0, row.Total - row.Used);
+               12/12 use kar chuka ho, wo oversell na kar sake.
 
-            if (days > remaining)
+               Unpaid types ka koi quota nahi hota, isiliye unpar ye check
+               skip hota hai. */
+            if (isPaid)
             {
-                return LeaveResult.Invalid(
-                    $"You have only {remaining} {type} day{(remaining == 1 ? "" : "s")} left " +
-                    $"— this request needs {days}");
+                var balance = await GetBalanceAsync(employeeId);
+                if (!balance.Balance.TryGetValue(type, out var row))
+                {
+                    return LeaveResult.Invalid(
+                        $"{type} leave has no quota configured. Contact HR.");
+                }
+
+                var remaining = Math.Max(0m, row.Total - row.Used);
+                if (days > remaining)
+                {
+                    return LeaveResult.Invalid(
+                        $"You have only {FormatDays(remaining)} {type} " +
+                        $"day{(remaining == 1m ? "" : "s")} left — " +
+                        $"this request needs {FormatDays(days)}");
+                }
             }
 
             /* ---- Overlap ----
@@ -249,6 +283,7 @@ namespace ASPCoreWebAPI.Services
                 EndDate = to,
                 Reason = reason,
                 Days = days,
+                HalfDay = request.HalfDay,
                 Status = LeaveStatuses.Pending,
                 CreatedDate = DateTime.UtcNow,
             });
@@ -320,16 +355,26 @@ namespace ASPCoreWebAPI.Services
 
             /* ---- Balance dobara check ----
                Apply aur approve ke beech me user ne aur requests approve
-               kar liye ho to oversell ho sakta hai. Isiliye yahan dobara. */
-            var balance = await GetBalanceAsync(row.EmployeeId);
-            var balanceRow = balance.Balance[row.LeaveType];
-            var remaining = Math.Max(0, balanceRow.Total - balanceRow.Used);
-
-            if (row.Days > remaining)
+               kar liye ho to oversell ho sakta hai. Isiliye yahan dobara.
+               Unpaid leave quota consume nahi karti, isliye skip. */
+            if (row.IsPaid)
             {
-                return LeaveResult.Conflict(
-                    $"Cannot approve — {row.EmployeeName} has only {remaining} " +
-                    $"{row.LeaveType} day{(remaining == 1 ? "" : "s")} left but this request needs {row.Days}");
+                var balance = await GetBalanceAsync(row.EmployeeId);
+                if (!balance.Balance.TryGetValue(row.LeaveType, out var balanceRow))
+                {
+                    return LeaveResult.Conflict(
+                        $"{row.LeaveType} leave has no quota configured. Contact HR.");
+                }
+
+                var remaining = Math.Max(0m, balanceRow.Total - balanceRow.Used);
+                if (row.Days > remaining)
+                {
+                    return LeaveResult.Conflict(
+                        $"Cannot approve — {row.EmployeeName} has only " +
+                        $"{FormatDays(remaining)} {row.LeaveType} " +
+                        $"day{(remaining == 1m ? "" : "s")} left but this request " +
+                        $"needs {FormatDays(row.Days)}");
+                }
             }
 
             /* ---- Update ----
@@ -400,7 +445,7 @@ namespace ASPCoreWebAPI.Services
         // =====================================================================
 
         private async Task NotifyAdminsOfNewRequestAsync(
-            Leave leave, int employeeId, string type, DateTime from, DateTime to, int days)
+            Leave leave, int employeeId, string type, DateTime from, DateTime to, decimal days)
         {
             var employee = await _employeeRepository.GetByIdAsync(employeeId);
             if (employee == null || employee.UserId == null)
@@ -429,7 +474,8 @@ namespace ASPCoreWebAPI.Services
                     Title = "New leave request",
                     Message =
                         $"{employeeName} applied for {type} leave " +
-                        $"({FormatRange(from, to)}, {days} day{(days == 1 ? "" : "s")}).",
+                        $"({FormatRange(from, to)}, {FormatDays(days)} " +
+                        $"day{(days == 1m ? "" : "s")}).",
                     Link = "/admin/leaves",
                 })
                 .ToList();
@@ -452,8 +498,9 @@ namespace ASPCoreWebAPI.Services
             }
 
             var message =
-                $"Your {row.LeaveType} leave ({FormatRange(row.StartDate, row.EndDate)}, {row.Days} " +
-                $"day{(row.Days == 1 ? "" : "s")}) was {status.ToLowerInvariant()} by {reviewerName}.";
+                $"Your {row.LeaveType} leave ({FormatRange(row.StartDate, row.EndDate)}, " +
+                $"{FormatDays(row.Days)} day{(row.Days == 1m ? "" : "s")}) " +
+                $"was {status.ToLowerInvariant()} by {reviewerName}.";
 
             if (!string.IsNullOrWhiteSpace(comment))
             {
@@ -488,6 +535,11 @@ namespace ASPCoreWebAPI.Services
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.None,
                 out date);
+
+        /* 0.5 ko "0.5" dikhana hai, "0.50" nahi — numeric(4,1) DB se aata
+           hai isliye trailing zero trim karte hain. */
+        private static string FormatDays(decimal days) =>
+            days.ToString("0.#", CultureInfo.InvariantCulture);
 
         /* Notification ke liye chhota range — "12–14 Sep" ya "28 Sep – 2 Oct". */
         private static string FormatRange(DateTime from, DateTime to)

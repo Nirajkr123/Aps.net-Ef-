@@ -14,14 +14,6 @@ const DAY_COLORS = {
     empty: "#f3f4f6",
 };
 
-const FALLBACK_DATA = [
-    { date: "2025-09-08", checkIn: "09:02", checkOut: "18:10" },
-    { date: "2025-09-09", checkIn: "09:15", checkOut: "18:30" },
-    { date: "2025-09-10", checkIn: "08:55", checkOut: "17:50" },
-    { date: "2025-09-11", checkIn: "09:30", checkOut: "18:00" },
-    { date: "2025-09-12", checkIn: "09:10", checkOut: "18:20" },
-];
-
 function calcHours(checkIn, checkOut) {
     if (!checkIn || !checkOut) return 0;
     const [cH, cM] = checkIn.split(":").map(Number);
@@ -40,7 +32,7 @@ function WorkingHoursCard() {
                 const { data: res } = await employeeServ.getWeeklyAttendance();
                 setData(res);
             } catch {
-                setData(FALLBACK_DATA);
+                setData([]);
             } finally {
                 setLoading(false);
             }

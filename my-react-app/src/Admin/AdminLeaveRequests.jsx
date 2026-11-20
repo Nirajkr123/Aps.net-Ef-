@@ -1,23 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
     Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Container,
-    Divider,
-    Skeleton,
+    Checkbox,
+    FormControl,
+    InputLabel,
+    MenuItem,
+    Select,
     Snackbar,
-    Typography,
+    TextField,
 } from "@mui/material";
 import {
+    CancelRounded,
     CheckCircleRounded,
-    CloseRounded,
     EventBusyOutlined,
     RefreshRounded,
+    VisibilityOutlined,
 } from "@mui/icons-material";
 
 import Sidebar from "./Sidebar";
@@ -25,87 +23,45 @@ import Navbar from "./Navbar";
 import "./AdminDashboard.css";
 import "./AdminLeaveRequests.css";
 
-import leaveService, { isAdminRole, toISODate } from "../services/leaveService";
+import leaveService, { isAdminRole } from "../services/leaveService";
 import { useLeave } from "../context/LeaveContext";
-import PageHeroBanner from "../Employee/components/PageHeroBanner";
-import { CARD_SX, INDIGO } from "../Employee/components/leaves/leaveShared";
-import AdminLeaveStatCards from "./components/leaves/AdminLeaveStatCards";
-import AdminLeaveFilters from "./components/leaves/AdminLeaveFilters";
-import LeaveRequestTable from "./components/leaves/LeaveRequestTable";
-import LeaveRequestCardList from "./components/leaves/LeaveRequestCardList";
+import {
+    LEAVE_TYPES,
+    formatDateTime,
+    formatRange,
+    typeColor,
+} from "../Employee/components/leaves/leaveShared";
 import ApproveDialog from "./components/leaves/ApproveDialog";
 import RejectDialog from "./components/leaves/RejectDialog";
 import LeaveDetailsDrawer from "./components/leaves/LeaveDetailsDrawer";
+import {
+    CountBadge,
+    DataTable,
+    EmptyState,
+    FilterPills,
+    MobileCard,
+    MobileCardList,
+    PageHeader,
+    Pagination,
+    RowActions,
+    SearchInput,
+    StatusBadge,
+} from "../components/admin";
 
-/* ---- List skeleton (loading state) ------------------------------------ */
-function RequestSkeleton() {
-    return (
-        <Box sx={{ px: { xs: 2, md: 2.5 }, pb: 2.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-                <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Skeleton variant="circular" width={32} height={32} />
-                    <Skeleton width="20%" height={20} />
-                    <Skeleton width="16%" height={20} />
-                    <Skeleton width="30%" height={20} sx={{ display: { xs: "none", md: "block" } }} />
-                    <Skeleton variant="rounded" width={70} height={26} sx={{ ml: "auto !important" }} />
-                </Box>
-            ))}
-        </Box>
-    );
-}
+const PAGE_SIZE = 10;
+const MOBILE_BATCH = 5;
 
-function EmptyRequests({ onReset, hasFilters }) {
-    return (
-        <Box sx={{ py: { xs: 5, md: 7 }, px: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-            <Box
-                sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    bgcolor: "#f4f5fb",
-                    border: "1px dashed #d7dbe8",
-                    color: "#b6bcd0",
-                    mb: 0.5,
-                }}
-            >
-                <EventBusyOutlined sx={{ fontSize: 30 }} />
-            </Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "text.primary" }}>
-                No leave requests found
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", maxWidth: 340 }}>
-                {hasFilters
-                    ? "Nothing matches the current filters. Try a different status, name, type or date range."
-                    : "There are no leave requests to review right now."}
-            </Typography>
-            {hasFilters && (
-                <Button
-                    variant="outlined"
-                    onClick={onReset}
-                    sx={{
-                        mt: 1,
-                        minHeight: 42,
-                        textTransform: "none",
-                        fontWeight: 700,
-                        borderRadius: 2.5,
-                        px: 2.5,
-                        color: INDIGO,
-                        borderColor: "#d7d9f7",
-                        "&:hover": { bgcolor: "#f4f2ff", borderColor: INDIGO },
-                    }}
-                >
-                    Reset filters
-                </Button>
-            )}
-        </Box>
-    );
-}
+const initialsOf = (name) =>
+    (name || "?")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("");
 
 function AdminLeaveRequests() {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const {
         leaves,
@@ -125,106 +81,64 @@ function AdminLeaveRequests() {
         }
     });
     const [collapsed, setCollapsed] = useState(false);
-    const [notice, setNotice] = useState(null); // { severity, message }
+    const [notice, setNotice] = useState(null);
 
-    /* ---- Filters (saare list ke upar, list se pehle) ---- */
-    const [statusFilter, setStatusFilter] = useState("Pending"); // default: Pending
+    const [statusFilter, setStatusFilter] = useState("Pending");
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState("");
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
-    const [selected, setSelected] = useState([]); // bulk approve ke liye
+    const [selected, setSelected] = useState([]);
 
-    /* ---- Dialog / drawer state ---- */
+    const [page, setPage] = useState(0);
+    const [mobileVisible, setMobileVisible] = useState(MOBILE_BATCH);
+
     const [approveTarget, setApproveTarget] = useState(null);
     const [rejectTarget, setRejectTarget] = useState(null);
     const [detailsTarget, setDetailsTarget] = useState(null);
-    const [busy, setBusy] = useState(false); // approve/reject in-flight
+    const [busy, setBusy] = useState(false);
     const [bulkBusy, setBulkBusy] = useState(false);
     const [targetBalance, setTargetBalance] = useState(null);
 
-    /* Role guard. Route par bhi `RequireAuth` hai — ye defense in depth hai,
-       taaki koi galti se page render ho jaaye to bhi data leak na ho.
-
-       NOTE: guard ka `return` saare hooks ke BAAD aana zaroori hai, warna
-       role change par hooks ka order badal jaata hai (rules-of-hooks
-       error) — isliye yahan sirf flag set hota hai, redirect neeche hota
-       hai. */
     const role = user?.role || me?.role;
     const authorized = isAdminRole(role);
-
-    /* ---- Counts (POORI list se, filters se nahi) -------------------------
-       Stat cards hamesha "sab employees ke across" numbers dikhate hain,
-       isiliye ye `leaves` se bante hain, filtered list se nahi. */
-    const today = toISODate(new Date());
 
     const counts = useMemo(
         () => ({
             All: leaves.length,
-            Pending: leaves.filter((l) => l.status === "Pending").length,
-            Approved: leaves.filter((l) => l.status === "Approved").length,
-            Rejected: leaves.filter((l) => l.status === "Rejected").length,
-            Cancelled: leaves.filter((l) => l.status === "Cancelled").length,
+            Pending: leaves.filter((leave) => leave.status === "Pending").length,
+            Approved: leaves.filter((leave) => leave.status === "Approved").length,
+            Rejected: leaves.filter((leave) => leave.status === "Rejected").length,
+            Cancelled: leaves.filter((leave) => leave.status === "Cancelled").length,
         }),
         [leaves]
     );
 
-    /* "On Leave Today" — approved leave jisme aaj aa raha hai, employees
-       ki sankhya (requests ki nahi). Ek employee do alag approved leaves
-       me ho to bhi ek hi baar count hota hai. */
-    const onLeaveToday = useMemo(() => {
-        const ids = new Set();
-        leaves.forEach((l) => {
-            if (l.status === "Approved" && l.from <= today && today <= l.to) ids.add(l.employeeId);
-        });
-        return ids.size;
-    }, [leaves, today]);
-
-    const stats = useMemo(
-        () => ({
-            pending: counts.Pending,
-            approved: counts.Approved,
-            rejected: counts.Rejected,
-            onLeaveToday,
-        }),
-        [counts, onLeaveToday]
-    );
-
-    /* ---- Filtered list -------------------------------------------------- */
     const visible = useMemo(() => {
         const term = search.trim().toLowerCase();
         return leaves
-            .filter((l) => (statusFilter === "All" ? true : l.status === statusFilter))
-            .filter((l) => (typeFilter ? l.type === typeFilter : true))
-            .filter((l) => (term ? l.employeeName.toLowerCase().includes(term) : true))
-            /* Date range `from`/`to` par leave ka span filter hota hai. */
-            .filter((l) => (from ? l.to >= from : true))
-            .filter((l) => (to ? l.from <= to : true));
+            .filter((leave) => (statusFilter === "All" ? true : leave.status === statusFilter))
+            .filter((leave) => (typeFilter ? leave.type === typeFilter : true))
+            .filter((leave) => (term ? leave.employeeName.toLowerCase().includes(term) : true))
+            .filter((leave) => (from ? leave.to >= from : true))
+            .filter((leave) => (to ? leave.from <= to : true));
     }, [leaves, statusFilter, typeFilter, search, from, to]);
 
-    /* Filter change hone par purani selection stale ho jaati hai — un
-       records ki ab shayad list me bhi nahi. */
     useEffect(() => {
         setSelected((prev) => {
-            const visibleIds = new Set(visible.map((l) => l.id));
+            const visibleIds = new Set(visible.map((leave) => leave.id));
             const next = prev.filter((id) => visibleIds.has(id));
             return next.length === prev.length ? prev : next;
         });
     }, [visible]);
 
-    const hasFilters = !!(search || typeFilter || from || to || (statusFilter && statusFilter !== "All"));
+    useEffect(() => {
+        setPage(0);
+        setMobileVisible(MOBILE_BATCH);
+    }, [statusFilter, search, typeFilter, from, to]);
 
-    const resetFilters = () => {
-        setStatusFilter("All");
-        setSearch("");
-        setTypeFilter("");
-        setFrom("");
-        setTo("");
-    };
-
-    /* ---- Selection (bulk approve ke liye) ------------------------------- */
     const pendingIds = useMemo(
-        () => visible.filter((l) => l.status === "Pending").map((l) => l.id),
+        () => visible.filter((leave) => leave.status === "Pending").map((leave) => leave.id),
         [visible]
     );
 
@@ -236,10 +150,6 @@ function AdminLeaveRequests() {
 
     const toggleAll = () => setSelected(allSelected ? [] : pendingIds);
 
-    /* ---- Actions --------------------------------------------------------- */
-
-    /* Approve dialog me us employee ka CURRENT balance dikhate hain, taaki
-       admin approve se pehle dekh le ki kitna bachega. */
     const openApprove = useCallback(async (leave) => {
         setDetailsTarget(null);
         setApproveTarget(leave);
@@ -247,8 +157,7 @@ function AdminLeaveRequests() {
         try {
             setTargetBalance(await leaveService.getEmployeeBalance(leave.employeeId));
         } catch {
-            /* Balance na mile to dialog balance block chhupa dega — approve
-               phir bhi kaam karega. */
+            /* Balance missing ho to dialog block chhupa deta hai. */
         }
     }, []);
 
@@ -256,6 +165,8 @@ function AdminLeaveRequests() {
         setDetailsTarget(null);
         setRejectTarget(leave);
     }, []);
+
+    const openDetails = (leave) => setDetailsTarget(leave);
 
     const confirmApprove = async (leave) => {
         setBusy(true);
@@ -267,9 +178,9 @@ function AdminLeaveRequests() {
                 severity: "success",
                 message: `${updated.employeeName}'s ${updated.type} leave (${updated.days}d) approved.`,
             });
-        } catch (e) {
+        } catch (error) {
             setApproveTarget(null);
-            setNotice({ severity: "error", message: e?.message || "Could not approve the request." });
+            setNotice({ severity: "error", message: error?.message || "Could not approve the request." });
         } finally {
             setBusy(false);
         }
@@ -285,17 +196,14 @@ function AdminLeaveRequests() {
                 severity: "success",
                 message: `${updated.employeeName}'s request rejected and they have been notified.`,
             });
-        } catch (e) {
+        } catch (error) {
             setRejectTarget(null);
-            setNotice({ severity: "error", message: e?.message || "Could not reject the request." });
+            setNotice({ severity: "error", message: error?.message || "Could not reject the request." });
         } finally {
             setBusy(false);
         }
     };
 
-    /* Bulk approve — ek-ek karke, isliye server ka status-guard har record
-       par lagta hai. Ek fail ho to baaki bhi approve nahi honge (error
-       Snackbar me dikhta hai). */
     const confirmBulkApprove = async () => {
         const ids = [...selected];
         if (ids.length === 0) return;
@@ -307,15 +215,24 @@ function AdminLeaveRequests() {
                 severity: "success",
                 message: `${done.length} leave ${done.length === 1 ? "request" : "requests"} approved.`,
             });
-        } catch (e) {
-            setNotice({ severity: "error", message: e?.message || "Bulk approval failed." });
+        } catch (error) {
+            setNotice({ severity: "error", message: error?.message || "Bulk approval failed." });
         } finally {
             setBulkBusy(false);
         }
     };
 
-    /* ---- Drawer --------------------------------------------------------- */
-    const openDetails = (leave) => setDetailsTarget(leave);
+    useEffect(() => {
+        const targetId = location.state?.openLeaveId;
+        if (targetId == null || leaves.length === 0) return;
+
+        const leave = leaves.find((item) => String(item.id) === String(targetId));
+        if (!leave) return;
+
+        setStatusFilter("All");
+        setDetailsTarget(leave);
+        navigate(location.pathname, { replace: true, state: null });
+    }, [location.state, location.pathname, leaves, navigate]);
 
     const handleLogout = () => {
         localStorage.removeItem("user");
@@ -327,26 +244,174 @@ function AdminLeaveRequests() {
         ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Administrator"
         : me?.name || "Administrator";
 
-    /* Stat card click = us status ka filter. "On Leave Today" card par koi
-       filter nahi (wo ek count hai, status nahi). */
-    const handleStatSelect = (key) => {
-        if (key === "onLeaveToday") return;
-        setStatusFilter((prev) => (prev === key ? "All" : key));
+    const hasFilters = Boolean(search || typeFilter || from || to || statusFilter !== "All");
+
+    const resetFilters = () => {
+        setStatusFilter("All");
+        setSearch("");
+        setTypeFilter("");
+        setFrom("");
+        setTo("");
     };
 
-    const activeStatKey = statusFilter === "All" ? null : statusFilter.toLowerCase();
+    const guard = (fn) => (event) => {
+        event?.stopPropagation?.();
+        fn();
+    };
 
-    const periodLabel = useMemo(
-        () => new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
-        []
+    const rowActions = (leave) => {
+        const actions = [
+            {
+                key: "view",
+                label: "View details",
+                ariaLabel: `View ${leave.employeeName}'s leave request`,
+                icon: VisibilityOutlined,
+                onClick: guard(() => openDetails(leave)),
+            },
+        ];
+
+        if (leave.status === "Pending") {
+            actions.push({
+                key: "approve",
+                label: "Approve",
+                ariaLabel: `Approve ${leave.employeeName}'s ${leave.type} leave`,
+                icon: CheckCircleRounded,
+                onClick: guard(() => openApprove(leave)),
+            });
+            actions.push({
+                key: "reject",
+                label: "Reject",
+                ariaLabel: `Reject ${leave.employeeName}'s ${leave.type} leave`,
+                icon: CancelRounded,
+                tone: "danger",
+                onClick: guard(() => openReject(leave)),
+            });
+        }
+
+        return actions;
+    };
+
+    const columns = [
+        {
+            key: "select",
+            header: (
+                <Checkbox
+                    size="small"
+                    checked={allSelected}
+                    indeterminate={someSelected && !allSelected}
+                    onChange={toggleAll}
+                    disabled={pendingIds.length === 0}
+                    inputProps={{ "aria-label": "Select all pending leave requests" }}
+                />
+            ),
+            align: "center",
+            width: 52,
+            render: (leave) => (
+                <span onClick={(event) => event.stopPropagation()}>
+                    <Checkbox
+                        size="small"
+                        checked={selected.includes(leave.id)}
+                        disabled={leave.status !== "Pending"}
+                        onChange={() => toggleSelect(leave.id)}
+                        inputProps={{ "aria-label": `Select leave request from ${leave.employeeName}` }}
+                    />
+                </span>
+            ),
+        },
+        {
+            key: "employee",
+            header: "Employee",
+            render: (leave) => (
+                <span className="adm-leave-person">
+                    <span className="adm-leave-avatar" aria-hidden="true">
+                        {initialsOf(leave.employeeName)}
+                    </span>
+                    <span className="adm-leave-person-copy">
+                        <span className="admin-cell-primary">{leave.employeeName}</span>
+                        <span className="admin-cell-sub">
+                            {[leave.departmentName, leave.designationTitle].filter(Boolean).join(" · ") ||
+                                leave.employeeCode ||
+                                "—"}
+                        </span>
+                    </span>
+                </span>
+            ),
+        },
+        {
+            key: "type",
+            header: "Type",
+            render: (leave) => (
+                <span className="adm-leave-type">
+                    <span
+                        className="adm-leave-dot"
+                        style={{ background: typeColor(leave.type) }}
+                        aria-hidden="true"
+                    />
+                    {leave.type}
+                </span>
+            ),
+        },
+        {
+            key: "dates",
+            header: "Dates",
+            render: (leave) => <span className="adm-leave-range-primary">{formatRange(leave.from, leave.to)}</span>,
+        },
+        {
+            key: "days",
+            header: "Days",
+            align: "center",
+            render: (leave) => (
+                <CountBadge value={leave.days} label={leave.days === 1 ? "day" : "days"} />
+            ),
+        },
+        {
+            key: "applied",
+            header: "Applied",
+            render: (leave) => <span className="adm-leave-muted">{formatDateTime(leave.appliedOn)}</span>,
+        },
+        {
+            key: "status",
+            header: "Status",
+            render: (leave) => <StatusBadge status={leave.status} />,
+        },
+        {
+            key: "actions",
+            header: "Actions",
+            align: "right",
+            render: (leave) => <RowActions actions={rowActions(leave)} />,
+        },
+    ];
+
+    const emptyState = (
+        <EmptyState
+            icon={<EventBusyOutlined />}
+            title={hasFilters ? "No leave requests match these filters." : "No leave requests to review."}
+            subtitle={
+                hasFilters
+                    ? "Try a different status, name, type or date range."
+                    : "New requests will appear here as soon as employees apply."
+            }
+            action={
+                hasFilters ? (
+                    <button type="button" className="admin-btn is-ghost-dark" onClick={resetFilters}>
+                        Reset filters
+                    </button>
+                ) : null
+            }
+        />
     );
+
+    const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+    const safePage = Math.min(page, pageCount - 1);
+    const pagedLeaves = visible.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+    const mobileLeaves = visible.slice(0, mobileVisible);
 
     if (!authorized) {
         return <Navigate to="/dashboard" replace />;
     }
 
     return (
-        <div className="dash-page emp-page">
+        <div className="dash-page admin-page-shell">
             <Sidebar
                 activeKey="leaves"
                 onLogout={handleLogout}
@@ -363,182 +428,166 @@ function AdminLeaveRequests() {
                     onLogout={handleLogout}
                     collapsed={collapsed}
                     onToggleSidebar={() => setCollapsed(!collapsed)}
-                    search={search}
-                    onSearchChange={setSearch}
-                    searchPlaceholder="Search employees..."
                 />
 
                 <div className="dash-content">
-                    <Box className="emp-leave-page">
-                        <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
-                            {/* ---- Page hero: same component as My Leaves, isiliye
-                                dono pages visually ek jaise lagte hain. ---- */}
-                            <PageHeroBanner
-                                title="Leave Requests"
-                                subtitle="Review and approve employee leaves"
-                                chips={[
-                                    { label: periodLabel, variant: "outlined" },
-                                    { label: `${counts.Pending} pending`, variant: "outlined", color: "warning" },
-                                    { label: "Demo data", variant: "outlined", color: "warning" },
-                                ]}
-                                action={
-                                    <Button
-                                        variant="contained"
-                                        startIcon={<RefreshRounded />}
-                                        onClick={reload}
-                                        sx={{
-                                            bgcolor: "#ffffff",
-                                            color: INDIGO,
-                                            minHeight: 44,
-                                            whiteSpace: "nowrap",
-                                            fontWeight: 700,
-                                            textTransform: "none",
-                                            borderRadius: 2.5,
-                                            px: 2.5,
-                                            boxShadow: "0 8px 20px -8px rgba(79,70,229,0.55)",
-                                            "&:hover": { bgcolor: "#f4f2ff", transform: "translateY(-1px)" },
-                                        }}
-                                    >
-                                        Refresh
-                                    </Button>
-                                }
-                            />
+                    <div className="admin-page">
+                        <PageHeader
+                            title="Leave Requests"
+                            subtitle="Review, approve and track employee leave requests"
+                            actions={[
+                                {
+                                    key: "refresh",
+                                    label: "Refresh",
+                                    icon: RefreshRounded,
+                                    variant: "primary",
+                                    onClick: reload,
+                                },
+                            ]}
+                        />
 
-                            {/* ---- Stat cards ---- */}
-                            <Box sx={{ mb: { xs: 2, md: 2.5 } }}>
-                                <AdminLeaveStatCards
-                                    stats={stats}
-                                    loading={loading}
-                                    activeKey={activeStatKey}
-                                    onSelect={handleStatSelect}
+                        <div className="admin-toolbar">
+                            <div className="admin-toolbar-left">
+                                <SearchInput
+                                    value={search}
+                                    onChange={setSearch}
+                                    placeholder="Search by employee name..."
+                                    ariaLabel="Search leave requests"
                                 />
-                            </Box>
 
-                            {/* ---- Requests list ---- */}
-                            <Card sx={{ ...CARD_SX, overflow: "hidden" }}>
-                                <CardContent sx={{ p: 0, "&:last-child": { pb: 0 } }}>
-                                    {/* Card head — title + count + bulk action */}
-                                    <Box
-                                        sx={{
-                                            px: { xs: 2, md: 2.5 },
-                                            pt: 2,
-                                            pb: 1.5,
-                                            display: "flex",
-                                            flexWrap: "wrap",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: 1.25,
-                                        }}
+                                <FormControl size="small" sx={{ minWidth: 160 }}>
+                                    <InputLabel id="admin-leave-type-filter">Leave type</InputLabel>
+                                    <Select
+                                        labelId="admin-leave-type-filter"
+                                        label="Leave type"
+                                        value={typeFilter}
+                                        onChange={(event) => setTypeFilter(event.target.value)}
                                     >
-                                        <Box sx={{ minWidth: 0 }}>
-                                            <Typography
-                                                variant="h6"
-                                                sx={{ fontWeight: 800, color: "text.primary", fontSize: { xs: 16.5, md: 18 } }}
-                                            >
-                                                {statusFilter === "All" ? "All requests" : `${statusFilter} requests`}
-                                            </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                {loading
-                                                    ? "Loading…"
-                                                    : `${visible.length} of ${leaves.length} shown`}
-                                            </Typography>
-                                        </Box>
+                                        <MenuItem value="">All types</MenuItem>
+                                        {LEAVE_TYPES.map((type) => (
+                                            <MenuItem key={type} value={type}>
+                                                {type}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-                                            {/* Selected count — tab dikhta hai jab
-                                                kuch select ho. */}
-                                            {selected.length > 0 && (
-                                                <Chip
-                                                    label={`${selected.length} selected`}
-                                                    size="small"
-                                                    onDelete={() => setSelected([])}
-                                                    deleteIcon={<CloseRounded sx={{ fontSize: 15 }} />}
-                                                    sx={{
-                                                        fontWeight: 700,
-                                                        fontSize: 12,
-                                                        bgcolor: "#eef0ff",
-                                                        color: INDIGO,
-                                                        height: 34,
-                                                    }}
-                                                />
-                                            )}
-
-                                            <Button
-                                                variant="contained"
-                                                color="success"
-                                                startIcon={<CheckCircleRounded sx={{ fontSize: "18px !important" }} />}
-                                                onClick={confirmBulkApprove}
-                                                disabled={selected.length === 0 || bulkBusy}
-                                                sx={{
-                                                    textTransform: "none",
-                                                    fontWeight: 700,
-                                                    minHeight: 38,
-                                                    fontSize: 13,
-                                                    borderRadius: 2.5,
-                                                    px: 1.75,
-                                                    boxShadow: selected.length
-                                                        ? "0 8px 20px -8px rgba(5,150,105,0.6)"
-                                                        : "none",
-                                                }}
-                                            >
-                                                {bulkBusy ? "Approving…" : "Approve selected"}
-                                            </Button>
-                                        </Box>
-                                    </Box>
-
-                                    <AdminLeaveFilters
-                                        status={statusFilter}
-                                        onStatusChange={setStatusFilter}
-                                        counts={counts}
-                                        search={search}
-                                        onSearchChange={setSearch}
-                                        type={typeFilter}
-                                        onTypeChange={setTypeFilter}
-                                        from={from}
-                                        to={to}
-                                        onRangeChange={(f, t) => {
-                                            setFrom(f);
-                                            setTo(t);
+                                <div className="adm-leave-date-range">
+                                    <TextField
+                                        label="From"
+                                        type="date"
+                                        size="small"
+                                        value={from}
+                                        onChange={(event) => setFrom(event.target.value)}
+                                        slotProps={{
+                                            inputLabel: { shrink: true },
+                                            htmlInput: { max: to || undefined },
                                         }}
                                     />
+                                    <TextField
+                                        label="To"
+                                        type="date"
+                                        size="small"
+                                        value={to}
+                                        onChange={(event) => setTo(event.target.value)}
+                                        slotProps={{
+                                            inputLabel: { shrink: true },
+                                            htmlInput: { min: from || undefined },
+                                        }}
+                                    />
+                                </div>
+                            </div>
 
-                                    <Divider />
+                            <div className="admin-toolbar-right">
+                                <FilterPills
+                                    ariaLabel="Filter leave requests by status"
+                                    value={statusFilter}
+                                    onChange={setStatusFilter}
+                                    options={[
+                                        { key: "All", label: "All", count: counts.All },
+                                        { key: "Pending", label: "Pending", count: counts.Pending },
+                                        { key: "Approved", label: "Approved", count: counts.Approved },
+                                        { key: "Rejected", label: "Rejected", count: counts.Rejected },
+                                        { key: "Cancelled", label: "Cancelled", count: counts.Cancelled },
+                                    ]}
+                                />
+                            </div>
+                        </div>
 
-                                    {loading ? (
-                                        <RequestSkeleton />
-                                    ) : visible.length === 0 ? (
-                                        <EmptyRequests onReset={resetFilters} hasFilters={hasFilters} />
-                                    ) : (
-                                        <>
-                                            <LeaveRequestTable
-                                                leaves={visible}
-                                                selected={selected}
-                                                onToggleSelect={toggleSelect}
-                                                onToggleAll={toggleAll}
-                                                onOpenDetails={openDetails}
-                                                onApprove={openApprove}
-                                                onReject={openReject}
-                                                allSelected={allSelected}
-                                                someSelected={someSelected}
-                                            />
-                                            <LeaveRequestCardList
-                                                leaves={visible}
-                                                selected={selected}
-                                                onToggleSelect={toggleSelect}
-                                                onOpenDetails={openDetails}
-                                                onApprove={openApprove}
-                                                onReject={openReject}
-                                            />
-                                        </>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Container>
-                    </Box>
+                        {selected.length > 0 && (
+                            <div className="adm-leave-selection">
+                                <span>
+                                    {selected.length} {selected.length === 1 ? "request" : "requests"} selected
+                                </span>
+                                <div className="adm-leave-selection-actions">
+                                    <button
+                                        type="button"
+                                        className="admin-btn is-ghost-dark"
+                                        onClick={() => setSelected([])}
+                                        disabled={bulkBusy}
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="admin-btn is-primary-solid"
+                                        onClick={confirmBulkApprove}
+                                        disabled={bulkBusy}
+                                    >
+                                        {bulkBusy ? "Approving…" : "Approve selected"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <DataTable
+                            ariaLabel="Leave requests"
+                            columns={columns}
+                            rows={pagedLeaves}
+                            rowKey="id"
+                            loading={loading}
+                            skeletonRows={PAGE_SIZE}
+                            empty={emptyState}
+                            onRowClick={(leave) => openDetails(leave)}
+                        />
+
+                        <Pagination
+                            page={safePage}
+                            pageSize={PAGE_SIZE}
+                            total={visible.length}
+                            onPageChange={setPage}
+                        />
+
+                        <MobileCardList
+                            items={mobileLeaves}
+                            loading={loading}
+                            getKey={(leave) => leave.id}
+                            hasMore={visible.length > mobileVisible}
+                            onLoadMore={() => setMobileVisible((prev) => prev + MOBILE_BATCH)}
+                            empty={emptyState}
+                            renderItem={(leave) => (
+                                <MobileCard
+                                    title={leave.employeeName}
+                                    subtitle={leave.reason || "No reason provided"}
+                                    badge={<StatusBadge status={leave.status} />}
+                                    fields={[
+                                        { label: "Type", value: leave.type },
+                                        { label: "Dates", value: formatRange(leave.from, leave.to) },
+                                        {
+                                            label: "Days",
+                                            value: `${leave.days} ${leave.days === 1 ? "day" : "days"}`,
+                                        },
+                                        { label: "Applied", value: formatDateTime(leave.appliedOn) },
+                                    ]}
+                                    actions={rowActions(leave)}
+                                    ariaLabel={`${leave.employeeName}'s ${leave.type} leave request`}
+                                />
+                            )}
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* ---- Dialogs & drawer ---- */}
             <ApproveDialog
                 open={!!approveTarget}
                 leave={approveTarget}
@@ -564,7 +613,6 @@ function AdminLeaveRequests() {
                 onReject={() => openReject(detailsTarget)}
             />
 
-            {/* ---- Snackbar ---- */}
             <Snackbar
                 open={!!notice}
                 autoHideDuration={4000}

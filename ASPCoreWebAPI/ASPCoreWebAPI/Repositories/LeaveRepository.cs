@@ -26,6 +26,8 @@ namespace ASPCoreWebAPI.Repositories
                    l.""Status"",
                    l.""CreatedDate""::timestamp AS ""CreatedDate"",
                    l.""Days"",
+                   l.""HalfDay"",
+                   COALESCE(lt.is_paid, TRUE) AS ""IsPaid"",
                    l.""ReviewedBy"",
                    l.""ReviewedOn""::timestamp AS ""ReviewedOn"",
                    l.""AdminComment"",
@@ -38,7 +40,8 @@ namespace ASPCoreWebAPI.Repositories
               LEFT JOIN ""Employees""   e   ON e.""Id"" = l.""EmployeeId""
               LEFT JOIN ""Users""       u   ON u.""Id"" = e.""UserId""
               LEFT JOIN ""Departments"" dep ON dep.""Id"" = e.""DepartmentId""
-              LEFT JOIN ""Designations"" des ON des.""Id"" = e.""DesignationId""";
+              LEFT JOIN ""Designations"" des ON des.""Id"" = e.""DesignationId""
+              LEFT JOIN leave_types     lt  ON LOWER(lt.name) = LOWER(l.""LeaveType"")";
 
         // ---------------------------------------------------------------------
         //  Reads
@@ -140,6 +143,17 @@ namespace ASPCoreWebAPI.Repositories
                 new { Id = id });
         }
 
+        public async Task<List<LeaveTypeOption>> GetTypesAsync()
+        {
+            using var connection = await _dataSource.OpenConnectionAsync();
+            var rows = await connection.QueryAsync<LeaveTypeOption>(
+                @"SELECT name AS ""Name"", is_paid AS ""IsPaid""
+                    FROM leave_types
+                   WHERE COALESCE(is_active, TRUE)
+                   ORDER BY id");
+            return rows.AsList();
+        }
+
         // ---------------------------------------------------------------------
         //  Writes
         // ---------------------------------------------------------------------
@@ -151,10 +165,10 @@ namespace ASPCoreWebAPI.Repositories
             var id = await connection.ExecuteScalarAsync<int>(@"
                 INSERT INTO ""Leaves""
                        (""EmployeeId"", ""LeaveType"", ""StartDate"", ""EndDate"",
-                        ""Reason"", ""Status"", ""CreatedDate"", ""Days"",
+                        ""Reason"", ""Status"", ""CreatedDate"", ""Days"", ""HalfDay"",
                         ""ReviewedBy"", ""ReviewedOn"", ""AdminComment"")
                 VALUES (@EmployeeId, @LeaveType, @StartDate, @EndDate,
-                        @Reason, @Status, @CreatedDate, @Days,
+                        @Reason, @Status, @CreatedDate, @Days, @HalfDay,
                         NULL, NULL, NULL)
                 RETURNING ""Id""",
                 new
@@ -167,6 +181,7 @@ namespace ASPCoreWebAPI.Repositories
                     leave.Status,
                     leave.CreatedDate,
                     leave.Days,
+                    leave.HalfDay,
                 });
 
             leave.Id = id;
@@ -209,28 +224,30 @@ namespace ASPCoreWebAPI.Repositories
         //  Balance
         // ---------------------------------------------------------------------
 
-        public async Task<Dictionary<string, int>> GetUsedDaysAsync(int employeeId, int year)
+        public async Task<Dictionary<string, decimal>> GetUsedDaysAsync(int employeeId, int year)
         {
             using var connection = await _dataSource.OpenConnectionAsync();
 
             /* SUM("Days"), COUNT(*) nahi — ek 9-din ki approved leave 9 ginti
-               hai. Saal filter `StartDate` par hai (leave kab li, kab se
-               quota consume hua). */
-            var rows = await connection.QueryAsync<(string LeaveType, int Used)>(@"
-                SELECT ""LeaveType"", COALESCE(SUM(""Days""), 0) AS ""Used""
-                  FROM ""Leaves""
-                 WHERE ""EmployeeId"" = @EmployeeId
-                   AND ""Status"" = 'Approved'
-                   AND EXTRACT(YEAR FROM ""StartDate"") = @Year
-                 GROUP BY ""LeaveType""",
+               hai aur half-day 0.5. Unpaid types quota consume nahi karte,
+               isiliye join se filter. Saal filter `StartDate` par hai. */
+            var rows = await connection.QueryAsync<(string LeaveType, decimal Used)>(@"
+                SELECT l.""LeaveType"", COALESCE(SUM(l.""Days""), 0) AS ""Used""
+                  FROM ""Leaves"" l
+                  JOIN leave_types lt ON LOWER(lt.name) = LOWER(l.""LeaveType"")
+                 WHERE l.""EmployeeId"" = @EmployeeId
+                   AND l.""Status"" = 'Approved'
+                   AND lt.is_paid
+                   AND EXTRACT(YEAR FROM l.""StartDate"") = @Year
+                 GROUP BY l.""LeaveType""",
                 new { EmployeeId = employeeId, Year = year });
 
             /* Saare types ke liye 0 default — frontend `total - used` karta
                hai, missing key se woh NaN de sakta tha. */
-            var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
             foreach (var type in LeaveQuota.Defaults.Keys)
             {
-                result[type] = 0;
+                result[type] = 0m;
             }
 
             foreach (var (leaveType, used) in rows)

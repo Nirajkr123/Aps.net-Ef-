@@ -12,8 +12,6 @@ const COLORS = {
     absent: "#dc2626",
 };
 
-const FALLBACK = { present: 18, late: 3, absent: 2 };
-
 function AttendanceSummaryCard() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -24,7 +22,7 @@ function AttendanceSummaryCard() {
                 const { data: res } = await employeeServ.getAttendanceSummary();
                 setData(res);
             } catch {
-                setData(FALLBACK);
+                setData({ present: 0, late: 0, absent: 0 });
             } finally {
                 setLoading(false);
             }

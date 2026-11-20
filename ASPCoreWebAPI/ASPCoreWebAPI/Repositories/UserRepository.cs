@@ -140,6 +140,7 @@ namespace ASPCoreWebAPI.Repositories
                   FROM ""Users"" u
                   LEFT JOIN ""States"" s ON s.""Id"" = u.""StateId""
                   LEFT JOIN ""Districts"" d ON d.""Id"" = u.""DistrictId""
+                  WHERE u.""Role"" <> 'EMPLOYEE'
                   ORDER BY u.""CreatedDate"" DESC");
             return result.AsList();
         }

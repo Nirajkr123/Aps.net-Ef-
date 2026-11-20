@@ -1,0 +1,337 @@
+.emp-pi-page {
+    min-height: 100vh;
+    width: 100%;
+    background: #f3f4f8;
+    color: #1f2340;
+    overflow-x: hidden;
+}
+
+.emp-pi-shell {
+    width: 100%;
+    max-width: 560px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding-bottom: 96px;
+    box-sizing: border-box;
+}
+
+.emp-pi-header {
+    position: relative;
+    overflow: hidden;
+    padding: 14px 16px 24px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    border-radius: 0 0 28px 28px;
+    box-shadow: 0 12px 30px rgba(75, 63, 209, 0.2);
+}
+
+.emp-pi-header::after {
+    content: "";
+    position: absolute;
+    top: -70px;
+    right: -54px;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+}
+
+.emp-pi-header-top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.emp-pi-header-top h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.emp-pi-back,
+.emp-pi-back-spacer {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+}
+
+.emp-pi-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 14px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.16);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.emp-pi-back:hover {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+.emp-pi-back:active {
+    transform: scale(0.96);
+}
+
+.emp-pi-back svg {
+    font-size: 22px;
+}
+
+.emp-pi-identity {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.emp-pi-avatar.MuiAvatar-root {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 6px;
+    border: 3px solid rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.emp-pi-identity h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.emp-pi-identity > span {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.emp-pi-identity-skeleton {
+    gap: 8px;
+}
+
+.emp-pi-header .MuiSkeleton-root {
+    background-color: rgba(255, 255, 255, 0.24);
+}
+
+.emp-pi-content {
+    padding: 16px;
+}
+
+.emp-pi-section {
+    margin-bottom: 16px;
+}
+
+.emp-pi-section > h2 {
+    margin: 0 0 8px 4px;
+    color: #4b3fd1;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.emp-pi-card.MuiCard-root {
+    overflow: hidden;
+    border: 1px solid rgba(31, 35, 64, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(31, 35, 64, 0.05);
+}
+
+.emp-pi-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 44px;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    border-bottom: 1px solid #eef0f6;
+}
+
+.emp-pi-row:last-child {
+    border-bottom: 0;
+}
+
+.emp-pi-label {
+    color: #5b6078;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.emp-pi-value {
+    color: #1f2340;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.emp-pi-row.is-loading {
+    gap: 6px;
+}
+
+.emp-pi-row.is-loading .MuiSkeleton-root {
+    transform: none;
+}
+
+.emp-pi-row.is-editing {
+    display: block;
+    padding: 14px 16px;
+}
+
+.emp-pi-input.MuiFormControl-root {
+    width: 100%;
+}
+
+.emp-pi-input .MuiOutlinedInput-root {
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.emp-pi-input .MuiInputBase-input {
+    color: #1f2340;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.emp-pi-input .MuiInputLabel-root {
+    color: #5b6078;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.emp-pi-input .MuiInputLabel-root.Mui-focused {
+    color: #4b3fd1;
+}
+
+.emp-pi-input .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #6b55e8;
+}
+
+.emp-pi-input .MuiFormHelperText-root {
+    margin-left: 2px;
+    min-height: 16px;
+    font-size: 11px;
+}
+
+.emp-pi-error {
+    padding: 24px 18px;
+    border: 1px solid rgba(31, 35, 64, 0.05);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(31, 35, 64, 0.05);
+    text-align: center;
+}
+
+.emp-pi-error p {
+    margin: 0 0 14px;
+    color: #5b6078;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.emp-pi-error .MuiButton-root {
+    border-radius: 12px;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: none;
+    text-transform: none;
+    font-weight: 700;
+}
+
+.emp-pi-actions {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    z-index: 30;
+    width: min(100%, 560px);
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    transform: translateX(-50%);
+    background: linear-gradient(to top, #f3f4f8 72%, rgba(243, 244, 248, 0));
+}
+
+.emp-pi-actions-inner {
+    display: flex;
+    gap: 10px;
+}
+
+.emp-pi-action-btn {
+    display: inline-flex;
+    flex: 1;
+    min-width: 0;
+    height: 52px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.emp-pi-action-btn:active {
+    transform: scale(0.98);
+}
+
+.emp-pi-action-btn:disabled {
+    cursor: default;
+    opacity: 0.65;
+}
+
+.emp-pi-action-btn.is-primary {
+    flex: 1.4;
+    border: 0;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 12px 24px rgba(75, 63, 209, 0.28);
+}
+
+.emp-pi-action-btn.is-secondary {
+    border: 1px solid #e5e7f0;
+    color: #1f2340;
+    background: #ffffff;
+}
+
+@media (max-width: 360px) {
+    .emp-pi-header {
+        padding: 12px 12px 20px;
+    }
+
+    .emp-pi-content {
+        padding: 14px 12px;
+    }
+
+    .emp-pi-actions {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .emp-pi-row {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .emp-pi-row.is-editing {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .emp-pi-identity h2 {
+        font-size: 18px;
+    }
+}

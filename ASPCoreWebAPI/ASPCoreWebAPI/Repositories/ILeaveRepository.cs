@@ -16,6 +16,10 @@ namespace ASPCoreWebAPI.Repositories
         /* Ek record + us employee ki details (details drawer ke liye). */
         Task<LeaveRow?> GetByIdAsync(int id);
 
+        /* Active leave types + paid/unpaid flag. Apply validation aur
+           frontend dropdown dono isi se chalte hain. */
+        Task<List<LeaveTypeOption>> GetTypesAsync();
+
         /* ---- Writes ---- */
 
         /* Naya apply. `Days` aur `CreatedDate` pehle se set hote hain —
@@ -42,6 +46,6 @@ namespace ASPCoreWebAPI.Repositories
         /* Har type ke APPROVED days ka sum (rows nahi, DAYS — ek 9-din ki
            leave 9 ginti hai, 1 nahi). `year` se filter isiliye hai ki quota
            calendar year wise reset ho. */
-        Task<Dictionary<string, int>> GetUsedDaysAsync(int employeeId, int year);
+        Task<Dictionary<string, decimal>> GetUsedDaysAsync(int employeeId, int year);
     }
 }

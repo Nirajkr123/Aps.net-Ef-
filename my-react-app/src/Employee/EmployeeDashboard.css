@@ -1,678 +1,62 @@
-/* =========================
+/* ============================================================
    EMPLOYEE DASHBOARD
-   ========================= */
+   Dashboard-specific styles plus shared employee sub-page shell.
+   ============================================================ */
 
-.emp-info-card {
-    border: 1px solid #e5e7eb;
-}
+.emp-dashboard,
+.emp-page {
+    --emp-brand: #4f46e5;
+    --emp-brand-soft: #eef2ff;
+    --emp-brand-border: #e0e7ff;
 
+    --emp-ink: #171b2e;
+    --emp-ink-soft: #4b5269;
+    --emp-muted: #5b6178;
+    --emp-faint: #9aa0b8;
 
-/* Gradient Header */
-.emp-gradient-header {
-    background:
+    --emp-line: #eceef5;
+    --emp-surface: #ffffff;
+
+    --emp-radius: 16px;
+    --emp-radius-sm: 12px;
+
+    --emp-shadow-sm: 0 8px 22px rgba(23, 27, 46, 0.06);
+    --emp-shadow-md: 0 14px 30px -12px rgba(16, 24, 40, 0.18);
+    --emp-shadow-brand: 0 10px 30px -14px rgba(99, 102, 241, 0.4);
+
+    --emp-hero-bg:
         radial-gradient(circle at 12% -10%, rgba(139, 92, 246, 0.14) 0, transparent 40%),
         radial-gradient(circle at 88% 110%, rgba(99, 102, 241, 0.16) 0, transparent 40%),
         radial-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1.4px) 0 0 / 22px 22px,
         linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #eef2ff 100%);
-    border: 1px solid #e0e7ff;
-    border-radius: 16px !important;
-    padding: 44px 46px;
-    margin-bottom: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 10px 30px -14px rgba(99, 102, 241, 0.4);
 }
 
-.emp-gradient-header .dash-title {
-    font-size: 30px;
-}
-
-.emp-gradient-header .dash-subtitle {
-    font-size: 15px;
-}
-
-.emp-gradient-header > * {
-    position: relative;
-    z-index: 1;
-}
-
-.emp-gradient-header::before {
-    content: "";
-    position: absolute;
-    top: -70%;
-    right: -8%;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
-    pointer-events: none;
-    animation: empGlowFloat 8s ease-in-out infinite;
-}
-
-.emp-gradient-header::after {
-    content: "";
-    position: absolute;
-    bottom: -85%;
-    left: 28%;
-    width: 320px;
-    height: 320px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.16) 0%, transparent 70%);
-    pointer-events: none;
-}
-
-@keyframes empGlowFloat {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
-/* Header chips */
-.emp-header-chips {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-@media (max-width: 700px) {
-    .emp-header-chips {
-        width: 100%;
-    }
-}
-
-/* =========================
-   QUICK ACTION TILES
-   ========================= */
-
-.emp-qa-tile {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    height: 100%;
-    min-width: 0;
-    min-height: 72px;
-    padding: 12px 22px;
-    background: #ffffff;
-    border: 1px solid rgba(16, 24, 40, 0.06);
-    border-radius: 12px;
-    cursor: pointer;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-    transition: all 0.25s ease;
-    overflow: hidden;
-    user-select: none;
-}
-
-.emp-qa-tile::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--qa-accent, #6366f1), transparent);
-    opacity: 0;
-    transition: opacity 0.25s ease;
-}
-
-.emp-qa-tile:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 30px -12px rgba(16, 24, 40, 0.18);
-    border-color: rgba(99, 102, 241, 0.25);
-}
-
-.emp-qa-tile:hover::before {
-    opacity: 1;
-}
-
-.emp-qa-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.emp-qa-tile:hover .emp-qa-icon {
-    transform: scale(1.1) rotate(-6deg);
-    box-shadow: 0 6px 14px -6px rgba(16, 24, 40, 0.25);
-}
-
-.emp-qa-arrow {
-    margin-left: auto;
-    color: #c4c8d4;
-    transition: all 0.25s ease;
-    flex-shrink: 0;
-}
-
-.emp-qa-tile:hover .emp-qa-arrow {
-    color: #4f46e5;
-    transform: translateX(3px);
-}
-
-/* =========================
-   NEXT UP (holiday spotlight)
-   ========================= */
-
-.emp-nextup {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    border: 1px solid #fde68a;
-    box-shadow: 0 6px 18px -10px rgba(217, 119, 6, 0.4);
-}
-
-.emp-nextup-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: #fef3c7;
-    color: #d97706;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-/* tabular numbers in stat cards — value column never jiggles */
-.emp-stat-card .MuiTypography-h4 {
-    font-variant-numeric: tabular-nums;
-}
-
-/* =========================
-   PAGE: FULL-BLEED LAYOUT
-   ========================= */
-
-.emp-dashboard .dash-content {
-    padding: 24px 28px 40px;
-}
-
-/* Staggered entrance animation for every section */
-.emp-dashboard .dash-content > * {
-    animation: empReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.emp-dashboard .dash-content > *:nth-of-type(2) { animation-delay: 0.05s; }
-.emp-dashboard .dash-content > *:nth-of-type(3) { animation-delay: 0.1s; }
-.emp-dashboard .dash-content > *:nth-of-type(4) { animation-delay: 0.15s; }
-.emp-dashboard .dash-content > *:nth-of-type(5) { animation-delay: 0.2s; }
-.emp-dashboard .dash-content > *:nth-of-type(6) { animation-delay: 0.25s; }
-.emp-dashboard .dash-content > *:nth-of-type(7) { animation-delay: 0.3s; }
-.emp-dashboard .dash-content > *:nth-of-type(8) { animation-delay: 0.35s; }
-.emp-dashboard .dash-content > *:nth-of-type(9) { animation-delay: 0.4s; }
-
-@keyframes empReveal {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* All cards: stretch to fill the full width / height */
-.emp-dashboard .MuiCard-root {
-    width: 100%;
-    max-width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    border: 1px solid rgba(16, 24, 40, 0.055);
-    transition:
-        transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.28s ease,
-        border-color 0.28s ease;
-    will-change: transform;
-}
-
-.emp-dashboard .MuiCard-root:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 44px -18px rgba(16, 24, 40, 0.25);
-    border-color: rgba(99, 102, 241, 0.28);
-}
-
-/* Equal-height card rows */
-.emp-stretch-row > .MuiGrid-root:not(.MuiGrid-container) {
-    display: flex;
-}
-
-.emp-stretch-row > .MuiGrid-root:not(.MuiGrid-container) > * {
-    width: 100%;
-}
-
-@media (max-width: 700px) {
-    .emp-dashboard .dash-content {
-        padding: 16px 14px 28px;
-    }
-}
-
-/* =========================
-   STAT CARDS
-   ========================= */
-
-.emp-stat-card {
-    border-left: 4px solid;
-    border-radius: 12px !important;
-    transition: all 0.25s ease;
-    cursor: default;
-    position: relative;
-    overflow: hidden;
-    user-select: none;
-}
-
-/* Clickable stat cards (navigation) */
-.emp-stat-click {
-    cursor: pointer;
-    outline: none;
-}
-
-.emp-stat-click:focus-visible {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.45) !important;
-    border-color: rgba(99, 102, 241, 0.5) !important;
-}
-
-/* "View details" footer inside stat cards */
-.emp-stat-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px dashed #eceef5;
-    min-height: 24px;
-    transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.emp-stat-cta {
-    font-weight: 700;
-    font-size: 11.5px !important;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #818cf8;
-    opacity: 0;
-    transform: translateX(-6px);
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    white-space: nowrap;
-}
-
-.emp-stat-arrow {
-    flex-shrink: 0;
-    color: #6366f1;
-    transition: transform 0.25s ease;
-}
-
-.emp-dashboard .emp-stat-click:hover .emp-stat-cta {
-    opacity: 1;
-    transform: translateX(0);
-}
-
-.emp-dashboard .emp-stat-click:hover .emp-stat-arrow {
-    transform: translateX(3px);
-}
-
-/* On touch devices there is no hover: keep the CTA readable */
-@media (hover: none) {
-    .emp-stat-cta {
-        opacity: 0.85;
-        transform: none;
-    }
-}
-
-/* Truncate long values / suffixes so narrow columns never overflow */
-.emp-stat-label,
-.emp-stat-value,
-.emp-stat-suffix {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.emp-stat-value {
-    display: inline-block;
-    max-width: 100%;
-}
-
-.emp-stat-card::before {
-    content: "";
-    position: absolute;
-    top: -40%;
-    right: -30%;
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
-    pointer-events: none;
-    transition: transform 0.4s ease;
-}
-
-.emp-stat-card::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -100%;
-    width: 55%;
-    background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
-    transform: skewX(-20deg);
-    transition: left 0.6s ease;
-    pointer-events: none;
-}
-
-.emp-dashboard .emp-stat-card:hover {
-    transform: translateY(-7px);
-    box-shadow: 0 20px 40px -16px rgba(16, 24, 40, 0.3) !important;
-}
-
-.emp-stat-card:hover::after {
-    left: 160%;
-}
-
-.emp-stat-card:hover::before {
-    transform: scale(1.4);
-}
-
-.emp-stat-card:active {
-    transform: translateY(-2px) scale(0.985);
-}
-
-.emp-stat-card .MuiTypography-root {
-    transition: color 0.25s ease, transform 0.25s ease;
-}
-
-.emp-dashboard .emp-stat-card:hover .MuiTypography-h4 {
-    color: #4f46e5;
-    transform: scale(1.05);
-    transform-origin: left;
-}
-
-.emp-stat-icon-box {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition:
-        transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.3s ease,
-        background-color 0.3s ease;
-}
-
-.emp-dashboard .emp-stat-card:hover .emp-stat-icon-box {
-    transform: scale(1.15) rotate(-8deg);
-    box-shadow: 0 8px 18px -6px rgba(16, 24, 40, 0.3);
-}
-
-/* =========================
-   QUICK ACTION BUTTONS
-   ========================= */
-
-.emp-action-btn {
-    border-radius: 10px !important;
-    text-transform: none !important;
-    font-weight: 600 !important;
-    padding: 7px 16px !important;
-    font-size: 13px !important;
-    transition: all 0.2s ease !important;
-}
-
-.emp-dashboard .emp-action-btn:hover {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 8px 18px -8px rgba(16, 24, 40, 0.3);
-}
-
-/* =========================
-   PROFILE CARD
-   ========================= */
-
-.emp-dashboard .emp-info-card:hover .emp-info-icon-box {
-    transform: scale(1.08);
-    background: #eef2ff;
-}
-
-/* Today Badge */
-.emp-today-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-/* Last Check-in Info */
-.emp-last-checkin {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: #f9fafb;
-    border-radius: 10px;
-    border: 1px solid #f3f4f6;
-    transition: all 0.2s ease;
-}
-
-.emp-last-checkin:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-}
-
-/* Profile Info Icons */
-.emp-info-icon-box {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-}
-
-/* =========================
-   RESPONSIVE ENHANCEMENTS
-   ========================= */
-
-/* never let a grid child overflow its column */
-.emp-dashboard .dash-content {
-    min-width: 0;
-}
-
-.emp-dashboard .dash-content {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
-
-.emp-dashboard .emp-stretch-row {
-    width: 100%;
-    max-width: none;
-}
-
-.emp-dashboard .emp-4col-row.MuiGrid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 12px;
-}
-
-@media (max-width: 900px) {
-    .emp-dashboard .emp-4col-row.MuiGrid-container {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-.emp-dashboard .emp-info-card .MuiGrid-root {
-    min-width: 0;
-}
-
-@media (max-width: 1024px) {
-    .emp-dashboard .emp-info-card .emp-quick-actions {
-        flex: 1;
-        margin-left: 0 !important;
-        justify-content: flex-end;
-    }
-
-    .emp-dashboard .emp-info-card .emp-action-btn {
-        flex: 1;
-        max-width: 220px;
-    }
-}
-
-@media (max-width: 600px) {
-    .emp-dashboard .MuiCardContent-root {
-        padding: 16px 14px !important;
-    }
-
-    .emp-stat-card .MuiTypography-h4 {
-        font-size: 26px !important;
-    }
-
-    .emp-stat-card .MuiCardContent-root {
-        padding: 18px 16px !important;
-    }
-
-    .emp-stat-card .emp-stat-icon-box {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-    }
-
-    .emp-stat-card .emp-stat-icon-box svg {
-        font-size: 20px !important;
-    }
-
-    .emp-stat-card .MuiTypography-body2 {
-        font-size: 12px !important;
-    }
-
-    .emp-stat-footer {
-        margin-top: 10px;
-        padding-top: 8px;
-    }
-
-    .emp-stat-cta {
-        font-size: 10.5px !important;
-    }
-
-    .emp-dashboard .emp-info-card .MuiTypography-body2 {
-        min-width: 0;
-        overflow-wrap: anywhere;
-    }
-
-    .emp-dashboard .emp-info-card .MuiTypography-root {
-        min-width: 0;
-    }
-
-    .emp-info-card > .MuiCardContent-root > .MuiGrid-container > .MuiGrid-root:first-child {
-        display: flex;
-        justify-content: center;
-    }
-
-    .emp-gradient-header .MuiChip-root {
-        font-size: 12px;
-    }
-
-    .emp-dashboard .emp-info-card .emp-action-btn {
-        min-height: 42px;
-    }
-
-    .emp-last-checkin {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .emp-last-checkin + .MuiBox-root {
-        width: 100%;
-        margin-left: 0 !important;
-    }
-
-    .emp-last-checkin + .MuiBox-root .emp-action-btn,
-    .emp-quick-actions .emp-action-btn {
-        flex: 1;
-    }
-
-    .emp-quick-actions {
-        width: 100% !important;
-        margin-left: 0 !important;
-    }
-}
-
-@media (max-width: 380px) {
-    .emp-gradient-header {
-        padding: 16px 14px;
-    }
-
-    .emp-stat-card .MuiTypography-h4 {
-        font-size: 22px !important;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .emp-dashboard .dash-content > * {
-        animation: none !important;
-    }
-
-    .emp-gradient-header::before {
-        animation: none !important;
-    }
-
-    .emp-dashboard .MuiCard-root,
-    .emp-stat-card,
-    .emp-stat-card::after {
-        transition: none !important;
-    }
-}
-
-/* =========================
-   EMPLOYEE SUB-PAGES (shared)
-   ========================= */
+/* ============================================================
+   Shared employee page shell
+   ============================================================ */
 
 .emp-page .dash-content {
-    padding: 24px 28px 40px;
     display: flex;
     flex-direction: column;
     width: 100%;
     min-width: 0;
+    padding: 24px 28px 40px;
 }
 
-@media (max-width: 700px) {
-    .emp-page .dash-content {
-        padding: 16px 14px 28px;
-    }
-}
-
-/* Premium page hero header (Leaves / Attendance / Payslips / Announcements)
-   Gradient dashboard ke `.emp-gradient-header` se exactly match karta hai
-   (same radial glows + dotted grid), taaki dono pages ek hi family me lagein. */
 .emp-hero {
     position: relative;
     overflow: hidden;
-    background:
-        radial-gradient(circle at 12% -10%, rgba(139, 92, 246, 0.14) 0, transparent 40%),
-        radial-gradient(circle at 88% 110%, rgba(99, 102, 241, 0.16) 0, transparent 40%),
-        radial-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1.4px) 0 0 / 22px 22px,
-        linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #eef2ff 100%);
-    border: 1px solid #e0e7ff;
-    border-radius: 16px;
-    padding: 28px 32px;
-    margin-bottom: 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 16px;
-    box-shadow: 0 10px 30px -14px rgba(99, 102, 241, 0.4);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    border: 1px solid var(--emp-brand-border);
+    border-radius: var(--emp-radius);
+    background: var(--emp-hero-bg);
+    box-shadow: var(--emp-shadow-brand);
 }
 
 .emp-hero::before {
@@ -704,19 +88,22 @@
     z-index: 1;
 }
 
-.emp-hero h1 {
-    margin: 0 0 4px 0;
+.emp-hero h1,
+.emp-hero h5 {
+    margin: 0 0 4px;
     font-family: "Sora", "Inter", sans-serif;
     font-size: 24px;
     font-weight: 800;
-    color: #171b2e;
+    line-height: 1.2;
     letter-spacing: -0.4px;
+    color: var(--emp-ink);
 }
 
 .emp-hero p {
     margin: 0;
     font-size: 14px;
-    color: #7c829c;
+    line-height: 1.5;
+    color: var(--emp-muted);
 }
 
 .emp-hero-chip {
@@ -725,495 +112,1233 @@
     gap: 8px;
     padding: 8px 16px;
     border-radius: 999px;
-    background: #ffffff;
-    border: 1px solid #e0e7ff;
-    color: #4f46e5;
+    background: var(--emp-surface);
+    border: 1px solid var(--emp-brand-border);
+    color: var(--emp-brand);
     font-size: 13px;
     font-weight: 700;
     box-shadow: 0 4px 14px -6px rgba(99, 102, 241, 0.35);
     white-space: nowrap;
 }
 
-@media (max-width: 600px) {
-    .emp-hero {
-        padding: 18px 20px;
-    }
-    .emp-hero h1 {
-        font-size: 20px;
-    }
+/* ============================================================
+   Dashboard shell
+   ============================================================ */
+
+.emp-dashboard.emp-home-page {
+    background: #f3f4f8;
 }
 
-/* Chart trend card */
-.emp-trend-card .MuiCardContent-root:first-child {
-    padding-bottom: 18px;
-}
-
-.emp-trend-legend {
+.emp-dashboard.emp-home-page .dash-content.emp-home-content {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 14px;
-}
-
-.emp-trend-legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #6b7280;
-}
-
-.emp-trend-legend-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-/* =========================
-   DASHBOARD HERO
-   =========================
-   Sirf 2 direct children, JSX ke exact order se:
-     1. .emp-hero-main   → LEFT  (Welcome back + greeting + 2 buttons)
-     2. .emp-hero-side   → RIGHT (date + duty pill + chip)
-
-   Right ke pill/chip `.emp-hero-actions` me, left ke buttons
-   `.emp-hero-btns` me — dono apne apne column me, isliye hero ke
-   sirf 2 grid items hain. */
-.emp-dash-hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 14px 24px;
-    min-height: 178px;
-}
-
-/* ---- LEFT: Welcome back + greeting ---- */
-.emp-dash-hero .emp-hero-main {
-    grid-column: 1;
+    flex-direction: column;
+    width: 100%;
     min-width: 0;
-    text-align: left;
+    padding: 22px 28px 40px;
+    background: #f3f4f8;
 }
 
-/* Hero ke 2 action buttons — heading ke neeche, left aligned.
-   `flex-wrap` + `auto` width: chhote screen par buttons apni line
-   par gir jate hain, kabhi clip nahi hote. */
-.emp-hero-btns {
+.emp-home-widgets {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-top: 14px;
+    flex-direction: column;
+    gap: 16px;
 }
 
-.emp-hero-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    height: 40px;
-    padding: 0 18px;
-    border-radius: 11px;
-    font-family: "Inter", sans-serif;
-    font-size: 13.5px;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+.emp-home-widgets > * {
+    min-width: 0;
 }
 
-.emp-hero-btn svg {
-    font-size: 18px;
-}
+/* ============================================================
+   Welcome banner
+   ============================================================ */
 
-.emp-hero-btn:disabled {
-    cursor: not-allowed;
-}
-
-.emp-hero-btn-primary {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+.emp-home-header {
+    position: relative;
+    overflow: hidden;
     color: #ffffff;
-    box-shadow: 0 10px 22px -8px rgba(102, 126, 234, 0.7);
+    border-radius: 20px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #4b3fd1 0%, #6d4ae8 56%, #7b5cf0 100%);
+    box-shadow: 0 18px 38px rgba(75, 63, 209, 0.24);
 }
 
-.emp-hero-btn-primary:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 26px -8px rgba(102, 126, 234, 0.75);
+.emp-home-header::after {
+    content: "";
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    right: -70px;
+    top: -110px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.13);
+    pointer-events: none;
 }
 
-/* Punch ke baad — day complete, button grey ho jaata hai */
-.emp-hero-btn-primary.is-done {
-    background: #e5e7eb;
-    color: #6b7280;
-    box-shadow: none;
-}
-
-.emp-hero-btn-ghost {
-    background: #ffffff;
-    color: #4b5269;
-    border-color: #eceef5;
-}
-
-.emp-hero-btn-ghost:hover {
-    border-color: #d7dcf5;
-    color: #667eea;
-    box-shadow: 0 6px 16px -8px rgba(31, 34, 51, 0.25);
-    transform: translateY(-1px);
-}
-
-.emp-hero-btn-error {
-    margin: 8px 0 0 0;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #b91c1c;
-}
-
-.emp-hero-greeting {
-    display: inline-flex;
+.emp-home-header-main {
+    position: relative;
+    z-index: 1;
+    display: flex;
     align-items: center;
-    margin: 0;
-    padding: 6px 14px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid #ddd6fe;
-    box-shadow: 0 2px 8px -3px rgba(109, 40, 217, 0.4);
-    font-size: 12.5px;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.emp-home-profile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.emp-home-avatar.MuiAvatar-root {
+    flex-shrink: 0;
+    font-family: "Sora", "Inter", sans-serif;
+}
+
+.emp-home-identity {
+    min-width: 0;
+}
+
+.emp-home-greeting {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.2px;
+    opacity: 0.82;
+}
+
+.emp-home-identity h1 {
+    margin: 1px 0 3px;
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 22px;
     font-weight: 800;
-    color: #5b21b6;
-    letter-spacing: 0.7px;
-    line-height: 1.4;
-    text-transform: uppercase;
+    line-height: 1.18;
+    letter-spacing: -0.35px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.emp-pill-status {
+.emp-home-sub {
+    display: block;
+    max-width: 430px;
+    font-size: 12px;
+    line-height: 1.35;
+    opacity: 0.84;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-header-side {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-end;
     gap: 8px;
-    font-size: 13.5px;
+    flex-shrink: 0;
+    max-width: 54%;
 }
 
-/* ---- RIGHT: date + button + chip ---- */
-.emp-dash-hero .emp-hero-side {
-    grid-column: 2;
-    min-width: 0;
-    text-align: right;
-    align-self: start;
-}
-
-.emp-hero-actions {
+.emp-home-status-row {
     display: flex;
-    flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 10px;
+    flex-wrap: wrap;
 }
 
-/* Pill ke saath chip niche girne na de */
-.emp-dash-hero .emp-header-chips {
-    flex-wrap: nowrap;
-}
-
-/* Hero ke saare items — title + subtitle — pehle sirf base
-   AdminDashboard.css rules inherit ho rahe the, jahan subtitle ka
-   grey (#7c829c) light gradient pe fade ho jata tha. Yahan scope
-   karke dark kya gaya hai. */
-.emp-dash-hero .dash-title {
-    display: block;
-    width: 100%;
-    margin: 0 0 6px 0;
-    font-size: 28px;
+.emp-home-status {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 10.5px;
     font-weight: 800;
+    letter-spacing: 0.2px;
     line-height: 1.2;
-    letter-spacing: -0.5px;
-    color: #171b2e;
+    white-space: nowrap;
 }
 
-.emp-dash-hero .dash-subtitle {
-    display: block;
-    width: 100%;
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #5b6178;
+.emp-home-status.is-on {
+    color: #d1fae5;
+    background: rgba(16, 185, 129, 0.24);
+    border-color: rgba(16, 185, 129, 0.55);
 }
 
-/* `.emp-hero-kicker`, `.emp-pill-greeting` aur `.emp-duty-pill-block`
-   — teeno ab DEAD hain. Greeting hata kar `.emp-hero-greeting` ban
-   gaya (top-center se left), aur pill ab plain `.emp-duty-pill` se
-   style hota hai. */
+.emp-home-status.is-done {
+    color: #ffedd5;
+    background: rgba(249, 115, 22, 0.24);
+    border-color: rgba(249, 115, 22, 0.55);
+}
 
-/* `.emp-duty-pill-block` ka duplicate rule yahan tha (grid-area: pill,
-   margin: 0 auto, padding: 6px 14px). Wo naye hero layout ke saath
-   conflict kar raha tha — upar wala rule correct hai. */
+.emp-home-status.is-leave {
+    color: #fee2e2;
+    background: rgba(239, 68, 68, 0.24);
+    border-color: rgba(239, 68, 68, 0.55);
+}
 
-/* Duty status pill (interactive) */
-.emp-duty-pill {
+.emp-home-status.is-off {
+    color: #fef3c7;
+    background: rgba(245, 158, 11, 0.24);
+    border-color: rgba(245, 158, 11, 0.55);
+}
+
+.emp-home-timer {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-home-timer strong {
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.2px;
+}
+
+.emp-home-timer span {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    opacity: 0.76;
+}
+
+.emp-home-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    line-height: 1.3;
+    opacity: 0.9;
+}
+
+.emp-home-meta > span {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 18px;
-    border-radius: 999px;
-    background: #ffffff;
-    border: 1px solid #e0e7ff;
-    font-size: 13px;
-    font-weight: 700;
-    color: #4338ca;
-    box-shadow: 0 4px 16px -6px rgba(99, 102, 241, 0.35);
-    cursor: pointer;
-    user-select: none;
-    white-space: nowrap;
-    transition: all 0.2s ease;
-}
-
-.emp-duty-pill:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 24px -8px rgba(99, 102, 241, 0.5);
-    border-color: #c7d2fe;
-}
-
-.emp-duty-pill:active {
-    transform: translateY(0) scale(0.98);
-}
-
-.emp-duty-pill:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
-}
-
-.emp-duty-arrow {
-    color: #6366f1;
-    transition: transform 0.2s ease;
-}
-
-.emp-duty-pill:hover .emp-duty-arrow {
-    transform: translateX(3px);
-}
-
-/* FIX: pehle 2px tha (galti se), isliye dot practically invisible
-   tha. 8px wapas kiya taaki online/offline indicator dikhe. */
-.emp-duty-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    position: relative;
-}
-
-.emp-duty-pill.on-duty {
-    color: #047857;
-    border-color: #a7f3d0;
-    background: #ecfdf5;
-}
-
-.emp-duty-pill.on-duty .emp-duty-dot {
-    background: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
-}
-
-.emp-duty-pill.on-duty .emp-duty-dot::after {
-    content: "";
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 2px solid rgba(16, 185, 129, 0.55);
-    animation: empPing 1.8s ease-out infinite;
-}
-
-.emp-duty-pill.off-duty {
-    color: #b45309;
-    border-color: #fde68a;
-    background: #fffbeb;
-}
-
-.emp-duty-pill.off-duty .emp-duty-dot {
-    background: #f59e0b;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
-}
-
-@keyframes empPing {
-    0% { transform: scale(0.55); opacity: 1; }
-    100% { transform: scale(1.7); opacity: 0; }
-}
-
-/* =========================
-   QUICK ACTION TILE GRID
-   ========================= */
-/* Fluid grid — column count apne aap adjust hota hai, aur har box
-   hamesha apne column ka poora width leta hai (1fr). 900px tak 2
-   columns force karte hain taaki beech me "3 + 1" wala awkward
-   half-empty row na aaye.
-   FIX: is comment block ke upar pehle ek adhoora comment fragment
-   (bina opening /*) bacha hua tha, jisse niche wali .emp-qa-grid
-   rule invalid ho kar poori tarah discard ho rahi thi — quick
-   action tiles ka grid layout bilkul kaam nahi kar raha tha. */
-.emp-qa-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 20px;
-    margin-bottom: 24px;
-}
-
-.emp-qa-text {
-    display: flex;
-    flex-direction: column;
+    gap: 4px;
     min-width: 0;
 }
 
-.emp-qa-text strong {
-    font-size: 14.5px;
+.emp-home-meta em {
+    font-style: normal;
     font-weight: 700;
-    color: #1e2337;
+    opacity: 0.64;
+}
+
+.emp-home-shift {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+    opacity: 0.9;
+}
+
+.emp-home-shift strong {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-home-window-note {
+    max-width: 340px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: right;
+}
+
+.emp-home-window-note.is-warn {
+    background: rgba(245, 158, 11, 0.26);
+}
+
+.emp-home-location > span {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-late {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(253, 230, 138, 0.18);
+    color: #fde68a;
+    font-weight: 800;
+}
+
+.emp-home-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.emp-home-punch.MuiButton-root {
+    min-height: 38px;
+    padding: 6px 16px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: none;
+    color: #ffffff;
+    background: #10b981;
+    box-shadow: 0 8px 18px rgba(16, 185, 129, 0.28);
+}
+
+.emp-home-punch.MuiButton-root:hover {
+    background: #059669;
+}
+
+.emp-home-punch.MuiButton-root.is-out {
+    background: #f97316;
+    box-shadow: 0 8px 18px rgba(249, 115, 22, 0.3);
+}
+
+.emp-home-punch.MuiButton-root.is-out:hover {
+    background: #ea580c;
+}
+
+.emp-home-punch.MuiButton-root.Mui-disabled {
+    color: rgba(255, 255, 255, 0.82);
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: none;
+}
+
+.emp-home-header-skeleton {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 0;
+}
+
+.emp-home-header-skeleton .MuiSkeleton-root {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* ============================================================
+   Stat cards
+   ============================================================ */
+
+.emp-home-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.emp-dash-stat.MuiCard-root {
+    height: 100%;
+    border-radius: 16px;
+    border: 1px solid #eceef5;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.emp-dash-stat.is-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.emp-dash-stat.is-clickable:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: 2px;
+}
+
+.emp-dash-stat .MuiCardContent-root {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 106px;
+    padding: 14px 16px;
+}
+
+.emp-dash-stat .MuiCardContent-root:last-child {
+    padding-bottom: 14px;
+}
+
+.emp-dash-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-bottom: 4px;
+    border-radius: 10px;
+}
+
+.emp-dash-stat-icon svg {
+    font-size: 18px;
+}
+
+.emp-dash-stat-value {
+    display: block;
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.4px;
+    color: #171b2e;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.emp-qa-text small {
+.emp-dash-stat-label {
+    display: block;
     font-size: 12px;
-    color: #9aa0b8;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #6b7280;
 }
 
-@media (max-width: 900px) {
-    .emp-qa-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+/* ============================================================
+   Main two-column area
+   ============================================================ */
+
+.emp-home-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.emp-home-column-main,
+.emp-home-column-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.emp-home-today,
+.emp-home-leave,
+.emp-home-quick {
+    background: #ffffff;
+    border: 1px solid #eceef5;
+    border-radius: 18px;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-home-today,
+.emp-home-leave,
+.emp-home-quick {
+    padding: 18px;
+}
+
+.emp-home-today {
+    height: 100%;
+}
+
+.emp-home-section-head,
+.emp-home-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.emp-home-section-head h2,
+.emp-home-card-head h2 {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #171b2e;
+}
+
+.emp-home-section-head button,
+.emp-home-card-link {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 4px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #4f46e5;
+    cursor: pointer;
+}
+
+.emp-home-section-head button:hover,
+.emp-home-card-link:hover {
+    color: #4338ca;
+    background: #eef2ff;
+}
+
+.emp-home-section-head button:focus-visible,
+.emp-home-card-link:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   Today list
+   ============================================================ */
+
+.emp-home-today-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.emp-home-today-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 11px;
+    border-radius: 13px;
+    background: #f9fafb;
+}
+
+.emp-home-today-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4f46e5;
+    background: #eef2ff;
+}
+
+.emp-home-today-icon svg {
+    font-size: 18px;
+}
+
+.emp-home-today-item.is-leave .emp-home-today-icon {
+    color: #d97706;
+    background: #fffbeb;
+}
+
+.emp-home-today-item.is-payslip .emp-home-today-icon {
+    color: #059669;
+    background: #ecfdf5;
+}
+
+.emp-home-today-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.emp-home-today-text strong {
+    font-size: 12.5px;
+    font-weight: 800;
+    line-height: 1.3;
+    color: #171b2e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-today-text span {
+    font-size: 11px;
+    line-height: 1.3;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-today-item em {
+    flex-shrink: 0;
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 800;
+    color: #4f46e5;
+    white-space: nowrap;
+}
+
+.emp-home-today-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 146px;
+    padding: 26px 8px;
+    font-size: 12.5px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.emp-home-today-empty svg {
+    color: #c7cbe0;
+}
+
+/* ============================================================
+   Leave breakdown
+   ============================================================ */
+
+.emp-home-leave-total {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-bottom: 14px;
+}
+
+.emp-home-leave-total strong {
+    font-family: "Sora", "Inter", sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    color: #171b2e;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-home-leave-total span {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.emp-home-leave-list {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.emp-home-leave-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.emp-home-leave-row-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.emp-home-leave-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+}
+
+.emp-home-leave-row-head strong {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2b3045;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-leave-row-head > span:last-child {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.emp-home-leave-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #eef0f7;
+    overflow: hidden;
+}
+
+.emp-home-leave-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.emp-home-muted {
+    margin: 0;
+    padding: 18px 4px;
+    font-size: 12.5px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+/* ============================================================
+   Quick actions
+   ============================================================ */
+
+.emp-home-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.emp-home-quick-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 64px;
+    padding: 11px;
+    border: 1px solid #eceef5;
+    border-radius: 14px;
+    background: #fbfcff;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.emp-home-quick-action:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: 2px;
+}
+
+.emp-home-quick-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emp-home-quick-icon svg {
+    font-size: 18px;
+}
+
+.emp-home-quick-icon.is-leave {
+    color: #d97706;
+    background: #fffbeb;
+}
+
+.emp-home-quick-icon.is-pay {
+    color: #059669;
+    background: #ecfdf5;
+}
+
+.emp-home-quick-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.emp-home-quick-text strong {
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #171b2e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-quick-text small {
+    font-size: 10.5px;
+    line-height: 1.25;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-home-quick-arrow {
+    flex-shrink: 0;
+    font-size: 18px !important;
+    color: #c4c8d4;
+}
+
+/* ============================================================
+   Weekly mini chart
+   ============================================================ */
+
+.emp-home-chart.MuiCard-root {
+    border-radius: 18px;
+    border: 1px solid #eceef5;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-home-chart .MuiCardContent-root {
+    padding: 18px;
+}
+
+.emp-home-chart .MuiCardContent-root:last-child {
+    padding-bottom: 18px;
+}
+
+.emp-home-chart-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.emp-home-chart-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #171b2e;
+}
+
+.emp-home-chart-title svg {
+    color: #4f46e5;
+}
+
+.emp-home-chart-total {
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.emp-home-chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 92px;
+    padding-top: 6px;
+}
+
+.emp-home-chart-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+}
+
+.emp-home-chart-value {
+    height: 12px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.emp-home-chart-bar {
+    width: 100%;
+    max-width: 28px;
+    min-height: 4px;
+    border-radius: 6px 6px 3px 3px;
+    background: #eef0f7;
+    transition: height 0.35s ease;
+}
+
+.emp-home-chart-bar.has-hours {
+    background: linear-gradient(180deg, #c7d2fe, #a5b4fc);
+}
+
+.emp-home-chart-bar.is-today {
+    background: linear-gradient(180deg, #4f46e5, #7c3aed);
+    box-shadow: 0 4px 10px -4px rgba(79, 70, 229, 0.45);
+}
+
+.emp-home-chart-day {
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #6b7280;
+}
+
+.emp-home-chart-day.is-today {
+    color: #4f46e5;
+    font-weight: 800;
+}
+
+/* ============================================================
+   Error state
+   ============================================================ */
+
+.emp-home-error {
+    max-width: 420px;
+    margin: 40px auto;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    font-size: 13px;
+    color: #6b7280;
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #eef0f7;
+    box-shadow: 0 8px 22px rgba(23, 27, 46, 0.06);
+}
+
+.emp-home-error .MuiButton-root {
+    text-transform: none;
+    font-weight: 700;
+    background: #4f46e5;
+}
+
+/* ============================================================
+   Mobile navigation + FAB
+   ============================================================ */
+
+.emp-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid #eceef5;
+    box-shadow: 0 -8px 24px rgba(23, 27, 46, 0.06);
+}
+
+.emp-bottom-nav-item {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    border: none;
+    background: none;
+    color: #9ca3af;
+    font-size: 9.5px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.emp-bottom-nav-item svg {
+    font-size: 22px;
+}
+
+.emp-bottom-nav-item.is-active {
+    color: #4f46e5;
+}
+
+.emp-bottom-nav-item:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.35);
+    outline-offset: -3px;
+    border-radius: 8px;
+}
+
+.emp-home-fab.MuiSpeedDial-root {
+    position: fixed;
+    right: 18px;
+    bottom: 86px;
+    z-index: 1200;
+}
+
+.emp-home-fab .MuiFab-root {
+    background: #4f46e5;
+    color: #ffffff;
+    box-shadow: 0 12px 26px rgba(79, 70, 229, 0.36);
+}
+
+.emp-home-fab .MuiFab-root:hover {
+    background: #4338ca;
+}
+
+/* ============================================================
+   Hover effects only on pointer devices
+   ============================================================ */
+
+@media (hover: hover) {
+    .emp-dash-stat.MuiCard-root:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px -16px rgba(16, 24, 40, 0.25);
+        border-color: rgba(99, 102, 241, 0.2);
+    }
+
+    .emp-home-quick-action:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px -14px rgba(16, 24, 40, 0.25);
+        border-color: #dfe3f5;
     }
 }
 
-/* phone — 2×2 hi rehte hain, screen ke hisaab se gap/padding chhota */
-@media (max-width: 480px) {
-    .emp-qa-grid {
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 980px) {
+    .emp-home-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .emp-home-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .emp-home-column-side {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+}
+
+@media (max-width: 768px) {
+    .emp-dashboard.emp-home-page .dash-content.emp-home-content {
+        padding: 14px 14px 104px;
+    }
+
+    .emp-home-widgets {
         gap: 12px;
     }
 
-    .emp-qa-tile {
-        gap: 10px;
-        padding: 12px 14px;
+    .emp-home-header {
+        padding: 16px;
+        border-radius: 18px;
     }
 
-    .emp-qa-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-    }
-
-    .emp-qa-arrow {
-        display: none;
-    }
-}
-
-/* =========================
-   DASHBOARD HERO — responsive
-   =========================
-   Grid (upar dekho). Mobile par 2 columns useless hain — pill,
-   greeting aur chip ko ek ke neeche ek stack karna padta hai, aur
-   sab centered. */
-
-/* Tablet par pill + chip ek row me fit nahi hote — wapas wrap. */
-@media (max-width: 1000px) {
-    .emp-gradient-header {
-        padding: 34px 30px;
-    }
-
-    .emp-dash-hero {
-        min-height: 0;
-    }
-
-    .emp-dash-hero .emp-hero-side {
-        align-self: auto;
-    }
-
-    .emp-hero-actions,
-    .emp-dash-hero .emp-header-chips {
-        flex-wrap: wrap;
-    }
-}
-
-@media (max-width: 700px) {
-    .emp-gradient-header {
-        padding: 22px 16px;
-        margin-bottom: 20px;
-    }
-
-    /* Mobile par 2 columns bekaar hain — main aur side stack
-       ho kar centered. */
-    .emp-dash-hero {
-        grid-template-columns: minmax(0, 1fr);
-        justify-items: stretch;
+    .emp-home-header-main {
+        align-items: stretch;
+        flex-direction: column;
         gap: 14px;
     }
 
-    .emp-dash-hero .emp-hero-main {
-        grid-column: 1;
-        text-align: center;
+    .emp-home-identity h1 {
+        font-size: 20px;
     }
 
-    .emp-dash-hero .emp-hero-greeting {
-        justify-self: center;
+    .emp-home-header-side {
+        align-items: stretch;
+        max-width: none;
+        gap: 9px;
     }
 
-    .emp-dash-hero .emp-hero-side {
-        grid-column: 1;
-        text-align: center;
-        align-self: auto;
+    .emp-home-status-row {
+        justify-content: space-between;
     }
 
-    .emp-hero-actions {
-        justify-content: center;
-        flex-wrap: wrap;
-        margin-top: 8px;
+    .emp-home-meta {
+        justify-content: flex-start;
     }
 
-    /* Buttons poori width ke saath stack-friendly */
-    .emp-hero-btns {
-        justify-content: center;
-        width: 100%;
-        margin-top: 12px;
+    .emp-home-shift {
+        justify-content: flex-start;
     }
 
-    .emp-hero-btn {
-        flex: 1 1 100%;
+    .emp-home-window-note {
+        max-width: none;
+        text-align: left;
     }
 
-    .emp-hero-btn-error {
-        text-align: center;
+    .emp-home-location > span {
+        max-width: 210px;
     }
 
-    .emp-dash-hero .emp-duty-pill {
-        padding: 10px 16px;
+    .emp-home-action-row {
+        justify-content: stretch;
     }
 
-    .emp-gradient-header .dash-title {
-        font-size: 22px;
+    .emp-home-punch.MuiButton-root {
+        flex: 1;
+        min-height: 44px;
     }
 
-    .emp-gradient-header .dash-subtitle {
-        font-size: 13px;
-        line-height: 1.5;
+    .emp-home-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 9px;
     }
 
-    .emp-dash-hero .dash-title {
-        font-size: 21px;
-        margin-bottom: 4px;
+    .emp-home-stats .is-hours {
+        display: none;
     }
 
-    .emp-header-chips {
-        width: auto;
-        justify-content: center;
+    .emp-dash-stat .MuiCardContent-root {
+        min-height: 96px;
+        padding: 12px 10px;
+    }
+
+    .emp-dash-stat .MuiCardContent-root:last-child {
+        padding-bottom: 12px;
+    }
+
+    .emp-dash-stat-icon {
+        width: 30px;
+        height: 30px;
+    }
+
+    .emp-dash-stat-value {
+        font-size: 23px;
+    }
+
+    .emp-dash-stat-label {
+        font-size: 10.5px;
+    }
+
+    .emp-home-column-side {
+        display: none;
+    }
+
+    .emp-home-today {
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    .emp-home-today-empty {
+        min-height: 120px;
+    }
+
+    .emp-home-fab.MuiSpeedDial-root {
+        bottom: 86px;
+    }
+
+    .emp-page .dash-content {
+        padding: 10px 14px 28px;
+    }
+
+    .emp-hero {
+        padding: 16px 18px;
+        border-radius: 14px;
+    }
+
+    .emp-hero h1,
+    .emp-hero h5 {
+        font-size: 19px;
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .emp-duty-pill.on-duty .emp-duty-dot::after {
-        animation: none;
+@media (min-width: 769px) {
+    .emp-bottom-nav {
         display: none;
+    }
+}
+
+@media (max-width: 420px) {
+    .emp-dashboard.emp-home-page .dash-content.emp-home-content {
+        padding: 12px 12px 100px;
+    }
+
+    .emp-home-header {
+        padding: 15px;
+    }
+
+    .emp-home-avatar.MuiAvatar-root {
+        width: 46px !important;
+        height: 46px !important;
+        font-size: 16px !important;
+    }
+
+    .emp-home-identity h1 {
+        font-size: 18.5px;
+    }
+
+    .emp-home-sub {
+        font-size: 11px;
+    }
+
+    .emp-home-stats {
+        gap: 7px;
+    }
+
+    .emp-dash-stat .MuiCardContent-root {
+        min-height: 90px;
+        padding: 10px 8px;
+    }
+
+    .emp-dash-stat .MuiCardContent-root:last-child {
+        padding-bottom: 10px;
+    }
+
+    .emp-dash-stat-icon {
+        width: 27px;
+        height: 27px;
+        margin-bottom: 3px;
+    }
+
+    .emp-dash-stat-icon svg {
+        font-size: 16px;
+    }
+
+    .emp-dash-stat-value {
+        font-size: 21px;
+    }
+
+    .emp-dash-stat-label {
+        font-size: 9.8px;
+    }
+
+    .emp-home-today {
+        padding: 13px;
+    }
+
+    .emp-home-today-item {
+        padding: 9px;
+    }
+}
+
+@media (max-width: 360px) {
+    .emp-home-header {
+        padding: 13px;
+    }
+
+    .emp-home-identity h1 {
+        font-size: 17px;
+    }
+
+    .emp-dash-stat-value {
+        font-size: 19px;
+    }
+
+    .emp-dash-stat-label {
+        font-size: 9.3px;
+    }
+
+    .emp-home-meta {
+        gap: 7px;
+        font-size: 10.5px;
+    }
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .emp-dash-stat.MuiCard-root,
+    .emp-home-quick-action,
+    .emp-home-chart-bar {
+        transition: none !important;
     }
 }

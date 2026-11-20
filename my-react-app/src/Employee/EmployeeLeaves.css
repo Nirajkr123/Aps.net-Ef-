@@ -1,63 +1,1304 @@
-/* =========================================================================
-   EMPLOYEE LEAVES — page-level bits
-   -------------------------------------------------------------------------
-   Sirf wahi rules jo `sx` se nahi ho sakte: table <-> card list ka
-   breakpoint swap, aur horizontally scrollable filter chips.
-
-   Baaki layout (2-column top section, spacing) MUI Grid + `sx` se hai —
-   yahan dobara define nahi kiya gaya, warna dono jagah drift karte hain.
-   ========================================================================= */
-
-/* Page ka background poora scroll area cover kare (`.dash-page` ka
-   `#f6f7fb` sirf viewport tak hai). */
 .emp-leave-page {
     min-height: 100%;
-    background: #f5f6fa;
+    background: #f3f4f8;
 }
 
-/* ---- Leave History: table (desktop) vs cards (mobile) ------------------
-   JS me `useMediaQuery` se switch karne ke bajaye CSS — server/first
-   render par bhi sahi branch paint hota hai, aur dono markup ek hi
-   component me rehte hain. */
+.emp-leave-page .dash-content.emp-leave-content {
+    padding: 0;
+    background: #f3f4f8;
+}
+
+.emp-leave-shell {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 16px 128px;
+    min-width: 0;
+}
+
+.emp-leave-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 68px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border: 1px solid #e9ebf3;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 2px 10px rgba(31, 35, 64, 0.05);
+}
+
+.emp-leave-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.emp-leave-header-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    color: #4b3fd1;
+    background: #eeecff;
+}
+
+.emp-leave-header-icon svg {
+    font-size: 21px;
+}
+
+.emp-leave-header h1 {
+    margin: 0;
+    color: #1f2340;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.25px;
+}
+
+.emp-leave-header-apply.MuiButton-root {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 8px 18px -8px rgba(75, 63, 209, 0.65);
+    text-transform: none;
+    font-size: 13.5px;
+    font-weight: 800;
+}
+
+.emp-leave-header-apply.MuiButton-root:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #6d4de0 100%);
+    box-shadow: 0 12px 22px -10px rgba(75, 63, 209, 0.72);
+}
+
+.emp-leave-header-apply.MuiButton-root:focus-visible {
+    outline: 2px solid #1f2340;
+    outline-offset: 2px;
+}
+
+.emp-leave-header-apply.MuiButton-root .MuiButton-startIcon {
+    margin-right: 6px;
+}
+
+.emp-leave-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    min-width: 0;
+}
+
+.emp-leave-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.emp-leave-balance {
+    position: relative;
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid rgba(31, 35, 64, 0.055);
+    background: #ffffff;
+    box-shadow: 0 6px 22px rgba(31, 35, 64, 0.06);
+}
+
+.emp-leave-balance.MuiCard-root {
+    overflow: visible;
+    border-radius: 18px;
+}
+
+.emp-leave-balance-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.emp-leave-balance-left {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.emp-leave-balance-left strong {
+    color: #1f2340;
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -1.4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-leave-balance-left span,
+.emp-leave-balance-used span {
+    color: #5b6078;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.emp-leave-balance-used {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 0;
+}
+
+.emp-leave-balance-used strong {
+    color: #1f2340;
+    font-size: 16px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-leave-progress {
+    overflow: hidden;
+    height: 7px;
+    margin: 15px 0 16px;
+    border-radius: 999px;
+    background: #edeef5;
+}
+
+.emp-leave-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #4b3fd1 0%, #7b5cf0 100%);
+    transition: width 0.4s ease;
+}
+
+.emp-leave-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.emp-leave-type-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid #eef0f7;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+
+.emp-leave-type-chip-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.emp-leave-type-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    border-radius: 50%;
+}
+
+.emp-leave-type-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.emp-leave-type-copy strong {
+    color: #1f2340;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.emp-leave-type-copy span {
+    color: #5b6078;
+    font-size: 10.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-leave-type-progress {
+    overflow: hidden;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: #e6e8f1;
+}
+
+.emp-leave-type-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.35s ease;
+}
+
+.emp-leave-balance-skeleton-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.emp-leave-balance-skeleton .MuiSkeleton-root {
+    transform: none;
+}
+
+.emp-leave-balance-skeleton > .MuiSkeleton-root {
+    margin-bottom: 16px;
+}
+
+.emp-leave-holidays {
+    padding: 16px;
+    border: 1px solid rgba(31, 35, 64, 0.055);
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(31, 35, 64, 0.05);
+}
+
+.emp-leave-holidays.MuiCard-root {
+    overflow: visible;
+    border-radius: 16px;
+}
+
+.emp-leave-holidays-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.emp-leave-holidays-head > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: #b45309;
+    background: #fff5e6;
+}
+
+.emp-leave-holidays-head svg {
+    font-size: 17px;
+}
+
+.emp-leave-holidays-head h2 {
+    margin: 0;
+    color: #1f2340;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.emp-leave-holidays-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.emp-leave-holiday-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.emp-leave-holiday-row strong {
+    overflow: hidden;
+    color: #1f2340;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-leave-holiday-row span {
+    flex: 0 0 auto;
+    color: #5b6078;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.emp-leave-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.emp-leave-inline-alert.MuiAlert-root {
+    margin-bottom: 12px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.emp-leave-status-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.emp-leave-status-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    min-width: 0;
+    min-height: 74px;
+    padding: 14px;
+    border: 1px solid #e9ebf3;
+    border-radius: 15px;
+    background: #ffffff;
+    box-shadow: 0 2px 10px rgba(31, 35, 64, 0.04);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.emp-leave-status-card:hover {
+    transform: translateY(-1px);
+    border-color: #d8dbea;
+    box-shadow: 0 8px 20px -14px rgba(31, 35, 64, 0.28);
+}
+
+.emp-leave-status-card:focus-visible {
+    outline: 2px solid #4b3fd1;
+    outline-offset: 2px;
+}
+
+.emp-leave-status-card strong {
+    color: #4b3fd1;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-leave-status-card span {
+    overflow: hidden;
+    max-width: 100%;
+    color: #5b6078;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-leave-status-card.is-pending strong {
+    color: #b45309;
+}
+
+.emp-leave-status-card.is-approved strong {
+    color: #0b6b4b;
+}
+
+.emp-leave-status-card.is-rejected strong {
+    color: #b42318;
+}
+
+.emp-leave-status-card.is-active {
+    border-color: transparent;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 10px 22px -12px rgba(75, 63, 209, 0.72);
+}
+
+.emp-leave-status-card.is-active strong,
+.emp-leave-status-card.is-active span {
+    color: #ffffff;
+}
+
+.emp-leave-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.emp-leave-year-select.MuiFormControl-root {
+    flex: 0 0 112px;
+    width: 112px;
+}
+
+.emp-leave-search.MuiFormControl-root {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.emp-leave-toolbar .MuiOutlinedInput-root {
+    min-height: 44px;
+    border-radius: 12px;
+    background: #ffffff;
+    font-size: 13px;
+}
+
+.emp-leave-toolbar .MuiOutlinedInput-notchedOutline {
+    border-color: #e1e4ee;
+}
+
+.emp-leave-toolbar .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+    border-color: #c7cbea;
+}
+
+.emp-leave-toolbar .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #4b3fd1;
+}
+
+.emp-leave-toolbar .MuiInputLabel-root.Mui-focused {
+    color: #4b3fd1;
+}
+
+.emp-leave-toolbar .MuiInputAdornment-root svg {
+    font-size: 19px;
+    color: #8a8fa8;
+}
+
+.emp-leave-table-card {
+    overflow: hidden;
+    border: 1px solid rgba(31, 35, 64, 0.055);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 6px 22px rgba(31, 35, 64, 0.06);
+}
 
 .emp-leave-table-wrap {
-    display: block;
     overflow-x: auto;
-}
-
-.emp-leave-cards {
-    display: none;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-}
-
-/* Table ki minimum width — columns chipke nahi, wrapper scroll kare. */
-.emp-leave-table {
-    min-width: 760px;
-}
-
-@media (max-width: 899px) {
-    .emp-leave-table-wrap {
-        display: none;
-    }
-
-    .emp-leave-cards {
-        display: flex;
-    }
-}
-
-/* ---- Filter chips row -------------------------------------------------
-   Mobile par ek line me scroll hoti hai; `sx` me scrollbar chhupa diya
-   gaya hai, ye sirf extra safety (Firefox) hai. */
-.emp-leave-filters {
     -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 599px) {
-    /* Chhote screen par chips row ko page se bleed nahi hone dena. */
-    .emp-leave-filters {
-        margin-inline: -4px;
-        padding-inline: 4px;
+.emp-leave-table {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+}
+
+.emp-leave-table th {
+    padding: 12px 12px;
+    border-bottom: 1px solid #eef0f7;
+    color: #8a8fa8;
+    background: #f8f9fc;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.emp-leave-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid #f1f2f7;
+    color: #3d425c;
+    font-size: 12.5px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.emp-leave-table tbody tr {
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.emp-leave-table tbody tr:hover {
+    background: #f7f8fc;
+}
+
+.emp-leave-table tbody tr:focus-visible {
+    outline: 2px solid #4b3fd1;
+    outline-offset: -2px;
+}
+
+.emp-leave-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.emp-leave-table-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: #1f2340;
+    font-weight: 800;
+}
+
+.emp-leave-table-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.emp-leave-table-nowrap {
+    white-space: nowrap;
+}
+
+.emp-leave-table-approver {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-leave-table-muted {
+    color: #b3b7c6;
+}
+
+.emp-leave-cancel-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 8px;
+    color: #b42318;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.emp-leave-cancel-link:hover {
+    background: #fef0f0;
+}
+
+.emp-leave-cancel-link:focus-visible {
+    outline: 2px solid #b42318;
+    outline-offset: 2px;
+}
+
+.emp-leave-table-empty {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.emp-leave-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid #f0f1f6;
+    background: #ffffff;
+}
+
+.emp-leave-list + .emp-leave-pagination {
+    margin-top: 12px;
+    border: 1px solid rgba(31, 35, 64, 0.055);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(31, 35, 64, 0.04);
+}
+
+.emp-leave-pagination-count {
+    color: #5b6078;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.emp-leave-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.emp-leave-pagination-controls > span {
+    color: #5b6078;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.emp-leave-pagination-controls .MuiIconButton-root {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    color: #4b3fd1;
+}
+
+.emp-leave-pagination-controls .MuiIconButton-root:disabled {
+    color: #c5c9d8;
+}
+
+.emp-leave-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.emp-leave-request {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 72px;
+    padding: 14px;
+    border: 1px solid rgba(31, 35, 64, 0.055);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(31, 35, 64, 0.04);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.emp-leave-request:hover {
+    transform: translateY(-1px);
+    border-color: rgba(75, 63, 209, 0.22);
+    box-shadow: 0 10px 24px -14px rgba(31, 35, 64, 0.28);
+}
+
+.emp-leave-request:focus-visible {
+    outline: 2px solid #4b3fd1;
+    outline-offset: 2px;
+}
+
+.emp-leave-request-stripe {
+    flex: 0 0 auto;
+    width: 4px;
+    height: 38px;
+    border-radius: 999px;
+}
+
+.emp-leave-request-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: 3px;
+    min-width: 0;
+}
+
+.emp-leave-request-main strong {
+    overflow: hidden;
+    color: #1f2340;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-leave-request-main span {
+    overflow: hidden;
+    color: #5b6078;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-leave-badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.emp-leave-badge.is-approved {
+    color: #0b6b4b;
+    background: #e9f8f1;
+}
+
+.emp-leave-badge.is-pending {
+    color: #b45309;
+    background: #fff5e6;
+}
+
+.emp-leave-badge.is-rejected {
+    color: #b42318;
+    background: #fef0f0;
+}
+
+.emp-leave-badge.is-cancelled,
+.emp-leave-badge.is-neutral {
+    color: #6b7280;
+    background: #eef0f4;
+}
+
+.emp-leave-request-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 72px;
+    padding: 14px;
+    border: 1px solid rgba(31, 35, 64, 0.055);
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.emp-leave-request-skeleton .MuiSkeleton-root {
+    transform: none;
+}
+
+.emp-leave-empty-text {
+    margin: 0;
+    padding: 28px 18px;
+    border: 1px dashed #dfe3ee;
+    border-radius: 16px;
+    color: #5b6078;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.emp-leave-error-card {
+    margin-top: 16px;
+    padding: 24px 18px;
+    border: 1px solid #f3d6d6;
+    border-radius: 18px;
+    background: #ffffff;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(31, 35, 64, 0.06);
+}
+
+.emp-leave-error-card p {
+    margin: 0 0 14px;
+    color: #5b6078;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.emp-leave-error-card .MuiButton-root {
+    min-height: 44px;
+    padding: 0 22px;
+    border-radius: 12px;
+    text-transform: none;
+    font-weight: 800;
+}
+
+.emp-leave-apply {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    z-index: 1050;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: auto;
+    height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 16px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 14px 28px -10px rgba(75, 63, 209, 0.68);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.emp-leave-apply:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px -12px rgba(75, 63, 209, 0.76);
+}
+
+.emp-leave-apply:focus-visible {
+    outline: 2px solid #1f2340;
+    outline-offset: 3px;
+}
+
+.emp-leave-apply:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    box-shadow: none;
+}
+
+.emp-leave-apply svg {
+    font-size: 21px;
+}
+
+.emp-leave-sheet-paper.MuiDrawer-paper {
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 720px;
+    max-height: 92vh;
+    margin: 0 auto;
+    border-radius: 24px 24px 0 0;
+    background: #ffffff;
+}
+
+.emp-leave-form-paper.MuiDialog-paper {
+    max-height: 92vh;
+    border-radius: 22px;
+    background: #ffffff;
+}
+
+.emp-leave-sheet,
+.emp-leave-form {
+    display: flex;
+    flex-direction: column;
+    max-height: 92vh;
+    min-height: 0;
+    padding-top: 8px;
+}
+
+.emp-leave-form {
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .emp-leave-form-paper.MuiDialog-paper {
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .emp-leave-form {
+        min-height: 100vh;
+        max-height: 100vh;
+    }
+
+    .emp-leave-form-body {
+        flex: 1 1 auto;
+    }
+
+    .emp-leave-form-actions {
+        flex: 0 0 auto;
+        margin-top: auto;
+    }
+}
+
+.emp-leave-sheet-handle {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto 8px;
+    border-radius: 999px;
+    background: #d9dce8;
+}
+
+.emp-leave-sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 20px 12px;
+}
+
+.emp-leave-sheet-head > div {
+    min-width: 0;
+}
+
+.emp-leave-sheet-head span {
+    display: block;
+    margin-bottom: 2px;
+    color: #8a8fa8;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.emp-leave-sheet-head h2 {
+    margin: 0;
+    color: #1f2340;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.25px;
+}
+
+.emp-leave-sheet-head .MuiIconButton-root {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    margin: -4px -8px 0 0;
+    color: #5b6078;
+}
+
+.emp-leave-sheet-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px 14px;
+}
+
+.emp-leave-sheet-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.emp-leave-sheet-grid {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 20px 16px;
+}
+
+.emp-leave-sheet-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid #eef0f7;
+    border-radius: 12px;
+    background: #f8f9fc;
+}
+
+.emp-leave-sheet-field.is-wide {
+    grid-column: 1 / -1;
+}
+
+.emp-leave-sheet-field > span {
+    color: #8a8fa8;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.emp-leave-sheet-field strong {
+    overflow-wrap: anywhere;
+    color: #1f2340;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.emp-leave-sheet-field p {
+    margin: 0;
+    color: #3d425c;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.emp-leave-cancel-button.MuiButton-root {
+    flex: 0 0 auto;
+    min-height: 48px;
+    margin: 0 20px calc(20px + env(safe-area-inset-bottom));
+    border-radius: 14px;
+    text-transform: none;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.emp-leave-detail-paper.MuiDrawer-paper {
+    width: min(420px, 100%);
+    max-width: 100%;
+    border-radius: 0;
+    background: #ffffff;
+}
+
+.emp-leave-detail {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    padding-top: 16px;
+}
+
+.emp-leave-detail .emp-leave-cancel-button.MuiButton-root {
+    margin-bottom: 20px;
+}
+
+.emp-leave-form {
+    overflow: hidden;
+}
+
+.emp-leave-form-alert.MuiAlert-root {
+    margin: 0 20px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.emp-leave-form-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 20px 16px;
+}
+
+.emp-leave-date-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.emp-leave-form .MuiOutlinedInput-root {
+    border-radius: 14px;
+    background: #fbfbfe;
+}
+
+.emp-leave-form .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+    border-color: #e3e5ef;
+}
+
+.emp-leave-form .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+    border-color: #c7cbea;
+}
+
+.emp-leave-form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: #4b3fd1;
+    border-width: 1.5px;
+}
+
+.emp-leave-form .MuiInputLabel-root.Mui-focused {
+    color: #4b3fd1;
+}
+
+.emp-leave-form .MuiFormHelperText-root {
+    margin-left: 2px;
+    font-size: 11.5px;
+    line-height: 1.35;
+}
+
+.emp-leave-days-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #eef0f7;
+    border-radius: 14px;
+    background: #f8f9fc;
+}
+
+.emp-leave-days-box > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.emp-leave-days-box span {
+    color: #1f2340;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.emp-leave-days-box small {
+    color: #8a8fa8;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.emp-leave-days-box strong {
+    flex: 0 0 auto;
+    color: #4b3fd1;
+    font-size: 17px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.emp-leave-days-box.has-error {
+    border-color: #f3b7b7;
+    background: #fff6f6;
+}
+
+.emp-leave-field-error {
+    margin: -6px 0 0;
+    color: #d32f2f;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.emp-leave-form-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 10px;
+    margin-top: auto;
+    padding: 14px 20px calc(20px + env(safe-area-inset-bottom));
+    border-top: 1px solid #f0f1f6;
+    background: #ffffff;
+}
+
+.emp-leave-form-actions .MuiButton-root {
+    min-height: 48px;
+    border-radius: 14px;
+    text-transform: none;
+    font-size: 13.5px;
+    font-weight: 800;
+}
+
+.emp-leave-form-cancel.MuiButton-root {
+    flex: 0.8;
+    color: #5b6078;
+    background: #f4f5f9;
+}
+
+.emp-leave-form-submit.MuiButton-root {
+    flex: 1.2;
+    gap: 8px;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7b5cf0 100%);
+    box-shadow: 0 10px 22px -10px rgba(75, 63, 209, 0.7);
+}
+
+.emp-leave-form-submit svg {
+    font-size: 18px;
+}
+
+@media (min-width: 900px) {
+    .emp-leave-status-cards {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .emp-leave-status-card {
+        min-height: 78px;
+    }
+}
+
+@media (min-width: 769px) {
+    .emp-leave-shell {
+        padding: 24px;
+    }
+
+    .emp-leave-header {
+        margin-bottom: 24px;
+    }
+
+    .emp-leave-apply {
+        display: none;
+    }
+}
+
+@media (min-width: 1280px) {
+    .emp-leave-layout {
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .emp-leave-left {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+    }
+
+    .emp-leave-type-grid {
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .emp-leave-date-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .emp-leave-toolbar {
+        gap: 10px;
+    }
+
+    .emp-leave-year-select.MuiFormControl-root {
+        flex-basis: 104px;
+        width: 104px;
+    }
+}
+
+@media (max-width: 380px) {
+    .emp-leave-shell {
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+
+    .emp-leave-apply {
+        left: 12px;
+        right: 12px;
+    }
+
+    .emp-leave-header {
+        min-height: 64px;
+        padding: 10px 12px;
+    }
+
+    .emp-leave-header-icon {
+        width: 38px;
+        height: 38px;
+    }
+
+    .emp-leave-header h1 {
+        font-size: 19px;
+    }
+
+    .emp-leave-balance {
+        padding: 16px;
+    }
+
+    .emp-leave-balance-left strong {
+        font-size: 35px;
+    }
+
+    .emp-leave-status-card {
+        padding: 12px;
+    }
+
+    .emp-leave-status-card strong {
+        font-size: 24px;
+    }
+
+    .emp-leave-type-grid {
+        gap: 8px;
+    }
+
+    .emp-leave-type-chip {
+        padding: 9px;
+    }
+
+    .emp-leave-pagination {
+        padding: 8px 10px;
+    }
+
+    .emp-leave-pagination-count {
+        font-size: 10.5px;
+    }
+
+    .emp-leave-pagination-controls > span {
+        font-size: 10.5px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .emp-leave-progress > span,
+    .emp-leave-type-progress > span,
+    .emp-leave-status-card,
+    .emp-leave-request,
+    .emp-leave-apply {
+        transition: none;
     }
 }

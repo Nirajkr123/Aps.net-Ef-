@@ -12,7 +12,7 @@ namespace ASPCoreWebAPI.Repositories
         Task<bool> UpdateProfileAsync(int id, string phone, string address, string emergencyContact, bool profileComplete);
         Task<bool> UpdateProfileFullAsync(int id, string phone, string address, string emergencyContact,
             string? fatherName, string? motherName, string? gender, DateTime? dob, bool profileComplete);
-        Task<bool> DeactivateAsync(int id);
+        Task<bool> DeactivateAsync(int id, DateTime? exitDate);
         Task<bool> ActivateAsync(int id);
         Task<bool> UpdateProfilePhotoAsync(int id, string profilePhotoUrl);
         Task<string> GenerateEmployeeCodeAsync();

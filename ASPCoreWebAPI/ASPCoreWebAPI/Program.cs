@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
@@ -8,6 +9,15 @@ using Microsoft.OpenApi;
 using ASPCoreWebAPI.Repositories;
 using ASPCoreWebAPI.Services;
 using Npgsql;
+using PdfSharp;
+using PdfSharp.Fonts;
+
+PdfSharpLicense.SetAgplLicense();
+
+if (OperatingSystem.IsWindows())
+{
+    GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,13 +36,20 @@ else
 }
 builder.Services.AddControllers();
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-    );
+    {
+        if (corsOrigins.Length > 0)
+        {
+            policy.WithOrigins(corsOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+    });
 });
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -41,6 +58,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddSingleton<NpgsqlDataSource>(
     NpgsqlDataSource.Create(connectionString)
 );
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IUserStatusService, UserStatusService>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStateRepository, StateRepository>();
@@ -52,10 +72,32 @@ builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddScoped<IEducationRepository, EducationRepository>();
 builder.Services.AddScoped<IEmployeeDocumentRepository, EmployeeDocumentRepository>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+builder.Services.AddScoped<IAttendanceConfigRepository, AttendanceConfigRepository>();
+builder.Services.AddScoped<IAttendanceStateRepository, AttendanceStateRepository>();
+builder.Services.AddScoped<IAttendanceStateService, AttendanceStateService>();
+builder.Services.AddScoped<IAttendancePunchService, AttendancePunchService>();
+builder.Services.AddScoped<IAttendanceOverrideService, AttendanceOverrideService>();
+builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddSingleton<IAttendanceTimeZoneResolver, AttendanceTimeZoneResolver>();
+builder.Services.AddScoped<IWorkLocationRepository, WorkLocationRepository>();
 builder.Services.AddScoped<ILeaveRepository, LeaveRepository>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
+builder.Services.AddHttpClient<IReverseGeocodingService, ReverseGeocodingService>(client =>
+{
+    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    client.Timeout = TimeSpan.FromSeconds(4);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("ASPCoreWebAPI-Attendance/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
+builder.Services.AddScoped<IAttendanceRegisterRepository, AttendanceRegisterRepository>();
+builder.Services.AddScoped<IAttendanceRegisterService, AttendanceRegisterService>();
+builder.Services.AddScoped<IPayrollService, PayrollService>();
+builder.Services.AddScoped<IPayslipPdfService, PayslipPdfService>();
+builder.Services.AddHostedService<PayrollJobWorker>();
 
 builder.Services.AddOpenApi();
 
@@ -102,6 +144,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(jwtKey!)
             )
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var userIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(userIdValue, out var userId))
+                {
+                    context.Fail("The token does not identify a valid user.");
+                    return;
+                }
+
+                var userStatusService = context.HttpContext.RequestServices
+                    .GetRequiredService<IUserStatusService>();
+
+                if (!await userStatusService.IsActiveAsync(
+                        userId,
+                        context.HttpContext.RequestAborted))
+                {
+                    context.Fail("The user account is inactive or unavailable.");
+                }
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -143,3 +207,5 @@ app.UseStaticFiles(new StaticFileOptions
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

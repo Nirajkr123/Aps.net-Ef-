@@ -1,0 +1,135 @@
+/* ============================================================
+   WORK LOCATIONS PAGE
+   Page-specific pieces on top of src/components/admin/adminUi.css
+   ============================================================ */
+
+.wl-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.wl-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.wl-map {
+    min-width: 0;
+}
+
+.wl-map-card {
+    overflow: hidden;
+    border: 1px solid var(--adm-line);
+    border-radius: var(--adm-radius-card);
+    background: var(--adm-surface);
+    box-shadow: var(--adm-shadow);
+}
+
+.wl-map-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--adm-line);
+}
+
+.wl-map-head h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--adm-text);
+}
+
+.wl-map-head p {
+    margin: 3px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--adm-muted);
+}
+
+.wl-map-counts {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.wl-map-body {
+    height: 460px;
+}
+
+.wl-map-body .leaflet-container,
+.wl-picker .leaflet-container {
+    width: 100%;
+    height: 100%;
+    font-family: inherit;
+    z-index: 0;
+}
+
+.wl-radius {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.wl-locate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+}
+
+.wl-picker {
+    height: 300px;
+    overflow: hidden;
+    border: 1px solid var(--adm-line);
+    border-radius: 14px;
+}
+
+.wl-map-hint {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--adm-muted);
+}
+
+@media (min-width: 1100px) {
+    .wl-content {
+        grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+    }
+
+    .wl-list {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .wl-map {
+        grid-column: 2;
+        grid-row: 1;
+    }
+}
+
+@media (max-width: 1099px) {
+    .wl-map-body {
+        height: 340px;
+    }
+}
+
+@media (max-width: 767px) {
+    .wl-map-body {
+        height: 300px;
+    }
+
+    .wl-map-head {
+        padding: 14px;
+    }
+
+    .wl-picker {
+        height: 260px;
+    }
+}

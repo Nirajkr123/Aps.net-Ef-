@@ -4,8 +4,8 @@ import {
   LinearProgress, CircularProgress,
 } from "@mui/material";
 import {
-  CheckCircle, RadioButtonUnchecked, CameraAltOutlined,
-  WorkOutlineOutlined, BusinessOutlined,
+  ArrowBack, CheckCircle, RadioButtonUnchecked, CameraAltOutlined,
+  WorkOutlineOutlined, BusinessOutlined, ScheduleOutlined,
 } from "@mui/icons-material";
 
 /* Banner ke andar ke translucent chips — gradient ke upar readable
@@ -57,6 +57,7 @@ function ProfileHeroBar({
   stepInfo,
   activeStep,
   onStepChange,
+  onBack,
 }) {
   const fileRef = useRef(null);
 
@@ -76,13 +77,29 @@ function ProfileHeroBar({
         <Box
           className="emp-prof-banner"
           sx={{
-            background: isProfileComplete
-              ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-              : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+            background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 58%, #6d28d9 100%)",
             p: { xs: 2, sm: 3 },
             color: "white",
           }}
         >
+        {onBack && (
+          <Box sx={{ mb: 1.5 }}>
+            <IconButton
+              onClick={onBack}
+              size="small"
+              aria-label="Back to dashboard"
+              sx={{
+                color: "#ffffff",
+                bgcolor: "rgba(255,255,255,0.16)",
+                border: "1px solid rgba(255,255,255,0.28)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.26)" },
+              }}
+            >
+              <ArrowBack fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
         {/* ---------- Row 1: photo + identity + live progress ---------- */}
         <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 3 }, flexWrap: "wrap" }}>
           <Box sx={{ position: "relative", flexShrink: 0 }}>
@@ -151,6 +168,7 @@ function ProfileHeroBar({
             <Box className="emp-prof-hero-meta" sx={{ display: "flex", gap: 1.5, mt: 1, flexWrap: "wrap" }}>
               <MetaItem icon={<WorkOutlineOutlined sx={{ fontSize: 15, opacity: 0.9 }} />} label="Designation" value={employee?.designationTitle} />
               <MetaItem icon={<BusinessOutlined sx={{ fontSize: 15, opacity: 0.9 }} />} label="Dept" value={employee?.departmentName} />
+              <MetaItem icon={<ScheduleOutlined sx={{ fontSize: 15, opacity: 0.9 }} />} label="Shift" value={employee?.shiftName ? `${employee.shiftName}${employee.shiftTiming ? ` (${employee.shiftTiming})` : ""}` : null} />
             </Box>
 
             <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
@@ -178,7 +196,7 @@ function ProfileHeroBar({
               }}
             />
             <Typography variant="caption" component="p" sx={{ mt: 0.75, opacity: 0.9, lineHeight: 1.4 }}>
-              {percent}% filled — keep going to finish your profile
+              {percent}% filled — {isProfileComplete ? "profile complete" : "keep going to finish your profile"}
             </Typography>
           </Box>
         </Box>

@@ -21,8 +21,13 @@ namespace ASPCoreWebAPI.Models
         public string? DesignationTitle { get; set; }
         public int? ManagerId { get; set; }
         public string? ManagerName { get; set; }
+        public int? WorkLocationId { get; set; }
+        public string? WorkLocationName { get; set; }
+        public string? ShiftName { get; set; }
+        public string? ShiftTiming { get; set; }
         public string EmploymentType { get; set; } = "FULL_TIME";
         public DateTime? JoiningDate { get; set; }
+        public DateTime? ExitDate { get; set; }
         public bool ProfileComplete { get; set; }
         public string? ProfilePhotoUrl { get; set; }
         public string Status { get; set; } = "Active";

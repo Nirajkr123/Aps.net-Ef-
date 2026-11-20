@@ -9,9 +9,21 @@
    yahan se re-export hote hain — components sirf yeh file import karein.
    ========================================================================= */
 
-import { LEAVE_TYPE_META, LEAVE_TYPES, LEAVE_QUOTAS } from "../../../services/leaveService";
+import {
+    LEAVE_TYPE_META,
+    LEAVE_TYPES,
+    LEAVE_QUOTAS,
+    balanceTotals,
+    balanceTypes,
+} from "../../../services/leaveService";
 
-export { LEAVE_TYPE_META, LEAVE_TYPES, LEAVE_QUOTAS };
+export {
+    LEAVE_TYPE_META,
+    LEAVE_TYPES,
+    LEAVE_QUOTAS,
+    balanceTotals,
+    balanceTypes,
+};
 
 /* --- Card surface -------------------------------------------------------
    White card, 16px radius, elevation 0 + soft indigo-tinted shadow.
@@ -33,23 +45,38 @@ export const INDIGO_DARK = "#4338ca";
    page par har jagah (table, card, chip) ek jaisa dikhe. */
 
 export const LEAVE_TYPE_COLORS = {
-    Casual: "#4f46e5",
-    Sick: "#dc2626",
-    Earned: "#059669",
-    Personal: "#d97706",
+    Casual: "#4B3FD1",
+    Sick: "#DC2626",
+    Earned: "#0B7A55",
+    Personal: "#D97706",
 };
 
-export const typeColor = (type) => LEAVE_TYPE_COLORS[type] || "#6b7280";
+const FALLBACK_TYPE_COLORS = ["#4B3FD1", "#0B7A55", "#D97706", "#DC2626", "#2563EB", "#7C3AED"];
+
+const hashValue = (value) => String(value || "").split("").reduce(
+    (hash, char) => ((hash * 31) + char.charCodeAt(0)) >>> 0,
+    0
+);
+
+export const typeColor = (type) => (
+    LEAVE_TYPE_COLORS[type]
+    || FALLBACK_TYPE_COLORS[hashValue(type) % FALLBACK_TYPE_COLORS.length]
+);
+
+export const typeLabel = (type) => (
+    LEAVE_TYPE_META[type]?.label
+    || String(type || "").replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+);
 
 /* --- Status -------------------------------------------------------------
    'Cancelled' grey hai (MUI `default`) — user-cancelled request ka
    green/red signal na mile, isiliye usko bilkul neutral rakhte hain. */
 
 export const LEAVE_STATUS_META = {
-    Approved: { color: "success", colorValue: "#059669" },
-    Pending: { color: "warning", colorValue: "#d97706" },
-    Rejected: { color: "error", colorValue: "#dc2626" },
-    Cancelled: { color: "default", colorValue: "#94a3b8" },
+    Approved: { color: "success", colorValue: "#0B7A55" },
+    Pending: { color: "warning", colorValue: "#D97706" },
+    Rejected: { color: "error", colorValue: "#DC2626" },
+    Cancelled: { color: "default", colorValue: "#6B7280" },
 };
 
 export const statusMeta = (status) => LEAVE_STATUS_META[status] || { color: "default", colorValue: "#6b7280" };
@@ -106,23 +133,23 @@ export const formatRange = (from, to) => {
    conversion use karte hain, values kabhi drift nahi karti. */
 
 export const toBalanceView = (balance) => {
-    const rows = LEAVE_TYPES.map((type) => {
+    const rows = balanceTypes(balance).map((type) => {
         const row = balance?.[type] || { total: 0, used: 0 };
+        const total = Number(row.total) || 0;
+        const used = Number(row.used) || 0;
+
         return {
             type,
-            total: row.total,
-            used: row.used,
-            remaining: Math.max(0, row.total - row.used),
+            total,
+            used,
+            remaining: Math.max(0, total - used),
         };
     });
 
-    const total = rows.reduce((sum, r) => sum + r.total, 0);
-    const used = rows.reduce((sum, r) => sum + r.used, 0);
+    const totals = balanceTotals(balance);
 
     return {
-        total,
-        used,
-        remaining: Math.max(0, total - used),
+        ...totals,
         breakdown: rows,
     };
 };
@@ -130,6 +157,8 @@ export const toBalanceView = (balance) => {
 /* Apply dialog ke select labels — "Casual (12 left)". */
 export const typeOptionLabel = (type, balance) => {
     const row = balance?.[type];
-    const left = row ? Math.max(0, row.total - row.used) : LEAVE_QUOTAS[type] ?? 0;
-    return `${type} (${left} left)`;
+    const left = row
+        ? Math.max(0, (Number(row.total) || 0) - (Number(row.used) || 0))
+        : LEAVE_QUOTAS[type] ?? 0;
+    return `${typeLabel(type)} (${left} left)`;
 };
