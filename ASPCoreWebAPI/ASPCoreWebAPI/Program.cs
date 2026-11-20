@@ -22,7 +22,13 @@ if (OperatingSystem.IsWindows())
 var builder = WebApplication.CreateBuilder(args);
 
 // Firebase initialize (sirf ek baar)
-var firebaseKeyPath = builder.Configuration["Firebase:ServiceAccountKeyPath"] ?? "config/firebase-service-account.json";
+var firebaseKeyPath = builder.Configuration["Firebase:ServiceAccountKeyPath"];
+if (string.IsNullOrWhiteSpace(firebaseKeyPath))
+{
+    firebaseKeyPath = builder.Environment.IsDevelopment()
+        ? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "serviceAccountKey.json"))
+        : "/etc/secrets/serviceAccountKey.json";
+}
 if (File.Exists(firebaseKeyPath))
 {
     FirebaseApp.Create(new AppOptions
@@ -36,24 +42,33 @@ else
 }
 builder.Services.AddControllers();
 
-var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? Array.Empty<string>();
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (corsOrigins is null || corsOrigins.Length == 0)
+{
+    corsOrigins =
+    [
+        "https://aps-net-ef-five.vercel.app",
+        "http://localhost:3000"
+    ];
+}
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        if (corsOrigins.Length > 0)
-        {
-            policy.WithOrigins(corsOrigins)
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        }
+        policy.WithOrigins(corsOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'DefaultConnection' is not configured. " +
+        "Set the ConnectionStrings__DefaultConnection environment variable.");
+}
 
 builder.Services.AddSingleton<NpgsqlDataSource>(
     NpgsqlDataSource.Create(connectionString)
@@ -128,6 +143,11 @@ builder.Services.AddSwaggerGen(options =>
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSettings["Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException(
+        "Jwt:Key is not configured. Set the Jwt__Key environment variable.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -185,6 +205,11 @@ if (app.Environment.IsDevelopment())
         options.SwaggerEndpoint("/openapi/v1.json", "ASPCoreWebAPI V1");
         options.RoutePrefix = "swagger";
     });
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
 }
 
 app.UseCors("AllowReactApp");

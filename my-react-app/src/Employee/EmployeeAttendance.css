@@ -405,6 +405,388 @@
     white-space: nowrap;
 }
 
+.emp-att-holiday-calendar-button {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    border: 1px solid #e8e5ff;
+    border-radius: 11px;
+    color: #5b45d6;
+    background: #f7f5ff;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.emp-att-holiday-calendar-button:hover {
+    border-color: #d7d0ff;
+    background: #efecff;
+    transform: translateY(-1px);
+}
+
+.emp-att-holiday-calendar-button:focus-visible {
+    outline: 2px solid #4b3fd1;
+    outline-offset: 2px;
+}
+
+.emp-att-holiday-calendar-button svg {
+    font-size: 18px;
+}
+
+.emp-holiday-dialog.MuiPaper-root {
+    overflow: hidden;
+    border-radius: 24px;
+    background: #f7f7fb;
+    box-shadow: 0 28px 70px rgba(31, 35, 64, 0.24);
+}
+
+.emp-holiday-dialog-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 22px 36px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #4b3fd1 0%, #7c5cf0 100%);
+}
+
+.emp-holiday-dialog-hero::after {
+    content: "";
+    position: absolute;
+    top: -76px;
+    right: 44px;
+    width: 190px;
+    height: 190px;
+    border: 34px solid rgba(255, 255, 255, 0.07);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.emp-holiday-dialog-title-row {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.emp-holiday-dialog-icon {
+    display: inline-flex;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.emp-holiday-dialog-icon svg {
+    font-size: 27px;
+}
+
+.emp-holiday-dialog-title-row > div > span {
+    display: block;
+    margin-bottom: 2px;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.emp-holiday-dialog-title-row h2 {
+    margin: 0;
+    font-size: 23px;
+    font-weight: 850;
+    letter-spacing: -0.3px;
+}
+
+.emp-holiday-dialog-close.MuiIconButton-root {
+    z-index: 1;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.emp-holiday-dialog-close.MuiIconButton-root:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.emp-holiday-dialog-body {
+    position: relative;
+    z-index: 2;
+    margin-top: -18px;
+    padding: 0 18px 20px;
+}
+
+.emp-holiday-month-nav {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #ececf4;
+    border-radius: 17px;
+    background: #ffffff;
+    box-shadow: 0 10px 26px rgba(31, 35, 64, 0.09);
+}
+
+.emp-holiday-month-nav > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+
+.emp-holiday-month-nav strong {
+    color: #1f2340;
+    font-size: 16px;
+    font-weight: 850;
+}
+
+.emp-holiday-month-nav span {
+    color: #777b91;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.emp-holiday-month-nav .MuiIconButton-root {
+    color: #4b3fd1;
+}
+
+.emp-holiday-weekdays,
+.emp-holiday-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.emp-holiday-weekdays {
+    margin: 17px 0 7px;
+}
+
+.emp-holiday-weekdays span {
+    color: #777b91;
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.emp-holiday-day {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    height: 58px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    color: #242843;
+    background: #ffffff;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.emp-holiday-day.is-weekend {
+    color: #8b8fa1;
+    background: #f0f1f6;
+}
+
+.emp-holiday-day.is-today {
+    border-color: #8f7cf4;
+    box-shadow: inset 0 0 0 1px #8f7cf4;
+}
+
+.emp-holiday-day.is-holiday {
+    border-color: #e0d9ff;
+    color: #ffffff;
+    background: linear-gradient(145deg, #7557eb, #9b6df2);
+    box-shadow: 0 7px 15px rgba(117, 87, 235, 0.22);
+}
+
+.emp-holiday-day > i {
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+}
+
+.emp-holiday-month-list {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #ececf4;
+    border-radius: 17px;
+    background: #ffffff;
+}
+
+.emp-holiday-list-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.emp-holiday-list-heading h3 {
+    margin: 0;
+    color: #1f2340;
+    font-size: 16px;
+    font-weight: 850;
+}
+
+.emp-holiday-list-heading > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #6d7187;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.emp-holiday-list-heading i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #855fed;
+}
+
+.emp-holiday-list-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.emp-holiday-list-row {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 13px;
+    background: #f7f5ff;
+}
+
+.emp-holiday-date-tile {
+    display: flex;
+    width: 48px;
+    height: 48px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #ffffff;
+    background: #5b45d6;
+}
+
+.emp-holiday-date-tile strong {
+    font-size: 17px;
+    line-height: 1;
+}
+
+.emp-holiday-date-tile span {
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.emp-holiday-list-row > div:last-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.emp-holiday-list-row > div:last-child strong {
+    overflow: hidden;
+    color: #1f2340;
+    font-size: 14px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emp-holiday-list-row > div:last-child span {
+    color: #73778d;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.emp-holiday-empty {
+    display: flex;
+    min-height: 132px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 18px;
+    color: #73778d;
+    text-align: center;
+}
+
+.emp-holiday-empty svg {
+    margin-bottom: 4px;
+    color: #8b68ed;
+    font-size: 31px;
+}
+
+.emp-holiday-empty strong {
+    color: #292d48;
+    font-size: 14px;
+}
+
+.emp-holiday-empty span {
+    max-width: 310px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+    .emp-holiday-dialog.MuiPaper-root {
+        margin: 12px;
+        width: calc(100% - 24px);
+        max-height: calc(100% - 24px);
+        border-radius: 21px;
+    }
+
+    .emp-holiday-dialog-hero {
+        padding: 18px 17px 32px;
+    }
+
+    .emp-holiday-dialog-icon {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+        border-radius: 13px;
+    }
+
+    .emp-holiday-dialog-title-row h2 {
+        font-size: 20px;
+    }
+
+    .emp-holiday-dialog-body {
+        padding: 0 12px 14px;
+    }
+
+    .emp-holiday-weekdays,
+    .emp-holiday-calendar-grid {
+        gap: 3px;
+    }
+
+    .emp-holiday-day {
+        height: 46px;
+        border-radius: 10px;
+        font-size: 13px;
+    }
+}
+
 .emp-att-weekdays {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -490,9 +872,8 @@
     border-radius: 50%;
 }
 
-.emp-att-dot.is-present {
-    background: #0b7a55;
-}
+.emp-att-dot.is-leave   { background: #eab308; }
+.emp-att-dot.is-holiday { background: #a855f7; }
 
 .emp-att-dot.is-late {
     background: #d97706;

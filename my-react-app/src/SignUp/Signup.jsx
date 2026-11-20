@@ -3,6 +3,7 @@ import "./signup.css";
 import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "../firebase";
+import API_URL from "../config/api";
 import {
   Box,
   Button,
@@ -107,7 +108,7 @@ function Signup() {
       const idToken = await user.getIdToken();
 
       // Send to backend
-      const response = await fetch("/api/User/firebase-login", {
+      const response = await fetch(`${API_URL}/api/User/firebase-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -184,7 +185,7 @@ function Signup() {
 
       // Step 3: Send to backend to store profile
       const response = await fetch(
-        "/api/User/firebase-signup",
+        `${API_URL}/api/User/firebase-signup`,
         {
           method: "POST",
           headers: {

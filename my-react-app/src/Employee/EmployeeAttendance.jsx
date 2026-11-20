@@ -12,12 +12,15 @@ import {
 import Sidebar from "../Admin/Sidebar";
 import Navbar from "../Admin/Navbar";
 import attendanceServ from "../services/attendanceService";
+import holidayServ from "../services/holidayService";
+import leaveServ from "../services/leaveService";
 import AttendanceHeader from "./components/attendance/AttendanceHeader";
 import TodayCard from "./components/attendance/TodayCard";
 import MonthCalendar from "./components/attendance/MonthCalendar";
 import DaySheet from "./components/attendance/DaySheet";
 import RecentLogs from "./components/attendance/RecentLogs";
 import AttendanceHistoryView from "./components/attendance/AttendanceHistoryView";
+import HolidayCalendarDialog from "./components/attendance/HolidayCalendarDialog";
 import useAttendancePunch from "./components/attendance/useAttendancePunch";
 import useTodayState from "./components/attendance/useTodayState";
 import {
@@ -50,6 +53,10 @@ function EmployeeAttendance() {
         () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     );
     const [rows, setRows] = useState([]);
+    const [leaves, setLeaves] = useState([]);
+    const [holidays, setHolidays] = useState([]);
+    const [holidaysLoading, setHolidaysLoading] = useState(true);
+    const [holidayCalendarOpen, setHolidayCalendarOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -109,6 +116,30 @@ function EmployeeAttendance() {
         }
     }, [selectedMonth]);
 
+    const loadCalendarMarkers = useCallback(async () => {
+        setHolidaysLoading(true);
+        const [leaveResult, holidayResult] = await Promise.allSettled([
+            leaveServ.getMyLeaves(),
+            holidayServ.getUpcoming(),
+        ]);
+
+        setLeaves(
+            leaveResult.status === "fulfilled" && Array.isArray(leaveResult.value)
+                ? leaveResult.value
+                : []
+        );
+
+        const holidayData = holidayResult.status === "fulfilled"
+            ? holidayResult.value?.data
+            : [];
+        setHolidays(
+            Array.isArray(holidayData)
+                ? holidayData
+                : holidayData?.items || holidayData?.data || []
+        );
+        setHolidaysLoading(false);
+    }, []);
+
     useEffect(() => {
         try {
             const stored = JSON.parse(localStorage.getItem("user") || "null");
@@ -121,6 +152,10 @@ function EmployeeAttendance() {
     useEffect(() => {
         loadMonth();
     }, [loadMonth]);
+
+    useEffect(() => {
+        loadCalendarMarkers();
+    }, [loadCalendarMarkers]);
 
     const handlePunchSuccess = useCallback(async () => {
         await Promise.all([
@@ -161,6 +196,7 @@ function EmployeeAttendance() {
 
     const retryAll = () => {
         loadMonth();
+        loadCalendarMarkers();
         refreshTodayState();
     };
 
@@ -268,9 +304,12 @@ function EmployeeAttendance() {
                                                 <MonthCalendar
                                                     month={selectedMonth}
                                                     rows={rows}
+                                                    leaves={leaves}
+                                                    holidays={holidays}
                                                     todayKey={todayKey}
                                                     loading={loading}
                                                     onSelectDay={openDay}
+                                                    onOpenHolidayCalendar={() => setHolidayCalendarOpen(true)}
                                                 />
                                                 <RecentLogs
                                                     rows={rows}
@@ -293,6 +332,14 @@ function EmployeeAttendance() {
                 day={selectedDay}
                 record={selectedRecord}
                 onClose={() => setSheetOpen(false)}
+            />
+
+            <HolidayCalendarDialog
+                open={holidayCalendarOpen}
+                onClose={() => setHolidayCalendarOpen(false)}
+                holidays={holidays}
+                initialMonth={selectedMonth}
+                loading={holidaysLoading}
             />
 
             <Snackbar

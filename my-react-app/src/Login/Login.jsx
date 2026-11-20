@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "../firebase";
+import API_URL from "../config/api";
 
 import "./login.css";
 
@@ -100,7 +101,7 @@ function Login() {
             const idToken = await user.getIdToken();
 
             // Send to backend
-            const response = await fetch("/api/User/firebase-login", {
+            const response = await fetch(`${API_URL}/api/User/firebase-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -166,7 +167,7 @@ function Login() {
 
         try {
             // Step 1: Try direct backend login (for HR-created employees)
-            const directRes = await fetch("/api/User/login", {
+            const directRes = await fetch(`${API_URL}/api/User/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -201,7 +202,7 @@ function Login() {
 
             const idToken = await userCredential.user.getIdToken();
 
-            const response = await fetch("/api/User/firebase-login", {
+            const response = await fetch(`${API_URL}/api/User/firebase-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ idToken: idToken }),
